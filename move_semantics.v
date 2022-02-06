@@ -126,7 +126,7 @@ Fixpoint applyOpListToSequenceInternal (ops : list Operation) (entries : list li
       end
   end.
 
-Fixpoint applyOpListToSequence (ops : operationList) (entries : sequence) : option sequence := 
+Definition applyOpListToSequence (ops : operationList) (entries : sequence) : option sequence := 
   match ops, entries with
     |OList o, Seq s => match (applyOpListToSequenceInternal o s) with
        |Some s2 => (Some (Seq s2))
@@ -149,6 +149,31 @@ Eval compute in applyOpListToSequence
       (Remove< [<$2, 2>; <$3,3>])
     ])
     testList.
+
+Inductive BasicOperation : Type :=
+  | BasicInsert (n : nat) (entries : sequence)
+  | BasicRemove (n : nat) (entries : sequence).
+
+Definition convertBasicOperation (op : BasicOperation) : operationList :=
+  match op with
+    | BasicInsert n (Seq entries) => (OList [ Skip> n; Insert> entries ])
+    | BasicRemove n (Seq entries) => (OList [ Skip> n; Remove> entries ])
+  end.
+
+Definition applyBasicOperations (commands : list BasicOperation) (s0 : sequence): (option sequence) :=
+  (fold_left (fun s op => match s with 
+    |Some s1 => applyOpListToSequence (convertBasicOperation op) s1
+    |None => None
+   end) commands (Some s0)).
+
+Eval compute in applyBasicOperations 
+    [ 
+      (BasicInsert 2 (Seq [<$7, 9>; <$8, 9>])); 
+      (BasicInsert 3 (Seq [<$10, 10>; <$11, 10>]))
+    ]
+    testList.
+
+
 
 (*Definition same_id (a : id) (b : id) : bool :=
   match a with
