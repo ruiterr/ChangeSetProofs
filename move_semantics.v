@@ -1,6 +1,7 @@
 From Coq Require Import Arith.Arith.
 From Coq Require Import Bool.Bool.
 Require Export Coq.Strings.String.
+
 From Coq Require Import Logic.FunctionalExtensionality.
 From Coq Require Import Lists.List.
 From Coq Require Import List. Import ListNotations.
@@ -68,12 +69,12 @@ Notation "{ f -> t }" := (Ra f t set) (at level 60, f at next level, t at next l
 Check (Ra (An (Id 5) left) (An (Id 10) right) set).
 
 Inductive Operation : Type :=
-  | Skip (amount : anchor)
+  | Skip (amount : nat) (side : side)
   | Insert (entries : sequence) (side : side)
   | Remove (entries : sequence) (side : side).
 
-Notation "'Skip>' n" :=  (Skip (§ n >) ) (at level 50, n at next level).
-Notation "'Skip<' n" :=  (Skip (§ n <) ) (at level 50, n at next level).
+Notation "'Skip>' n" :=  (Skip n right) (at level 50, n at next level).
+Notation "'Skip<' n" :=  (Skip n left ) (at level 50, n at next level).
 
 Notation "'Insert>' s" :=  (Insert (Seq s) right) (at level 50, s at next level).
 Notation "'Insert<' s" :=  (Insert (Seq s) left) (at level 50, s at next level).
@@ -81,7 +82,7 @@ Notation "'Insert<' s" :=  (Insert (Seq s) left) (at level 50, s at next level).
 Notation "'Remove>' s" :=  (Remove (Seq s) right) (at level 50, s at next level).
 Notation "'Remove<' s" :=  (Remove (Seq s) left) (at level 50, s at next level).
 
-Check Skip (§2<).
+Check Skip> 2.
 Check Insert> [ <$4, 5>; <$5, 6>] .
 Check Remove> [ <$4, 5>; <$5, 6>] .
 
@@ -106,11 +107,11 @@ Fixpoint applyOpListToSequenceInternal (ops : list Operation) (entries : list li
   match ops with
     | [] => Some entries
     | op::t => match op with 
-      | Skip n => if ((length entries) <? (anchorPos n) ) then 
+      | Skip n side => if ((length entries) <? n ) then 
             None 
           else
-            match (applyOpListToSequenceInternal t (skipn (anchorPos n) entries)) with
-              | Some s => Some ((firstn (anchorPos n) entries) ++ s)
+            match (applyOpListToSequenceInternal t (skipn n entries)) with
+              | Some s => Some ((firstn n entries) ++ s)
               | None => None
             end 
       | Insert (Seq s1) side => 
@@ -173,7 +174,65 @@ Eval compute in applyBasicOperations
     ]
     testList.
 
+Record IterationDefinition : Set := mkIterationDefinition {
+  (*getLengthInSequenceA : Operation -> nat;
+  getLengthInSequenceB : Operation -> nat*)
 
+  getLengthInSequence : Operation -> nat;
+  splitOperation : Operation -> nat -> side -> (Operation * (list Operation))
+}.
+
+Definition getLengthInSequenceASquash (op : Operation) : nat := 1.
+
+Definition SquashIterationDefinition :=  
+  {| 
+     (*getLengthInSequenceA := fun (op : Operation) => match op with 
+       | Skip x => (anchorPos x)
+       | Insert (Seq x) _ => 0
+       | Remove (Seq x) _ => (length x)
+       end;
+
+     getLengthInSequenceB := fun (op : Operation) => match op with 
+       | Skip x => (anchorPos x)
+       | Insert (Seq x) _ => (length x)
+       | Remove (Seq x) _ => 0
+       end*)
+
+     getLengthInSequence := fun (op : Operation) => match op with 
+       | Skip x _ => x
+       | Insert (Seq x) _ => 0
+       | Remove (Seq x) _ => (length x)
+       end;
+
+     splitOperation := fun (op : Operation) (n : nat) (is : side)=> match op with 
+       | Skip x s => if x <? n then
+           (pair (Skip n is)) ([Skip (x - n) s])
+         else
+           (pair (Skip x s) ([]))
+(*     | Insert (Seq x) s => 0
+       | Remove (Seq x) s => (length x)*)
+       end;
+
+(* (pair (Remove< [<$7, 9>; <$8, 9>]) (Some (Remove< [<$7, 9>; <$8, 9>])) ) *)
+  |}.
+
+Check SquashIterationDefinition.
+Eval compute in SquashIterationDefinition.(getLengthInSequence) (Remove< [<$7, 9>; <$8, 9>]).
+
+Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 : list Operation) (ol2 : list Operation) : (list Operation) :=
+  match ol1 with
+    | o1::t => match ol2 with
+      | o2::t => 
+        let len1 := iterDef.(getLengthInSequence) o1 in
+        let len2 := iterDef.(getLengthInSequence) o2 in
+        
+        let truncatedO1 := if len1 <? len2 then o1 else o1 in
+        let truncatedO2 := if len1 <? len2 then o2 else o2 in
+        []*)
+      | nil => ol1
+      end
+    | nil => ol2
+  end.
 
 (*Definition same_id (a : id) (b : id) : bool :=
   match a with
