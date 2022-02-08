@@ -184,6 +184,15 @@ Record IterationDefinition : Set := mkIterationDefinition {
 
 Definition getLengthInSequenceASquash (op : Operation) : nat := 1.
 
+Definition SplitHelper (f1 : nat -> side -> Operation)  (f2 : nat -> side-> Operation) n x is s := if n <? x then
+           (pair (f1 n is)) ([f2 n s])
+         else (if n <? x then
+             (pair (f1 x s) ([]))
+            else
+             (match s, is with 
+                | right, left => (pair (f1 x s) ([(f2 x right)]))
+                | _, _ => (pair (f1 x s) ([]))
+              end)).
 Definition SquashIterationDefinition :=  
   {| 
      (*getLengthInSequenceA := fun (op : Operation) => match op with 
@@ -205,19 +214,28 @@ Definition SquashIterationDefinition :=
        end;
 
      splitOperation := fun (op : Operation) (n : nat) (is : side)=> match op with 
-       | Skip x s => if x <? n then
-           (pair (Skip n is)) ([Skip (x - n) s])
-         else
-           (pair (Skip x s) ([]))
-(*     | Insert (Seq x) s => 0
-       | Remove (Seq x) s => (length x)*)
+       | Skip x s => SplitHelper (fun n s => Skip n s) (fun n s => Skip (x - n) s) n x is s
+              
+       | Insert (Seq el) s => 
+          let x := length el in
+          SplitHelper 
+            (fun n s1 => Insert (Seq (firstn n el)) s1)
+            (fun n s1 => Insert (Seq (skipn n el)) s1)
+            n x is s
+       | Remove (Seq el) s => 
+          let x := length el in
+          SplitHelper 
+            (fun n s1 => Remove (Seq (firstn n el)) s1)
+            (fun n s1 => Remove (Seq (skipn n el)) s1)
+            n x is s
        end;
 
 (* (pair (Remove< [<$7, 9>; <$8, 9>]) (Some (Remove< [<$7, 9>; <$8, 9>])) ) *)
   |}.
 
-Check SquashIterationDefinition.
-Eval compute in SquashIterationDefinition.(getLengthInSequence) (Remove< [<$7, 9>; <$8, 9>]).
+Eval compute in SquashIterationDefinition.(splitOperation) (Skip> 9) 8 right.
+Eval compute in SquashIterationDefinition.(splitOperation) (Remove< [<$0, 0>; <$1, 1>; <$2, 2>]) 0 right.
+Eval compute in Remove.
 
 Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 : list Operation) (ol2 : list Operation) : (list Operation) :=
   match ol1 with
