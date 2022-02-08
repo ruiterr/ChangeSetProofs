@@ -6,6 +6,7 @@ From Coq Require Import Logic.FunctionalExtensionality.
 From Coq Require Import Lists.List.
 From Coq Require Import List. Import ListNotations.
 Require Import Unicode.Utf8.
+Require Import Coq.Program.Wf.
 
 Inductive id : Type := 
   | Id  (n : nat).
@@ -86,9 +87,18 @@ Check Skip> 2.
 Check Insert> [ <$4, 5>; <$5, 6>] .
 Check Remove> [ <$4, 5>; <$5, 6>] .
 
+Definition opLength (x : Operation) := match x with 
+   | Skip x _ => x
+   | Insert (Seq x) _ => (length x)
+   | Remove (Seq x) _ => (length x)
+end.
+
 Inductive operationList : Type := 
   | OList (entries : (list Operation)).
 
+(* Definition operationListLength (l : operationList) := match l with
+  | OList x => fold_left (fun b0 x => ( (opLength x) + b0)) x 0
+  end. *)
 
 Fixpoint createTestListInternal (n : nat) (next : nat) (i : id) : (list listEntry) := 
   match n with
@@ -175,11 +185,11 @@ Eval compute in applyBasicOperations
     testList.
 
 Record IterationDefinition : Set := mkIterationDefinition {
-  (*getLengthInSequenceA : Operation -> nat;
-  getLengthInSequenceB : Operation -> nat*)
-
-  getLengthInSequence : Operation -> nat;
-  splitOperation : Operation -> nat -> side -> (Operation * (list Operation))
+  getLengthInSequenceA : Operation -> (nat * side);
+  getLengthInSequenceB : Operation -> (nat * side);
+(*  getLengthInSequence : Operation -> nat;*)
+  splitOperation : Operation -> nat -> side -> (Operation * (list Operation));
+  splitOperationSequenceLength_cond: forall o x s, (length (snd (splitOperation o x s))) <= 1
 }.
 
 Definition getLengthInSequenceASquash (op : Operation) : nat := 1.
@@ -190,28 +200,28 @@ Definition SplitHelper (f1 : nat -> side -> Operation)  (f2 : nat -> side-> Oper
              (pair (f1 x s) ([]))
             else
              (match s, is with 
-                | right, left => (pair (f1 x s) ([(f2 x right)]))
+                | right, left => ( ((f1 x s), ([(f2 x right)])))
                 | _, _ => (pair (f1 x s) ([]))
               end)).
 Definition SquashIterationDefinition :=  
   {| 
-     (*getLengthInSequenceA := fun (op : Operation) => match op with 
-       | Skip x => (anchorPos x)
-       | Insert (Seq x) _ => 0
-       | Remove (Seq x) _ => (length x)
+     getLengthInSequenceA := fun (op : Operation) => match op with 
+       | Skip x s => (x, s)
+       | Insert (Seq x) s => ( (length x), s)
+       | Remove (Seq x) s => (0, s)
        end;
 
      getLengthInSequenceB := fun (op : Operation) => match op with 
-       | Skip x => (anchorPos x)
-       | Insert (Seq x) _ => (length x)
-       | Remove (Seq x) _ => 0
-       end*)
+       | Skip x s => (x, s)
+       | Insert (Seq x) s => (0, s)
+       | Remove (Seq x) s => ((length x), s)
+       end;
 
-     getLengthInSequence := fun (op : Operation) => match op with 
+     (* getLengthInSequence := fun (op : Operation) => match op with 
        | Skip x _ => x
        | Insert (Seq x) _ => 0
        | Remove (Seq x) _ => (length x)
-       end;
+       end; *)
 
      splitOperation := fun (op : Operation) (n : nat) (is : side)=> match op with 
        | Skip x s => SplitHelper (fun n s => Skip n s) (fun n s => Skip (x - n) s) n x is s
@@ -235,22 +245,33 @@ Definition SquashIterationDefinition :=
 
 Eval compute in SquashIterationDefinition.(splitOperation) (Skip> 9) 8 right.
 Eval compute in SquashIterationDefinition.(splitOperation) (Remove< [<$0, 0>; <$1, 1>; <$2, 2>]) 0 right.
-Eval compute in Remove.
 
-Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 : list Operation) (ol2 : list Operation) : (list Operation) :=
+
+Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 : list Operation) (ol2 : list Operation) 
+  {measure ((length ol1) + (length ol2)) } : (list Operation) :=
   match ol1 with
-    | o1::t => match ol2 with
-      | o2::t => 
-        let len1 := iterDef.(getLengthInSequence) o1 in
-        let len2 := iterDef.(getLengthInSequence) o2 in
+    | o1::t1 => match ol2 with
+      | o2::t2 => 
+        let '(len1, s1) := iterDef.(getLengthInSequenceA) o1 in
+        let '(len2, s2) := iterDef.(getLengthInSequenceB) o2 in
         
-        let truncatedO1 := if len1 <? len2 then o1 else o1 in
-        let truncatedO2 := if len1 <? len2 then o2 else o2 in
-        []*)
+        let '(opA, opB, seqA, seqB) := (if len2 <? len1 then (
+            let '(truncatedOp, remSeq) := (iterDef.(splitOperation) o1 len2 s2) in
+            (truncatedOp, o2, remSeq ++ t1, t2)
+          )
+          else (
+            let '(truncatedOp, remSeq) := (iterDef.(splitOperation) o2 len1 s1) in
+            (o1, truncatedOp, t1, remSeq ++ t2)
+          )) in 
+
+(*        let truncatedO2 := if len1 <? len2 then o2 else o2 in *)
+        [o1] ++ (iterateOverOperationLists iterDef seqA seqB)
       | nil => ol1
       end
     | nil => ol2
   end.
+Next Obligation.
+
 
 (*Definition same_id (a : id) (b : id) : bool :=
   match a with
