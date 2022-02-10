@@ -350,16 +350,20 @@ case_eq (fst (getLengthInSequenceB iterDef o2) <? fst (getLengthInSequenceA iter
   rewrite concat_length.
   rewrite concat_length.
   omega.
-- intros. 
+- intros.
   rewrite app_length.
-  set (X := (Datatypes.length (snd (splitOperation iterDef o2 (fst (getLengthInSequenceA iterDef o1)) (snd (getLengthInSequenceA iterDef o1)))))).
+
+  match goal with
+  |-  _ + ?x < _  => set (X := x)
+  end.
   pose splitOperationSequenceLength_cond.
-  specialize l with (i := iterDef) (o :=o2) (x := (fst (getLengthInSequenceB iterDef o1))) (s := (snd (getLengthInSequenceB iterDef o1))).
+(*  apply l with X.*)
+  specialize l with (i := iterDef) (o :=o2) (x := (fst (getLengthInSequenceA iterDef o1))) (s := (snd (getLengthInSequenceA iterDef o1))).
   fold X in l.
   rewrite concat_length.
   rewrite concat_length.
   omega.
-
+Qed.
 
   Set Printing All.
 
