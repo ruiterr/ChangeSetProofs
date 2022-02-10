@@ -189,9 +189,11 @@ Eval compute in applyBasicOperations
 Record IterationDefinition : Set := mkIterationDefinition {
   getLengthInSequenceA : Operation -> (nat * side);
   getLengthInSequenceB : Operation -> (nat * side);
-(*  getLengthInSequence : Operation -> nat;*)
+
   splitOperation : Operation -> nat -> side -> (Operation * (list Operation));
-  splitOperationSequenceLength_cond: forall o x s, (length (snd (splitOperation o x s))) <= 1
+  splitOperationSequenceLength_cond: forall o x s, (length (snd (splitOperation o x s))) <= 1;
+
+  computeResultingOperation : Operation -> Operation  -> Operation;
 }.
 
 Definition getLengthInSequenceASquash (op : Operation) : nat := 1.
@@ -209,88 +211,6 @@ Definition SplitHelper (f1 : nat -> side -> Operation)  (f2 : nat -> side-> Oper
 Definition getSplitOpLength (iterDef : IterationDefinition) (o : Operation) :=
   let (x, y) := (iterDef.(splitOperation) o 2 left) in
   (length y).
-
-(* Definition testDef (n : nat) : (nat * nat) := (3, 1).
-
-Lemma testDefFstCond: forall n:nat, (fst (testDef n)) > 0.
-Proof.
-intros.
-unfold testDef.
-unfold fst.
-auto.
-Qed.
-
-Lemma testDefSndCond: forall n:nat, (snd (testDef n)) > 0.
-Proof.
-intros.
-unfold testDef.
-unfold snd.
-auto.
-Qed.
-
-Definition testDef2 (n : nat) : nat := 
-  let '(x,y) := (testDef n) in (x + y).
-
-Lemma testDef2SumCond: forall n:nat, (testDef2 n) > 0.
-Proof.
-intros.
-unfold testDef2.
-pose testDefFstCond.
-pose testDefSndCond.
-set (A := (testDef n)).
-rewrite surjective_pairing with (p:=A).
-set (A1 := fst A).
-set (A2 := snd A).
-specialize g with (n:=n) as V.
-fold A in V.
-fold A1 in V.
-specialize g0 with (n:=n) as V2.
-fold A in V2.
-fold A2 in V2.
-
-(*pose (forall (A : Type)  (T : (A * A)), T = ( (fst T), (fst T))).*)
-(* assert (forall (X : Type) (Y : Type)  (T : (X * Y)), T = ( (fst T), (snd T))).
-intros.
-unfold fst.
-unfold snd.
-destruct T.
-trivial.*)
-rewrite > H with (T:=A).
-subst A.
-
-
-(* apply V in A. *)
-set (A := ((fst A), (fst A))).
-
-
-
-
-Definition my_call {A B C} (f : A -> B * C) (a : A) : C :=
-  let (b, c) := f a in c.
-
-Lemma mycall_is_call {A B C} (f : A -> B * C) a :
-  my_call f a = snd (f a).
-Proof.
-  unfold my_call.
-  set (bx := (snd (f a))).
-  (* unfold snd in bx. *)
-  fold bx.
-  trivial.
-Qed. *)
-
-
-(* Lemma splitOpLengthLength: forall (iterDef : IterationDefinition) (o:Operation), ((getSplitOpLength iterDef o) <= 1).
-Proof.
-intro.
-intro.
-unfold getSplitOpLength.
-(* set (split := (snd (splitOperation iterDef o 2 left))).*)
-destruct (splitOperation iterDef o 2 left) as (a, b).
-
-
-(* destruct (splitOperation iterDef o 2 left) as (x, y). *)
-apply splitOperationSequenceLength_cond.
-Qed.*)
 
 Lemma concat_length: forall (o : Operation) (t : list Operation), length(o::t) = (length(t)) + 1.
 Proof.
@@ -329,21 +249,14 @@ Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 
         let splitSide   := if len2 <? len1 then s2 else s1 in
 
         let splitOp := (iterDef.(splitOperation) splitOp splitLength splitSide) in
-        (* let (truncatedOp, remSeq) := splitOp in *)
         let opA :=  if len2 <? len1 then (fst splitOp) else o1 in
         let opB :=  if len2 <? len1 then o2 else (fst splitOp) in
         let seqA := if len2 <? len1 then (snd splitOp) ++ t1 else t1 in
         let seqB := if len2 <? len1 then t2 else (snd splitOp) ++ t2 in
 
-        (*let '(opA, opB, seqA, seqB) :=  (if len2 <? len1 then (
-            (truncatedOp, o2, remSeq ++ t1, t2)
-          )
-          else (
-            (o1, truncatedOp, t1, remSeq ++ t2)
-          )) in*)
+        let resultingOp := iterDef.(computeResultingOperation) opA opB in
 
-(*        let truncatedO2 := if len1 <? len2 then o2 else o2 in *)
-        (iterateOverOperationLists iterDef seqA seqB)
+        resultingOp::(iterateOverOperationLists iterDef seqA seqB)
       | nil => ol1
       end
     | nil => ol2
@@ -357,7 +270,6 @@ case_eq (fst (getLengthInSequenceB iterDef o2) <? fst (getLengthInSequenceA iter
   repeat rewrite concat_length;
   lia.
 Qed.
-
 
 Program Definition SquashIterationDefinition :=  
   {| 
@@ -396,15 +308,42 @@ Program Definition SquashIterationDefinition :=
             n x is s
        end;
 
-(* (pair (Remove< [<$7, 9>; <$8, 9>]) (Some (Remove< [<$7, 9>; <$8, 9>])) ) *)
+     computeResultingOperation := fun (opA : Operation) (opB : Operation) => match opA, opB with
+       | Skip l s,      Skip l2 s2    => Skip l s
+       | Skip l s,      Insert seq2 s2 => Insert seq2 s2
+       | Skip l s,      Remove seq2 s2 => Remove seq2 s2
+       | Insert seq1 s, Skip l2 s2    => Insert seq1 s
+       (* In this case, we have to use seq2, insert always has length 0 in seqB, so if we have both insert, it will also be length 0 in seqA and thus the entry from B is correct*)
+       | Insert seq1 s, Insert seq2 s2 => Insert seq2 s 
+       (* insert and remove cancel out, we represent this by returning a skip 0, which is just a NOP*)
+       | Insert seq1 s, Remove seq2 s2 => Skip 0 s
+       | Remove seq1 s, Skip l2 s2 => Remove seq1 s
+       | Remove seq1 s, Insert seq s2 => if ((opLength opA) =? 0) then Remove seq1 s else Insert seq s2
+       (* In this case, we have to use seq1, remove always has length 0 in seqA, so if we have both insert, it will also be length 0 in seqB and thus the entry from A is correct*)
+       | Remove seq1 s, Remove seq s2 => Remove seq1 s
+     end;
   |}.
 Next Obligation.
 destruct o; try destruct entries; apply SplitHelper_length.
 Qed.
 
+Print SquashIterationDefinition.
+
 Eval compute in SquashIterationDefinition.(splitOperation) (Skip> 9) 8 right.
 Eval compute in SquashIterationDefinition.(splitOperation) (Remove< [<$0, 0>; <$1, 1>; <$2, 2>]) 0 right.
 
+Definition squash (OpsA : operationList) (OpsB : operationList) : operationList := match OpsA,OpsB with
+  | OList lA, OList lB => OList (iterateOverOperationLists SquashIterationDefinition lA lB) 
+  end.
+
+Eval compute in (squash 
+  (OList [
+       (Insert< [<$0, 0>; <$1, 1>; <$2, 2>])
+  ])
+  (OList [
+       (Skip< 1);
+       (Insert< [<$3, 3>; <$4, 4>])
+  ])).
 
 
 (*Definition same_id (a : id) (b : id) : bool :=
