@@ -38,6 +38,11 @@ Inductive side: Type :=
   | left
   | right.
 
+Definition smallerSide (s1:side) (s2:side) := match s1,s2 with
+  |right, right => right
+  | _, _ => left
+  end.
+
 Inductive anchor : Type :=
   | An (i : id) (s : side).
 
@@ -204,7 +209,7 @@ Definition SplitHelper (f1 : nat -> side -> Operation)  (f2 : nat -> side-> Oper
              (pair (f1 x s) ([]))
             else
              (match s, is with 
-                | right, left => ( ((f1 x s), ([(f2 x right)])))
+                | right, left => ( ((f1 x is), ([(f2 x right)])))
                 | _, _ => (pair (f1 x s) ([]))
               end)).
 
@@ -262,26 +267,19 @@ Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 
       end
     | nil => ol2
   end.
+Obligation Tactic := auto.
 Next Obligation.
-set (cond := if fst (getLengthInSequenceB iterDef o2) =? fst (getLengthInSequenceA iterDef o1)
-           then
-            match
-              snd (getLengthInSequenceA iterDef o1) as s1'
-              return (s1' = snd (getLengthInSequenceA iterDef o1) → bool)
-            with
-            | left => λ _ : left = snd (getLengthInSequenceA iterDef o1), false
-            | right => λ _ : right = snd (getLengthInSequenceA iterDef o1), true
-            end eq_refl
-           else
-            fst (getLengthInSequenceB iterDef o2) <? fst (getLengthInSequenceA iterDef o1)).
-case_eq (cond);
+intros.
+destruct (splitOpA);
   intros;
+  subst seqA seqB;
   rewrite app_length;
-  specialize splitOperationSequenceLength_cond with (i := iterDef) (o :=o2) (x := (fst (getLengthInSequenceA iterDef o1))) (s := (snd (getLengthInSequenceA iterDef o1)));
-  specialize splitOperationSequenceLength_cond with (i := iterDef) (o :=o1) (x := (fst (getLengthInSequenceB iterDef o2))) (s := (snd (getLengthInSequenceB iterDef o2)));
+  subst splitOp ol1 ol2;
   repeat rewrite concat_length;
+  specialize splitOperationSequenceLength_cond with (i := iterDef) (o :=splitOp0) (x := splitLength) (s := splitSide) as H1;
   lia.
 Qed.
+Obligation Tactic := Tactics.program_simpl.
 
 Program Definition SquashIterationDefinition :=  
   {| 
@@ -342,7 +340,7 @@ Qed.
 
 Print SquashIterationDefinition.
 
-Eval compute in SquashIterationDefinition.(splitOperation) (Skip> 9) 8 right.
+Eval compute in SquashIterationDefinition.(splitOperation) (Skip> 0) 0 left.
 Eval compute in SquashIterationDefinition.(splitOperation) (Remove< [<$0, 0>; <$1, 1>; <$2, 2>]) 0 right.
 
 Definition squash (OpsA : operationList) (OpsB : operationList) : operationList := match OpsA,OpsB with
@@ -395,6 +393,7 @@ Eval compute in (squash
        (Skip< 1);
        (Insert< [<$1, 1>])
   ])).
+
 
 (*Definition same_id (a : id) (b : id) : bool :=
   match a with
