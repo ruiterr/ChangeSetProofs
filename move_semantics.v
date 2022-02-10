@@ -8,6 +8,7 @@ From Coq Require Import List. Import ListNotations.
 Require Import Unicode.Utf8.
 Require Import Coq.Program.Wf.
 Require Import Omega.
+Require Import Lia.
 
 Inductive id : Type := 
   | Id  (n : nat).
@@ -295,9 +296,20 @@ Lemma concat_length: forall (o : Operation) (t : list Operation), length(o::t) =
 Proof.
 intros.
 unfold length.
-omega.
+lia.
 Qed.
 
+Lemma SplitHelper_length: forall f1 f2 n x is s,  (length (snd (SplitHelper f1 f2 n x is s))) <= 1.
+intros.
+unfold SplitHelper.
+case_eq (n <? x).
+- auto.
+- destruct s.
+  + auto.
+  + destruct is.
+    * auto.
+    * auto.
+Qed.
 
 Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 : list Operation) (ol2 : list Operation) 
   {measure ((length ol1) + (length ol2)) } : (list Operation) :=
@@ -337,71 +349,17 @@ Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 
     | nil => ol2
   end.
 Next Obligation.
- (* intros.
-  Set Printing All.*)
-
-case_eq (fst (getLengthInSequenceB iterDef o2) <? fst (getLengthInSequenceA iterDef o1)).
-- intros. 
-  rewrite app_length.
-  set (X := Datatypes.length (snd (splitOperation iterDef o1 (fst (getLengthInSequenceB iterDef o2)) (snd (getLengthInSequenceB iterDef o2))))).
-  pose splitOperationSequenceLength_cond.
-  specialize l with (i := iterDef) (o :=o1) (x := (fst (getLengthInSequenceB iterDef o2))) (s := (snd (getLengthInSequenceB iterDef o2))).
-  fold X in l.
-  rewrite concat_length.
-  rewrite concat_length.
-  omega.
-- intros.
-  rewrite app_length.
-
-  match goal with
-  |-  _ + ?x < _  => set (X := x)
-  end.
-  pose splitOperationSequenceLength_cond.
-(*  apply l with X.*)
-  specialize l with (i := iterDef) (o :=o2) (x := (fst (getLengthInSequenceA iterDef o1))) (s := (snd (getLengthInSequenceA iterDef o1))).
-  fold X in l.
-  rewrite concat_length.
-  rewrite concat_length.
-  omega.
+case_eq (fst (getLengthInSequenceB iterDef o2) <? fst (getLengthInSequenceA iterDef o1));
+  intros;
+  rewrite app_length;
+  specialize splitOperationSequenceLength_cond with (i := iterDef) (o :=o2) (x := (fst (getLengthInSequenceA iterDef o1))) (s := (snd (getLengthInSequenceA iterDef o1)));
+  specialize splitOperationSequenceLength_cond with (i := iterDef) (o :=o1) (x := (fst (getLengthInSequenceB iterDef o2))) (s := (snd (getLengthInSequenceB iterDef o2)));
+  repeat rewrite concat_length;
+  lia.
 Qed.
 
-  Set Printing All.
 
-  (* fold SO2 in SO.
-  rewrite surjective_pairing with (p:=SO2) in SO. *)
-(* Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 : list Operation) (ol2 : list Operation) 
-  {measure ((length ol1) + (length ol2)) } : (list Operation) :=
-  match ol1 with
-    | o1::t1 => match ol2 with
-      | o2::t2 => 
-        let '(len1, s1) := iterDef.(getLengthInSequenceA) o1 in
-        let '(len2, s2) := iterDef.(getLengthInSequenceB) o2 in
-        
-        let '(opA, opB, seqA, seqB) :=  (if len2 <? len1 then (
-            let (truncatedOp, remSeq) := (iterDef.(splitOperation) o1 len2 s2) in
-            (truncatedOp, o2, remSeq ++ t1, t2)
-          )
-          else (
-            let (truncatedOp, remSeq) := (iterDef.(splitOperation) o2 len1 s1) in
-            (o1, truncatedOp, t1, remSeq ++ t2)
-          )) in
-
-(*        let truncatedO2 := if len1 <? len2 then o2 else o2 in *)
-        [o1] ++ (iterateOverOperationLists iterDef seqA seqB)
-      | nil => ol1
-      end
-    | nil => ol2
-  end.
-Next Obligation.
-case_eq (len2 <? len1).
-- intros. 
-  replace (len2 <? len1) with true in Heq_anonymous.
-  set (SO := (let (truncatedOp, remSeq) := splitOperation iterDef o1 len2 s2 in (truncatedOp, o2, remSeq ++ t1, t2))).
-  fold SO in Heq_anonymous.
-  set (SO2 := splitOperation iterDef o1 len2 s2).
-  Set Printing All.*)
-
-Definition SquashIterationDefinition :=  
+Program Definition SquashIterationDefinition :=  
   {| 
      getLengthInSequenceA := fun (op : Operation) => match op with 
        | Skip x s => (x, s)
@@ -440,6 +398,9 @@ Definition SquashIterationDefinition :=
 
 (* (pair (Remove< [<$7, 9>; <$8, 9>]) (Some (Remove< [<$7, 9>; <$8, 9>])) ) *)
   |}.
+Next Obligation.
+destruct o; try destruct entries; apply SplitHelper_length.
+Qed.
 
 Eval compute in SquashIterationDefinition.(splitOperation) (Skip> 9) 8 right.
 Eval compute in SquashIterationDefinition.(splitOperation) (Remove< [<$0, 0>; <$1, 1>; <$2, 2>]) 0 right.
