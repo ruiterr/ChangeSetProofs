@@ -243,16 +243,17 @@ Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 
         let len2 := (fst SBInfo) in
         let s1 := (snd SAInfo) in
         let s2 := (snd SBInfo) in
+        let splitOpA := if len2 =? len1 then match s1 with |right => true | left => false end else len2 <? len1 in
 
-        let splitOp     := if len2 <? len1 then o1 else o2 in
-        let splitLength := if len2 <? len1 then len2 else len1 in
-        let splitSide   := if len2 <? len1 then s2 else s1 in
+        let splitOp     := if splitOpA then o1 else o2 in
+        let splitLength := if splitOpA then len2 else len1 in
+        let splitSide   := if splitOpA then s2 else s1 in
 
         let splitOp := (iterDef.(splitOperation) splitOp splitLength splitSide) in
-        let opA :=  if len2 <? len1 then (fst splitOp) else o1 in
-        let opB :=  if len2 <? len1 then o2 else (fst splitOp) in
-        let seqA := if len2 <? len1 then (snd splitOp) ++ t1 else t1 in
-        let seqB := if len2 <? len1 then t2 else (snd splitOp) ++ t2 in
+        let opA :=  if splitOpA then (fst splitOp) else o1 in
+        let opB :=  if splitOpA then o2 else (fst splitOp) in
+        let seqA := if splitOpA then (snd splitOp) ++ t1 else t1 in
+        let seqB := if splitOpA then t2 else (snd splitOp) ++ t2 in
 
         let resultingOp := iterDef.(computeResultingOperation) opA opB in
 
@@ -262,7 +263,18 @@ Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 
     | nil => ol2
   end.
 Next Obligation.
-case_eq (fst (getLengthInSequenceB iterDef o2) <? fst (getLengthInSequenceA iterDef o1));
+set (cond := if fst (getLengthInSequenceB iterDef o2) =? fst (getLengthInSequenceA iterDef o1)
+           then
+            match
+              snd (getLengthInSequenceA iterDef o1) as s1'
+              return (s1' = snd (getLengthInSequenceA iterDef o1) → bool)
+            with
+            | left => λ _ : left = snd (getLengthInSequenceA iterDef o1), false
+            | right => λ _ : right = snd (getLengthInSequenceA iterDef o1), true
+            end eq_refl
+           else
+            fst (getLengthInSequenceB iterDef o2) <? fst (getLengthInSequenceA iterDef o1)).
+case_eq (cond);
   intros;
   rewrite app_length;
   specialize splitOperationSequenceLength_cond with (i := iterDef) (o :=o2) (x := (fst (getLengthInSequenceA iterDef o1))) (s := (snd (getLengthInSequenceA iterDef o1)));
@@ -318,7 +330,8 @@ Program Definition SquashIterationDefinition :=
        (* insert and remove cancel out, we represent this by returning a skip 0, which is just a NOP*)
        | Insert seq1 s, Remove seq2 s2 => Skip 0 s
        | Remove seq1 s, Skip l2 s2 => Remove seq1 s
-       | Remove seq1 s, Insert seq s2 => if ((opLength opA) =? 0) then Remove seq1 s else Insert seq s2
+       (* This case is the most complex one, both insert and remove have length 0, but one of the two has actually been truncated the other not, we distinguish via the length of the sequence *)
+       | Remove seq1 s, Insert seq s2 => if ((opLength opB) =? 0) then Remove seq1 s else Insert seq s2
        (* In this case, we have to use seq1, remove always has length 0 in seqA, so if we have both insert, it will also be length 0 in seqB and thus the entry from A is correct*)
        | Remove seq1 s, Remove seq s2 => Remove seq1 s
      end;
@@ -336,6 +349,7 @@ Definition squash (OpsA : operationList) (OpsB : operationList) : operationList 
   | OList lA, OList lB => OList (iterateOverOperationLists SquashIterationDefinition lA lB) 
   end.
 
+(* Test some different squash scenarios *)
 Eval compute in (squash 
   (OList [
        (Insert< [<$0, 0>; <$1, 1>; <$2, 2>])
@@ -345,6 +359,42 @@ Eval compute in (squash
        (Insert< [<$3, 3>; <$4, 4>])
   ])).
 
+Eval compute in (squash 
+  (OList [
+       (Insert< [<$0, 0>; <$1, 1>; <$2, 2>])
+  ])
+  (OList [
+       (Skip< 1);
+       (Remove< [<$1, 1>])
+  ])).
+
+Eval compute in (squash 
+  (OList [
+       (Insert< [<$0, 0>; <$1, 1>; <$2, 2>])
+  ])
+  (OList [
+       (Skip< 5);
+       (Remove< [<$1, 1>])
+  ])).
+Eval compute in (squash 
+  (OList [
+       (Skip< 5);
+       (Insert< [<$0, 0>; <$1, 1>; <$2, 2>])
+  ])
+  (OList [
+       (Skip< 2);
+       (Remove< [<$1, 1>])
+  ])).
+
+Eval compute in (squash 
+  (OList [
+       (Skip> 1);
+       (Remove< [<$0, 0> ])
+  ])
+  (OList [
+       (Skip< 1);
+       (Insert< [<$1, 1>])
+  ])).
 
 (*Definition same_id (a : id) (b : id) : bool :=
   match a with
