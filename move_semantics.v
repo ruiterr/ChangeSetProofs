@@ -404,7 +404,9 @@ Eval compute in (squash
 
 Infix "○" := squash (at level 60).
 
-Definition SplitOffLast (list : operationList) : (operationList * operationList) := (OList [], OList []).
+Definition SplitOffLast (list : operationList) : (operationList * operationList).
+give_up.
+Admitted.
 
 Theorem splitOffLastEquivalence: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in A = (A0 ○ A1).
 give_up.
@@ -428,38 +430,50 @@ give_up.
 Admitted.
 
 Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
-intros.
+intro A.
 induction A as [A IHA] using (induction_ltof1 _ (@getOListLength)); unfold ltof in IHA.
+
 specialize splitOffLastEquivalence with (A:=A).
+
 set (SA := (SplitOffLast A)).
 rewrite surjective_pairing with (p:=SA).
 set (A0 := (fst SA)).
 set (A1 := (snd SA)).
 intros.
+
 specialize splitOffLastResult0Length with (A := A).
 fold SA.
 rewrite surjective_pairing with (p:=SA).
 fold A0.
 intros.
+
+
 specialize splitOffLastResult1Structure with (A := A).
-intros.
-(*fold SA.
+fold SA.
 rewrite surjective_pairing with (p:=SA).
 fold A1.
-intros.*)
-(*specialize IHA with (y := A0).
-set (lA0 := getOListLength A0).
-fold lA0 in H0.
-fold lA0 in IHA.*)
-(* change lA0 with (getOListLength A - 1) in IHA. *)
-(* assert ((getOListLength A > 0) -> (lA0 < getOListLength A)). { lia. } *)
-assert ((getOListLength A = 0) ∨ (getOListLength A > 0)) as lA0Eq. { lia. }
-destruct lA0Eq.
- - assert (A = (OList [])) as ALen0. { auto. }
-   rewrite ALen0.
-   apply trivialOListAssoc.
-- rewrite H. (* assert (((A0 ○ B) ○ C) = (A0 ○ (B ○ C))). { apply IHA. lia. } *)
-  apply IHA with (y := A0). { lia. }
+intros.
+
+
+assert ((getOListLength A = 0) ∨ (getOListLength A > 0)) as lA0Eq. lia. 
+
+ destruct lA0Eq.
+- assert (A = (OList [])) as ALen0.
+    unfold getOListLength in H2.
+    destruct A.
+    assert (entries = []). apply length_zero_iff_nil. auto.
+    rewrite H3. reflexivity.
+  rewrite ALen0.
+  apply trivialOListAssoc.
+
+- assert (getOListLength A0 < getOListLength A). lia.
+  rewrite H.
+  rewrite IHA with (y:= A0) (B := A1) (C := B). 
+  rewrite IHA with (y:= A0) (B := (A1 ○ B)) (C := C). 
+  rewrite simpleOListAssoc.
+  rewrite IHA with (y:= A0) (B := A1) (C := (B ○ C) ).
+  all: auto.
+
 Qed.
 
 
