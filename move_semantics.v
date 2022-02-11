@@ -105,7 +105,15 @@ Inductive operationList : Type :=
 
 (* Definition operationListLength (l : operationList) := match l with
   | OList x => fold_left (fun b0 x => ( (opLength x) + b0)) x 0
-  end. *)
+end. *)
+
+Definition getOListLength (l : operationList) := match l with
+  | OList x => (length x)
+end.
+
+Definition getOListEntries (l : operationList) := match l with
+  | OList x => x
+end.
 
 Fixpoint createTestListInternal (n : nat) (next : nat) (i : id) : (list listEntry) := 
   match n with
@@ -393,6 +401,30 @@ Eval compute in (squash
        (Skip< 1);
        (Insert< [<$1, 1>])
   ])).
+
+Infix "○" := squash (at level 60).
+
+Definition SplitOffLast (list : operationList) : (operationList * operationList) := (OList [], OList []).
+
+Theorem splitOffLastEquivalence: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in A = (A0 ○ A1).
+give_up.
+Admitted.
+
+Theorem splitOffLastResult0Length: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in ((getOListLength A0) = ((getOListLength A) - 1)).
+give_up.
+Admitted.
+
+Theorem splitOffLastResult1Structure: ∀ (A:operationList), ∃ (c:nat) (s:side) (o:Operation), let (A0, A1) := (SplitOffLast A) in (getOListEntries A1 = [ (Skip c s); o]).
+give_up.
+Admitted.
+
+Theorem simpleOListAssoc: ∀ (A B C :operationList), (∃ (c:nat) (s:side) (o:Operation), (getOListEntries A) = [ (Skip c s); o]) → (A ○ B) ○ C = A ○ (B ○ C).
+give_up.
+Admitted.
+
+Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
+give_up.
+Admitted.
 
 
 (*Definition same_id (a : id) (b : id) : bool :=
