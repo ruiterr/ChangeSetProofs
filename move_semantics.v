@@ -422,8 +422,18 @@ Admitted.
 
 
 Theorem trivialOListAssoc: ∀ (B C :operationList),  ((OList []) ○ B) ○ C = (OList []) ○ (B ○ C).
-give_up.
-Admitted.
+intros.
+  assert (∀ y, (OList []) ○ y = y) as H0.
+  intros.
+  unfold squash.
+  destruct y.
+  unfold iterateOverOperationLists.
+  unfold iterateOverOperationLists_func.
+  auto.
+
+repeat rewrite H0.
+reflexivity.
+Qed.
 
 Theorem simpleOListAssoc: ∀ (A B C :operationList), (∃ (c:nat) (s:side) (o:Operation), (getOListEntries A) = [ (Skip c s); o]) → (A ○ B) ○ C = A ○ (B ○ C).
 give_up.
