@@ -418,11 +418,58 @@ Theorem splitOffLastResult1Structure: ∀ (A:operationList), ∃ (c:nat) (s:side
 give_up.
 Admitted.
 
+
+Theorem trivialOListAssoc: ∀ (B C :operationList),  ((OList []) ○ B) ○ C = (OList []) ○ (B ○ C).
+give_up.
+Admitted.
+
 Theorem simpleOListAssoc: ∀ (A B C :operationList), (∃ (c:nat) (s:side) (o:Operation), (getOListEntries A) = [ (Skip c s); o]) → (A ○ B) ○ C = A ○ (B ○ C).
 give_up.
 Admitted.
 
 Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
+intros.
+induction A as [A IHA] using (induction_ltof1 _ (@getOListLength)); unfold ltof in IHA.
+specialize splitOffLastEquivalence with (A:=A).
+set (SA := (SplitOffLast A)).
+rewrite surjective_pairing with (p:=SA).
+set (A0 := (fst SA)).
+set (A1 := (snd SA)).
+intros.
+specialize splitOffLastResult0Length with (A := A).
+fold SA.
+rewrite surjective_pairing with (p:=SA).
+fold A0.
+intros.
+specialize splitOffLastResult1Structure with (A := A).
+intros.
+(*fold SA.
+rewrite surjective_pairing with (p:=SA).
+fold A1.
+intros.*)
+(*specialize IHA with (y := A0).
+set (lA0 := getOListLength A0).
+fold lA0 in H0.
+fold lA0 in IHA.*)
+(* change lA0 with (getOListLength A - 1) in IHA. *)
+(* assert ((getOListLength A > 0) -> (lA0 < getOListLength A)). { lia. } *)
+assert ((getOListLength A = 0) ∨ (getOListLength A > 0)) as lA0Eq. { lia. }
+destruct lA0Eq.
+ - assert (A = (OList [])) as ALen0. { auto. }
+   rewrite ALen0.
+   apply trivialOListAssoc.
+- rewrite H. (* assert (((A0 ○ B) ○ C) = (A0 ○ (B ○ C))). { apply IHA. lia. } *)
+  apply IHA with (y := A0). { lia. }
+Qed.
+
+
+
+
+
+
+(*set (A0 := fst SA).
+set (A1 := snd SA).*)
+
 give_up.
 Admitted.
 
