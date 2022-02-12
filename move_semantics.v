@@ -408,20 +408,51 @@ Definition SplitOffLast (list : operationList) : (operationList * operationList)
 give_up.
 Admitted.
 
-Theorem splitOffLastEquivalence: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in A = (A0 ○ A1).
+Lemma splitOffLastEquivalence: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in A = (A0 ○ A1).
 give_up.
 Admitted.
 
-Theorem splitOffLastResult0Length: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in ((getOListLength A0) = ((getOListLength A) - 1)).
+Lemma splitOffLastResult0Length: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in ((getOListLength A0) = ((getOListLength A) - 1)).
 give_up.
 Admitted.
 
-Theorem splitOffLastResult1Structure: ∀ (A:operationList), ∃ (c:nat) (s:side) (o:Operation), let (A0, A1) := (SplitOffLast A) in (getOListEntries A1 = [ (Skip c s); o]).
+Lemma splitOffLastResult1Structure: ∀ (A:operationList), ∃ (c:nat) (s:side) (o:Operation), let (A0, A1) := (SplitOffLast A) in (getOListEntries A1 = [ (Skip c s); o]).
 give_up.
 Admitted.
 
+Definition splitOList (list:operationList) (n : nat) (s : side) : (operationList * operationList).
+Admitted.
 
-Theorem trivialOListAssoc: ∀ (B C :operationList),  ((OList []) ○ B) ○ C = (OList []) ○ (B ○ C).
+Lemma splitOListEquality: ∀ (A:operationList) (n:nat) (s : side), (OList ((getOListEntries (fst (splitOList A n s))) ++ (getOListEntries (snd (splitOList A n s))))) = A.
+Admitted.
+
+Lemma splitOListSquash: ∀ (A:operationList) (B: operationList) (n:nat) (s : side), (splitOList (A ○ B) n s) = 
+                            ( ((fst (splitOList A n s)) ○ (fst ((splitOList B n s)))),
+                            (  (snd (splitOList A n s)) ○ (snd ((splitOList B n s)))) ).
+Admitted.
+
+Lemma singleOpAssociativity: ∀ (A B : operationList) (o : Operation), 
+  let (l, s) := (SquashIterationDefinition.(getLengthInSequenceA) o) in
+  fst (splitOList (A ○ B) l s) ○ OList [o] = fst (splitOList A l s) ○ (fst (splitOList B l s) ○ OList [o]).
+Admitted.
+
+Theorem splitOListFirst: ∀ (A:operationList), ((getOListLength A) > 0) → (
+       let (firstOP, t) := match A with 
+         | OList (op::t) => (op, t)
+         | OList [] => ((Skip 0 left), [])
+       end in
+       let (l, s) := (SquashIterationDefinition.(getLengthInSequenceA) firstOP) in
+       (splitOList A l s) = ((OList [firstOP]), (OList t))).
+Admitted.
+
+
+Lemma singleSkipNop: ∀ (A : operationList) (n:nat) (s:side), (A ○ (OList [Skip n s]) = A).
+Admitted.
+
+Lemma emptyOListNop: ∀ (A : operationList), (A ○ (OList []) = A).
+Admitted.
+
+Lemma trivialOListAssoc: ∀ (B C :operationList),  ((OList []) ○ B) ○ C = (OList []) ○ (B ○ C).
 intros.
   assert (∀ y, (OList []) ○ y = y) as H0.
   intros.
@@ -435,9 +466,147 @@ repeat rewrite H0.
 reflexivity.
 Qed.
 
-Theorem simpleOListAssoc: ∀ (A B C :operationList), (∃ (c:nat) (s:side) (o:Operation), (getOListEntries A) = [ (Skip c s); o]) → (A ○ B) ○ C = A ○ (B ○ C).
+(* Theorem simpleOListAssoc: ∀ (A B C :operationList), (∃ (c:nat) (s:side) (o:Operation), (getOListEntries A) = [ (Skip c s); o]) → (A ○ B) ○ C = A ○ (B ○ C).
+intros.
+destruct H.
+destruct H.
+destruct H.
+unfold getOListEntries in H.
+assert (A = (OList [Skip x x0; x1])). rewrite <-H. destruct A. auto.
+rewrite H0. 
+unfold squash.
+destruct A.
+destruct B.
+destruct C.
+unfold iterateOverOperationLists.
+unfold iterateOverOperationLists_func.
+auto.
 give_up.
-Admitted.
+Admitted.*)
+
+Theorem simpleOListAssoc: ∀ (A B C :operationList), ((∃ (cA:nat) (sA:side) (oA:Operation), A = OList[ (Skip cA sA); oA]) ∧ 
+                                                     (∃ (cB:nat) (sB:side) (oB:Operation), B = OList[ (Skip cB sB); oB]) ∧ 
+                                                     (∃ (cC:nat) (sC:side) (oC:Operation), C = OList[ (Skip cC sC); oC])) → (A ○ B) ○ C = A ○ (B ○ C).
+intros.
+destruct H as [[cA [sA [oA HA]]] H].
+destruct H as [[cB [sB [oB HB]]] H].
+destruct H as [cC [sC [oC HC]]].
+
+
+(* Extract skip term *)
+set (C0:=(fst (splitOList C cC sC))).
+set (C1:=(snd (splitOList C cC sC))).
+
+assert ((C0 = (OList [(Skip cC sC)])) ∧ C1 = (OList [oC])).
+  specialize splitOListFirst with (A:= C). 
+  rewrite HC. 
+  intros. subst C0. subst C1. subst C. rewrite H; intuition. destruct H as [C0List C1List].
+
+rewrite <-splitOListEquality with (A:=(A ○ B) ○ C) (n:=cC) (s:=sC).
+rewrite <-splitOListEquality with (A:=A ○ (B ○ C)) (n:=cC) (s:=sC).
+
+f_equal.
+f_equal.
+f_equal.
+
+(* Proof equality for skip term *)
+
+(* Simplify left side *)
+rewrite splitOListSquash with (A:=(A ○ B)). 
+  unfold fst at 1. 
+  fold C0. 
+  rewrite C0List. 
+  rewrite singleSkipNop.
+
+(* Simplify right side *)
+rewrite splitOListSquash with (B:=(B ○ C)). 
+  unfold fst at 2. 
+  rewrite splitOListSquash with (A:=B).
+  unfold fst at 3.
+  fold C0. 
+  rewrite C0List. 
+  rewrite singleSkipNop.
+  rewrite splitOListSquash with (A:=A).
+  unfold fst. 
+  auto.
+  
+(* Extract operations term and remainder *)
+set (oCl := (fst (SquashIterationDefinition.(getLengthInSequenceA) oC))).
+set (oCs := (snd (SquashIterationDefinition.(getLengthInSequenceA) oC))).
+set (C1_0:=(fst (splitOList C1 oCl oCs))).
+set (C1_1:=(snd (splitOList C1 oCl oCs))).
+
+assert (C1_0 = (OList [oC]) ∧ C1_1 = (OList [])).
+  specialize splitOListFirst with (A:= C1).
+  rewrite C1List.  rewrite ->surjective_pairing with (p:= (SquashIterationDefinition.(getLengthInSequenceA) oC)). unfold getOListLength. unfold length.
+  intros. subst C1_0. subst C1_1. rewrite C1List. unfold oCl. unfold oCs. rewrite H; intuition. destruct H as [C1_0List C1_1List].
+
+(*Split proof into operations term and remainder *)
+f_equal.
+
+rewrite splitOListSquash with (A:=(A ○ B)).
+unfold snd at 1.
+fold C1.
+
+rewrite splitOListSquash with (B:= (B ○ C)).
+unfold snd at 2.
+
+rewrite splitOListSquash with (B:= C).
+unfold snd at 3.
+fold C1.
+
+rewrite splitOListSquash with (A:=(A)).
+unfold snd at 1.
+set (ARem := snd (splitOList A cC sC)).
+set (BRem := snd (splitOList B cC sC)).
+
+rewrite <-splitOListEquality with (A:=((ARem ○ BRem) ○ C1)) (n:=oCl) (s:=oCs).
+rewrite <-splitOListEquality with (A:=(ARem ○ (BRem ○ C1))) (n:=oCl) (s:=oCs).
+
+(* Proof equality for operation term *)
+f_equal.
+f_equal; f_equal.
+
+(* Simplify left side *)
+rewrite splitOListSquash with (A:=(ARem ○ BRem)). 
+unfold fst at 1. 
+fold C1_0. 
+rewrite C1_0List. 
+
+
+(* Simplify right side *)
+rewrite splitOListSquash with (B:=(BRem ○ C1)). 
+unfold fst at 2. 
+rewrite splitOListSquash with (A:=BRem).
+unfold fst at 3.
+fold C1_0. 
+rewrite C1_0List. 
+
+specialize singleOpAssociativity with (A:= ARem) (B:=BRem) (o:=oC).
+rewrite surjective_pairing with (p := (getLengthInSequenceA SquashIterationDefinition oC)).
+intros.
+assumption.
+  
+
+(* Proof equality for the remainder *)
+rewrite splitOListSquash with (A:=(ARem ○ BRem)).
+unfold snd at 1. 
+fold C1_1.
+rewrite C1_1List.
+rewrite emptyOListNop.
+
+rewrite splitOListSquash with (B:=(BRem ○ C1)).
+unfold snd at 2.
+rewrite splitOListSquash with (A:=BRem).
+unfold snd at 3.
+fold C1_1.
+rewrite C1_1List.
+rewrite emptyOListNop.
+
+rewrite splitOListSquash with (A:=(ARem)).
+unfold snd at 1.
+reflexivity.
+Qed.
 
 Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
 intro A.
