@@ -489,6 +489,79 @@ apply functional_extensionality_dep. intros.
 rewrite H. reflexivity.
 Qed.
 
+Lemma emptyOListNop2: ∀ (A : operationList), (((OList []) ○ A) = A).
+Admitted.
+
+Definition getNextOperation (opA : Operation) (opB : Operation) : (Operation * (list Operation) * (list Operation)).
+Admitted.
+
+Lemma extractFirstSquashOp : ∀ (A B : (list Operation)), A <> [] ∧ B <> [] → (OList A) ○ (OList B) = 
+  let '(combinedOp, remainderA, remainderB) := (getNextOperation (hd (Skip< 0) A) (hd (Skip< 0) B)) in
+  (OList (combinedOp::(getOListEntries ((OList (remainderA++(tail A))) ○ (OList (remainderB++(tail B))))))).
+Admitted.
+
+Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
+intro A. intro B. intro C.
+set (Y := (A,B,C)).
+assert (A=(fst(fst Y))). auto.
+assert (B=(snd(fst Y))). auto.
+assert (C=(snd Y)). auto.
+rewrite H. rewrite H0. rewrite H1. clear H. clear H0. clear H1.
+
+set (listLen := (fun X : (operationList * operationList * operationList) => let '(A0,B0,C0) := X in ((getOListLength A0) ) + (getOListLength B0) + (getOListLength C0))).
+(* apply induction_ltof1 with (f:=@getOListLength) (P:=(fun A0:operationList => (A0 ○ B) ○ C = A0 ○ (B ○ C))). unfold ltof. intros. clear Y. *)
+
+(* induction A as [A IHA] using (induction_ltof1 _ (@getOListLength)); unfold ltof in IHA. *)
+(* induction (A,B,C) as [Y IHA] using (induction_ltof1 _ (fun X : (operationList * operationList * operationList) => let '(A0,B0,C0) := X in ((getOListLength A0) ) + (getOListLength B0) + (getOListLength C0)) ).*)
+(* apply (induction_ltof1 _ (fun X : (operationList * operationList * operationList) => let '(A0,B0,C0) := X in ((getOListLength A0) ) + (getOListLength B0) + (getOListLength C0))). unfold ltof. intros. *)
+apply induction_ltof1 with (f:=@listLen) (P:=(fun X : (operationList * operationList * operationList) => (((fst (fst X)) ○ (snd (fst X))) ○ (snd X)) = (fst (fst X)) ○ ((snd (fst X)) ○ (snd X)))). unfold ltof. intros. rename H into IH.
+clear Y. clear A. clear B. clear C.
+set (A := (fst (fst x))).
+set (B := (snd (fst x))).
+set (C := (snd x)). 
+
+(*assert ( ((listLen (A,B,C)) = 0) ∨ ((listLen (A,B,C)) > 0)). lia. destruct H.
+  
+  - assert (A = (OList []) ∧ B = (OList []) ∧ C = (OList [])).
+    unfold listLen in H.
+    assert ( ((getOListLength A) = 0) ∧ ((getOListLength B) = 0) ∧ ((getOListLength C) = 0)). lia. destruct H0 as [LA [LB LC]].
+    split. destruct A. f_equal. apply ->length_zero_iff_nil. assumption. 
+    split. destruct B. f_equal. apply ->length_zero_iff_nil. assumption. 
+    destruct C. f_equal. apply ->length_zero_iff_nil. assumption.
+    destruct H0 as [Aempty [Bempty Cempty]].
+    rewrite Aempty. rewrite Bempty. rewrite Cempty.
+    repeat rewrite emptyOListNop.
+    reflexivity.
+  - *)
+destruct A as [AEntries]. destruct AEntries as [|AHead ATail].  repeat rewrite emptyOListNop2. reflexivity. (*set (A:=(OList (AHead::ATail))).*)
+destruct B as [BEntries]. destruct BEntries as [|BHead BTail].  rewrite emptyOListNop. rewrite emptyOListNop2. reflexivity. (*set (B:=(OList (BHead::BTail))).*)
+destruct C as [CEntries]. destruct CEntries as [|CHead CTail].  repeat rewrite emptyOListNop. reflexivity. (*set (C:=(OList (CHead::CTail))).*)
+
+rewrite extractFirstSquashOp with (A:=AHead::ATail) (B:=BHead::BTail).
+set (nextOp:=(getNextOperation (hd (Skip< 0) (AHead :: ATail)) (hd (Skip< 0) (BHead :: BTail)))).
+rewrite surjective_pairing with (p:=nextOp).
+rewrite surjective_pairing with (p:=(fst nextOp)).
+rewrite extractFirstSquashOp.
+set (nextOp2:=(getNextOperation
+    (hd (Skip< 0)
+       (fst (fst nextOp)
+        :: getOListEntries
+             (OList (snd (fst nextOp) ++ tl (AHead :: ATail)) ○ OList (snd nextOp ++ tl (BHead :: BTail)))))
+    (hd (Skip< 0) (CHead :: CTail)))).
+rewrite surjective_pairing with (p:=nextOp2).
+rewrite surjective_pairing with (p:=(fst nextOp2)).
+
+
+
+
+rewrite extractFirstSquashOp with (A:=(getOListEntries () (B:=CHead::CTail).
+rewrite extractFirstSquashOp.
+set (A:=(OList (AHead::ATail))).
+set (B:=(OList (BHead::BTail))).
+set (C:=(OList (CHead::CTail))).
+simpl.
+
+
 Lemma trivialOListAssoc: ∀ (B C :operationList),  ((OList []) ○ B) ○ C = (OList []) ○ (B ○ C).
 intros.
   assert (∀ y, (OList []) ○ y = y) as H0.
@@ -645,7 +718,7 @@ unfold snd at 1.
 reflexivity.
 Qed.
 
-Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
+(*Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
 intro A.
 induction A as [A IHA] using (induction_ltof1 _ (@getOListLength)); unfold ltof in IHA.
 
@@ -691,7 +764,7 @@ assert ((getOListLength A = 0) ∨ (getOListLength A > 0)) as lA0Eq. lia.
   all: auto.
 
 Qed.
-
+*)
 
 
 
