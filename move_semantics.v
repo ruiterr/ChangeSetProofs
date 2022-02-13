@@ -449,8 +449,45 @@ Admitted.
 Lemma singleSkipNop: ∀ (A : operationList) (n:nat) (s:side), (A ○ (OList [Skip n s]) = A).
 Admitted.
 
+Program Fixpoint bla (n:nat) {measure n} :=
+match n with
+| 0 => 0
+| S n' => S (bla n')
+end.
+
+Print bla.
+Lemma obvious: forall n, bla n = n.
+Proof.
+intro n ; induction n.
+ reflexivity.
+ unfold bla . rewrite fix_sub_eq . simpl ; fold (bla n).
+ rewrite IHn ; reflexivity.
+
+(* This can probably be automated using Ltac *)
+ intros x f g Heq.
+  destruct x.
+  reflexivity.
+  f_equal ; apply Heq.
+Qed.
+
+
 Lemma emptyOListNop: ∀ (A : operationList), (A ○ (OList []) = A).
-Admitted.
+intros.
+unfold squash.
+destruct A.
+f_equal.
+unfold iterateOverOperationLists.
+Print iterateOverOperationLists_func.
+cbv delta [iterateOverOperationLists_func].
+rewrite fix_sub_eq. 
+simpl. destruct entries; reflexivity. 
+intros. destruct x. destruct s. destruct x. simpl. destruct x0. reflexivity. destruct l. reflexivity. f_equal. rewrite H. repeat f_equal. 
+apply functional_extensionality_dep. intros.
+apply functional_extensionality_dep. intros.
+apply functional_extensionality_dep. intros.
+apply functional_extensionality_dep. intros.
+rewrite H. reflexivity.
+Qed.
 
 Lemma trivialOListAssoc: ∀ (B C :operationList),  ((OList []) ○ B) ○ C = (OList []) ○ (B ○ C).
 intros.
