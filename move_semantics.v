@@ -544,22 +544,49 @@ resolveLet firstOpL1.
 rewrite extractFirstSquashOp. simpl.
 resolveLet firstOpL2. simpl. rename remainderA0 into remainderAB. rename remainderB0 into remainderC.
 
+set (lengthOfCHeadInB := (fst (SquashIterationDefinition.(getLengthInSequenceB) combinedOp0))).
+set (lengthOfCHeadInA := (fst (SquashIterationDefinition.(getLengthInSequenceA) combinedOp0))).
+
 (* rewrite <-extractFirstSquashOp with (A:=AHead::ATail) (B:=Head::BTail). simpl. *)
-set (AHeadSplitPart:=(snd (SquashIterationDefinition.(splitOperation) AHead 1 left))).
-set (BHeadSplitPart:=(snd (SquashIterationDefinition.(splitOperation) BHead 1 left))).
-assert ((OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) = ((OList (AHeadSplitPart++(remainderA ++ ATail))) ○ OList (BHeadSplitPart++remainderB ++ BTail))) as swapRemainderA.
+set (AHeadSplitPart:=(snd (SquashIterationDefinition.(splitOperation) AHead lengthOfCHeadInA left))).
+set (BHeadSplitPart:=(snd (SquashIterationDefinition.(splitOperation) BHead lengthOfCHeadInB left))).
+
+assert ( (length AHeadSplitPart = 1 ∧ length BHeadSplitPart = 1) ). give_up.
+
+specialize extractFirstSquashOp with (A:=AHeadSplitPart++ATail) (B:=BHeadSplitPart++BTail).
+resolveLet remainderABOp.
+assert (remainderAB = [(fst (fst remainderABOp))]). give_up.
+assert (remainderA = (snd (fst remainderABOp))). give_up.
+assert (remainderB = (snd remainderABOp)). give_up.
+
+rewrite H0. 
+rewrite H1. 
+rewrite H2.
+fold combinedOp1. 
+fold remainderA0. 
+fold remainderB0.
+simpl.
+assert( (tl (AHeadSplitPart++ATail)) = ATail). give_up.
+assert( (tl (BHeadSplitPart++BTail)) = BTail). give_up.
+rewrite H3.
+rewrite H4.
+intros.
+rewrite <-H5.
+
+
+(*assert ((OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) = ((OList (AHeadSplitPart++(remainderA ++ ATail))) ○ OList (BHeadSplitPart++remainderB ++ BTail))) as swapRemainderA.*)
 (* Here the magic happens 1! *)
-give_up.
-rewrite swapRemainderA.
+(* give_up. *)
+(* rewrite swapRemainderA. *)
 
 (* Apply induction hypothesis to swap operations in remainder *)
-set (Y0 := (OList (AHeadSplitPart ++ remainderA ++ ATail))).
-set (Y1 := (OList (BHeadSplitPart ++ remainderB ++ BTail))).
+set (Y0 := (OList (AHeadSplitPart ++ ATail))).
+set (Y1 := (OList (BHeadSplitPart ++ BTail))).
 set (Y2 := (OList (remainderC ++ CTail))).
 set (Y:=(Y0,Y1,Y2)).
-assert (Y0=(fst (fst Y))). auto. rewrite H.
-assert (Y1=(snd (fst Y))). auto. rewrite H0.
-assert (Y2=(snd Y)). auto. rewrite H1.
+assert (Y0=(fst (fst Y))) as AY0. auto. rewrite AY0.
+assert (Y1=(snd (fst Y))) as AY1. auto. rewrite AY1.
+assert (Y2=(snd Y)) as AY2. auto. rewrite AY2.
 
 rewrite IH with (y:=Y).
 
@@ -580,6 +607,33 @@ do 2 f_equal.
 give_up.
 
 f_equal.
+
+set (lengthOfAHeadInB := (fst (SquashIterationDefinition.(getLengthInSequenceB) combinedOp2))).
+set (lengthOfAHeadInC := (fst (SquashIterationDefinition.(getLengthInSequenceB) combinedOp2))).
+
+set (BHeadSplitPart_R :=(snd (SquashIterationDefinition.(splitOperation) AHead lengthOfAHeadInB left))).
+set (CHeadSplitPart_R :=(snd (SquashIterationDefinition.(splitOperation) BHead lengthOfAHeadInC left))).
+specialize extractFirstSquashOp with (A:=BHeadSplitPart_R++BTail) (B:=CHeadSplitPart_R++CTail).
+resolveLet remainderABOp_R.
+assert (remainderBC_R = [(fst (fst remainderABOp_R))]). give_up.
+assert (remainderA1 = (snd (fst remainderABOp_R))). give_up.
+assert (remainderB1 = (snd remainderABOp_R)). give_up.
+
+rewrite H6. 
+rewrite H7. 
+rewrite H8.
+fold combinedOp4. 
+fold remainderA0. 
+fold remainderB0.
+simpl.
+assert( (tl (BHeadSplitPart_R++BTail)) = BTail). give_up.
+assert( (tl (CHeadSplitPart_R++CTail)) = CTail). give_up.
+rewrite H9.
+rewrite H10.
+intros.
+rewrite <-H11.
+
+
 
 give_up.
 
