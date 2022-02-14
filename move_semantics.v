@@ -10,6 +10,7 @@ Require Import Coq.Program.Wf.
 Require Import Omega.
 Require Import Lia.
 
+
 Inductive id : Type := 
   | Id  (n : nat).
 
@@ -500,8 +501,20 @@ Lemma extractFirstSquashOp : ∀ (A B : (list Operation)), A <> [] ∧ B <> [] �
   (OList (combinedOp::(getOListEntries ((OList (remainderA++(tail A))) ○ (OList (remainderB++(tail B))))))).
 Admitted.
 
+
+Local Ltac resolveLet VarName := match goal with 
+  | [|- context[match ?term with | (pair (p) (varC)) => match p with | (pair (varA) (varB)) => _ end end]] => 
+    set (VarName:=term); 
+    rewrite surjective_pairing with (p:=VarName); 
+    rewrite surjective_pairing with (p:=(fst VarName));
+    let a := fresh varA in set (a:= (fst (fst VarName)));
+    let b := fresh varB in set (b:= (snd (fst VarName)));
+    let c := fresh varC in set (c:= (snd VarName))
+end.
+
 Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
 intro A. intro B. intro C.
+Opaque squash.
 set (Y := (A,B,C)).
 assert (A=(fst(fst Y))). auto.
 assert (B=(snd(fst Y))). auto.
@@ -520,28 +533,71 @@ set (A := (fst (fst x))).
 set (B := (snd (fst x))).
 set (C := (snd x)). 
 
-(*assert ( ((listLen (A,B,C)) = 0) ∨ ((listLen (A,B,C)) > 0)). lia. destruct H.
-  
-  - assert (A = (OList []) ∧ B = (OList []) ∧ C = (OList [])).
-    unfold listLen in H.
-    assert ( ((getOListLength A) = 0) ∧ ((getOListLength B) = 0) ∧ ((getOListLength C) = 0)). lia. destruct H0 as [LA [LB LC]].
-    split. destruct A. f_equal. apply ->length_zero_iff_nil. assumption. 
-    split. destruct B. f_equal. apply ->length_zero_iff_nil. assumption. 
-    destruct C. f_equal. apply ->length_zero_iff_nil. assumption.
-    destruct H0 as [Aempty [Bempty Cempty]].
-    rewrite Aempty. rewrite Bempty. rewrite Cempty.
-    repeat rewrite emptyOListNop.
-    reflexivity.
-  - *)
-destruct A as [AEntries]. destruct AEntries as [|AHead ATail].  repeat rewrite emptyOListNop2. reflexivity. (*set (A:=(OList (AHead::ATail))).*)
-destruct B as [BEntries]. destruct BEntries as [|BHead BTail].  rewrite emptyOListNop. rewrite emptyOListNop2. reflexivity. (*set (B:=(OList (BHead::BTail))).*)
-destruct C as [CEntries]. destruct CEntries as [|CHead CTail].  repeat rewrite emptyOListNop. reflexivity. (*set (C:=(OList (CHead::CTail))).*)
+(* Handle cases where one of the inputs is an empty list *)
+destruct A as [AEntries]. destruct AEntries as [|AHead ATail].  repeat rewrite emptyOListNop2. reflexivity. 
+destruct B as [BEntries]. destruct BEntries as [|BHead BTail].  rewrite emptyOListNop. rewrite emptyOListNop2. reflexivity.
+destruct C as [CEntries]. destruct CEntries as [|CHead CTail].  repeat rewrite emptyOListNop. reflexivity.
 
-rewrite extractFirstSquashOp with (A:=AHead::ATail) (B:=BHead::BTail).
-set (nextOp:=(getNextOperation (hd (Skip< 0) (AHead :: ATail)) (hd (Skip< 0) (BHead :: BTail)))).
-rewrite surjective_pairing with (p:=nextOp).
-rewrite surjective_pairing with (p:=(fst nextOp)).
-rewrite extractFirstSquashOp.
+(* Simplify left side *)
+rewrite extractFirstSquashOp with (A:=AHead::ATail) (B:=BHead::BTail). simpl.
+resolveLet firstOpL1.
+rewrite extractFirstSquashOp. simpl.
+resolveLet firstOpL2. simpl. rename remainderA0 into remainderAB. rename remainderB0 into remainderC.
+
+(* rewrite <-extractFirstSquashOp with (A:=AHead::ATail) (B:=Head::BTail). simpl. *)
+set (AHeadSplitPart:=(snd (SquashIterationDefinition.(splitOperation) AHead 1 left))).
+set (BHeadSplitPart:=(snd (SquashIterationDefinition.(splitOperation) BHead 1 left))).
+assert ((OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) = ((OList (AHeadSplitPart++(remainderA ++ ATail))) ○ OList (BHeadSplitPart++remainderB ++ BTail))) as swapRemainderA.
+(* Here the magic happens 1! *)
+give_up.
+rewrite swapRemainderA.
+
+(* Apply induction hypothesis to swap operations in remainder *)
+set (Y0 := (OList (AHeadSplitPart ++ remainderA ++ ATail))).
+set (Y1 := (OList (BHeadSplitPart ++ remainderB ++ BTail))).
+set (Y2 := (OList (remainderC ++ CTail))).
+set (Y:=(Y0,Y1,Y2)).
+assert (Y0=(fst (fst Y))). auto. rewrite H.
+assert (Y1=(snd (fst Y))). auto. rewrite H0.
+assert (Y2=(snd Y)). auto. rewrite H1.
+
+rewrite IH with (y:=Y).
+
+
+(* Simplify right side *)
+(* assert (∀ X, (OList (getOListEntries X)) = X). unfold getOListEntries. destruct X. auto.
+rewrite <-H2 with (X:=(OList (BHead :: BTail) ○ OList (CHead :: CTail))).*)
+rewrite extractFirstSquashOp with (A:=BHead::BTail) (B:=CHead::CTail). simpl.
+resolveLet firstOpR1. rename remainderA0 into remainderB_R. rename remainderB0 into remainderC_R.
+rewrite extractFirstSquashOp with (A:=AHead::ATail). simpl.
+resolveLet firstOpR2. rename remainderA0 into remainderA_R. rename remainderB0 into remainderBC_R. simpl. 
+subst Y0; subst Y1; subst Y2; subst Y.
+
+
+do 2 f_equal.
+
+
+give_up.
+
+f_equal.
+
+give_up.
+
+split. 
+- specialize nil_cons with (x:=AHead) (l:=ATail). auto.
+- specialize nil_cons with (x:=combinedOp1). auto.
+- split. specialize nil_cons with (x:=BHead). auto.
+specialize nil_cons with (x:=CHead). auto.
+- give_up.
+- split. specialize nil_cons with (x:=combinedOp). auto.
+specialize nil_cons with (x:=CHead). auto.
+- split.
+specialize nil_cons with (x:=AHead). auto.
+specialize nil_cons with (x:=BHead). auto.
+Admitted.
+
+
+fold remainderB.
 set (nextOp2:=(getNextOperation
     (hd (Skip< 0)
        (fst (fst nextOp)
