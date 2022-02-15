@@ -686,22 +686,23 @@ rewrite extractFirstSquashOp with (A:=AHead::ATail). simpl.
 resolveLet firstOpR2. rename remainderA0 into remainderA_R. rename remainderB0 into remainderBC_R. simpl. 
 subst Y0; subst Y1; subst Y2; subst Y.
 
-specialize moveOperationIntoSquash with (AHead := BHead) (BHead := CHead) (CHead := AHead) (ATail := BTail) (BTail := CTail) as H_Swap.
+specialize moveOperationIntoSquash with (AHead := BHead) (BHead := CHead) (CHead := AHead) (ATail := BTail) (BTail := CTail) as H_Swap_R.
 
-assert( (minSplitLength BHead CHead AHead) = minSplitLength AHead BHead CHead ). give_up. rewrite H in H_Swap. clear H.
-
-fold AHeadSplit in H_Swap.
-fold BHeadSplit in H_Swap.
-fold CHeadSplit in H_Swap.
-fold firstOpR1 in H_Swap.
-fold combinedOp1 in H_Swap.
-fold firstOpR2 in H_Swap.
-fold remainderAB in H_Swap.
-fold remainderA in H_Swap.
-fold remainderB in H_Swap.
-fold remainderC in H_Swap.
-assert ( (OList (BHeadSplit++BTail) ○ OList (CHeadSplit++CTail) = OList (remainderBC_R ++ getOListEntries (OList (remainderB_R ++ BTail) ○ OList (remainderC_R ++ CTail)))) ∧ (remainderA_R=AHeadSplit)) as H_Swap_R.
-give_up.
+assert( (minSplitLength BHead CHead AHead) = minSplitLength AHead BHead CHead ). give_up. rewrite H in H_Swap_R. clear H.
+fold AHeadSplit in H_Swap_R.
+fold BHeadSplit in H_Swap_R.
+fold CHeadSplit in H_Swap_R.
+fold firstOpR1 in H_Swap_R.
+fold combinedOp1 in H_Swap_R.
+assert((getNextOperation combinedOp1 AHead) = (getNextOperation AHead combinedOp1)). give_up. rewrite ->H in H_Swap_R. clear H.
+fold firstOpR2 in H_Swap_R.
+fold remainderBC_R in H_Swap_R.
+fold remainderA_R in H_Swap_R.
+fold remainderB_R in H_Swap_R.
+fold remainderC_R in H_Swap_R.
+assert(remainderBC_R=remainderA_R) as H_SwapRemainder. give_up. rewrite <-H_SwapRemainder in H_Swap_R. 
+(* assert ( (OList (BHeadSplit++BTail) ○ OList (CHeadSplit++CTail) = OList (remainderBC_R ++ getOListEntries (OList (remainderB_R ++ BTail) ○ OList (remainderC_R ++ CTail)))) ∧ (remainderA_R=AHeadSplit)) as H_Swap_R.
+give_up. *)
 (*destruct H as [H_remA]. 
 split.
 
@@ -740,9 +741,8 @@ rewrite HremA.
 rewrite HremB.
 simpl.
 unfold getOListEntries. destruct (OList (AHeadSplit ++ ATail) ○ OList (BHeadSplit ++ BTail)). auto.*)
-
 destruct H_Swap_R as [H_SwapBC H_SwapA].
-rewrite <-H_SwapBC. rewrite H_SwapA. clear H_SwapBC H_SwapA.
+rewrite <-H_SwapBC. rewrite <-H_SwapRemainder. rewrite H_SwapA. clear H_SwapBC H_SwapA.
 
 do 2 f_equal.
 give_up.
