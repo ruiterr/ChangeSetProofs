@@ -538,6 +538,83 @@ Ltac forward_gen H tac :=
 Tactic Notation "forward" constr(H) := forward_gen H ltac:(idtac).
 Tactic Notation "forward" constr(H) "by" tactic(tac) := forward_gen H tac.
 
+Section SwapProof.
+
+Variables AHead BHead CHead : Operation.
+Variables ATail BTail CTail : (list Operation).
+
+Let AHeadSplit := snd (splitOperation SquashIterationDefinition AHead (minSplitLength AHead BHead CHead) left).
+Let BHeadSplit := snd (splitOperation SquashIterationDefinition BHead (minSplitLength AHead BHead CHead) left).
+Let CHeadSplit := snd (splitOperation SquashIterationDefinition CHead (minSplitLength AHead BHead CHead) left).
+
+Let OpResult1 :=  (getNextOperation AHead BHead).
+Let Op := (fst (fst OpResult1)).
+Let remainderA := (snd (fst OpResult1)).
+Let remainderB := (snd OpResult1).
+
+Let OpResult2 := (getNextOperation Op  CHead).
+Let CombinedOp1 := (fst (fst OpResult2)).
+Let remainderAB := (snd (fst OpResult2)).
+Let remainderC := (snd OpResult2).
+
+Lemma moveOperationIntoSquash: (OList (AHeadSplit++ATail) ○ OList (BHeadSplit++BTail) = OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) ∧ (remainderC=CHeadSplit).
+
+  specialize getNextOperationCombination with (AHead:=AHead) (BHead:=BHead) (CHead:=CHead).
+  fold AHeadSplit. fold BHeadSplit. fold CHeadSplit.
+  resolveLet getNextOp1.
+  resolveLet getNextOp2.
+
+  intros. 
+
+
+  set (lengthC  := fst (getLengthInSequenceB SquashIterationDefinition CHead)).
+  set (lengthOp := fst (getLengthInSequenceA SquashIterationDefinition Op)).
+
+  destruct H as [H_remC]. 
+  split.
+
+  assert (lengthC < lengthOp ∨ lengthC >= lengthOp) as LenEq. lia.
+  destruct LenEq. rename H0 into H_Bigger.
+
+  (* Case lengthC < lengthOp *)
+  destruct H. forward H. apply H_Bigger. destruct H. destruct H. destruct H. destruct H. destruct H1.  destruct H2. 
+  specialize extractFirstSquashOp with (A:=AHeadSplit++ATail) (B:=BHeadSplit++BTail). simpl.
+  resolveLet remainderABOp.
+  assert (remainderAB = [(fst (fst remainderABOp))]) as H_RAB. unfold remainderABOp. rewrite <-H1. rewrite <-H2. simpl. rewrite <-H3. simpl. rewrite <-H. auto.
+  assert (remainderA = (snd (fst remainderABOp))) as H_RA. unfold remainderABOp. rewrite <-H1. rewrite <-H2. simpl. rewrite <-H3. simpl. auto.
+  assert (remainderB = (snd remainderABOp)) as H_RB. unfold remainderABOp. rewrite <-H1. rewrite <-H2. simpl. rewrite <-H3. simpl. auto.
+
+  rewrite H_RAB. 
+  rewrite H_RA. 
+  rewrite H_RB.
+  fold combinedOp.
+  fold remainderA0. 
+  fold remainderB0.
+  simpl. rewrite <-H1. rewrite <-H2. simpl.
+  intros.
+
+  rewrite <-H4. reflexivity.
+  split. 
+  specialize nil_cons with (x:=x0) (l:=ATail). auto.
+  specialize nil_cons with (x:=x1) (l:=BTail). auto.
+
+  (* Case lengthC >= lengthOp *)
+  destruct H.
+  forward H1. auto.
+  destruct H1 as [HremAB [HremA HremB]].
+  change remainderAB with remAB.
+  change remainderA with remA.
+  change remainderB with remB.
+  rewrite HremAB.
+  rewrite HremA.
+  rewrite HremB.
+  simpl.
+  unfold getOListEntries. destruct (OList (AHeadSplit ++ ATail) ○ OList (BHeadSplit ++ BTail)). auto.
+  auto.
+  Qed.
+
+End SwapProof.
+
 Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
 intro A. intro B. intro C.
 Opaque squash.
@@ -574,7 +651,18 @@ set (AHeadSplit := snd (splitOperation SquashIterationDefinition AHead (minSplit
 set (BHeadSplit := snd (splitOperation SquashIterationDefinition BHead (minSplitLength AHead BHead CHead) left)).
 set (CHeadSplit := snd (splitOperation SquashIterationDefinition CHead (minSplitLength AHead BHead CHead) left)).
 
-assert ( (OList (AHeadSplit++ATail) ○ OList (BHeadSplit++BTail) = OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) ∧ (remainderC=CHeadSplit)) as H_Swap.
+specialize moveOperationIntoSquash with (AHead := AHead) (BHead := BHead) (CHead := CHead) (ATail := ATail) (BTail := BTail) as H_Swap.
+fold AHeadSplit in H_Swap.
+fold BHeadSplit in H_Swap.
+fold CHeadSplit in H_Swap.
+fold firstOpL1 in H_Swap.
+fold combinedOp in H_Swap.
+fold firstOpL2 in H_Swap.
+fold remainderAB in H_Swap.
+fold remainderA in H_Swap.
+fold remainderB in H_Swap.
+fold remainderC in H_Swap.
+(* assert ( (OList (AHeadSplit++ATail) ○ OList (BHeadSplit++BTail) = OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) ∧ (remainderC=CHeadSplit)) as H_Swap.
 
   specialize getNextOperationCombination with (AHead:=AHead) (BHead:=BHead) (CHead:=CHead).
   fold AHeadSplit. fold BHeadSplit. fold CHeadSplit.
@@ -628,7 +716,7 @@ assert ( (OList (AHeadSplit++ATail) ○ OList (BHeadSplit++BTail) = OList (remai
   simpl.
   unfold getOListEntries. destruct (OList (AHeadSplit ++ ATail) ○ OList (BHeadSplit ++ BTail)). auto.
   auto.
-  auto.
+  auto.*)
 
 destruct H_Swap as [H_SwapAB H_SwapC].
 rewrite <-H_SwapAB. rewrite H_SwapC. clear H_SwapAB. clear H_SwapC.
