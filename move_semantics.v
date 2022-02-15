@@ -505,8 +505,9 @@ Definition minSplitLength (A B C : Operation) : nat := 5.
 
 Lemma getNextOperationCombination: ∀ (AHead : Operation) (BHead : Operation) (CHead : Operation),
   (let '(Op, remA, remB) := (getNextOperation AHead BHead) in
-  let '(_, remAB, _) := (getNextOperation Op  CHead) in (* AHead = BHead ∧ BHead = CHead.*)
+  let '(_, remAB, remC) := (getNextOperation Op  CHead) in (* AHead = BHead ∧ BHead = CHead.*)
   
+   remC = (snd (SquashIterationDefinition.(splitOperation) CHead (minSplitLength AHead BHead CHead) left)) ∧ 
    ((fst (SquashIterationDefinition.(getLengthInSequenceB) CHead)) < (fst (SquashIterationDefinition.(getLengthInSequenceA) Op)) → 
     (∃ (remABOp remAOp remBOp : Operation), (
       remAB = [remABOp]) ∧ 
@@ -575,17 +576,19 @@ resolveLet getNextOp2.
 
 set (AHeadSplit := snd (splitOperation SquashIterationDefinition AHead (minSplitLength AHead BHead CHead) left)).
 set (BHeadSplit := snd (splitOperation SquashIterationDefinition BHead (minSplitLength AHead BHead CHead) left)).
+set (CHeadSplit := snd (splitOperation SquashIterationDefinition CHead (minSplitLength AHead BHead CHead) left)).
 intros. 
 
 
 set (lengthC  := fst (getLengthInSequenceB SquashIterationDefinition CHead)).
 set (lengthOp := fst (getLengthInSequenceA SquashIterationDefinition Op)).
 
-assert ( OList (AHeadSplit++ATail) ○ OList (BHeadSplit++BTail) = OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) as H_Swap.
+assert ( (OList (AHeadSplit++ATail) ○ OList (BHeadSplit++BTail) = OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) ∧ (remainderC=CHeadSplit)) as H_Swap.
+destruct H as [H_remC]. 
+split.
 
 assert (lengthC < lengthOp ∨ lengthC >= lengthOp) as LenEq. lia.
 destruct LenEq. rename H0 into H_Bigger.
-
 (* Case lengthC < lengthOp *)
 destruct H. forward H. apply H_Bigger. destruct H. destruct H. destruct H. destruct H. destruct H1.  destruct H2. 
 specialize extractFirstSquashOp with (A:=AHeadSplit++ATail) (B:=BHeadSplit++BTail). simpl.
@@ -602,11 +605,13 @@ fold remainderA0.
 fold remainderB0.
 simpl. rewrite <-H1. rewrite <-H2. simpl.
 intros.
-rewrite <-H4. reflexivity. 
+
+rewrite <-H4. reflexivity.
+split. 
+specialize nil_cons with (x:=x1) (l:=ATail). auto.
+specialize nil_cons with (x:=x2) (l:=BTail). auto.
 
 (* Case lengthC >= lengthOp *)
-split. specialize nil_cons with (x:=x1) (l:=ATail). auto.
-specialize nil_cons with (x:=x2) (l:=BTail). auto.
 destruct H.
 forward H1. auto.
 destruct H1 as [HremAB [HremA HremB]].
@@ -618,8 +623,11 @@ rewrite HremA.
 rewrite HremB.
 simpl.
 unfold getOListEntries. destruct (OList (AHeadSplit ++ ATail) ○ OList (BHeadSplit ++ BTail)). auto.
+auto.
+auto.
 
-rewrite <-H_Swap. clear H_Swap.
+destruct H_Swap as [H_SwapAB H_SwapC].
+rewrite <-H_SwapAB. rewrite H_SwapC. clear H_SwapAB. clear H_SwapC.
 
 
 (*assert ((OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) = ((OList (AHeadSplitPart++(remainderA ++ ATail))) ○ OList (BHeadSplitPart++remainderB ++ BTail))) as swapRemainderA.*)
@@ -630,7 +638,7 @@ rewrite <-H_Swap. clear H_Swap.
 (* Apply induction hypothesis to swap operations in remainder *)
 set (Y0 := (OList (AHeadSplit ++ ATail))).
 set (Y1 := (OList (BHeadSplit ++ BTail))).
-set (Y2 := (OList (remainderC ++ CTail))).
+set (Y2 := (OList (CHeadSplit ++ CTail))).
 set (Y:=(Y0,Y1,Y2)).
 assert (Y0=(fst (fst Y))) as AY0. auto. rewrite AY0.
 assert (Y1=(snd (fst Y))) as AY1. auto. rewrite AY1.
@@ -649,12 +657,14 @@ resolveLet firstOpR2. rename remainderA0 into remainderA_R. rename remainderB0 i
 subst Y0; subst Y1; subst Y2; subst Y.
 
 
-(OList (remainderBC_R ++ getOListEntries (OList (remainderB_R ++ BTail) ○ OList (remainderC_R ++ CTail))))
-(OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail))))
+(*
+ (OList (remainderBC_R ++ getOListEntries (OList (remainderB_R ++ BTail) ○ OList (remainderC_R ++ CTail))))
+ (OList (remainderAB ++ getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) *)
 
-assert ( OList (AHeadSplit++ATail) ○ OList (BHeadSplit++BTail) = OList (remainderBC_R ++ getOListEntries (OList (remainderB_R ++ ATail) ○ OList (remainderC_R ++ BTail)))) as H_Swap.
+assert ( (OList (BHeadSplit++BTail) ○ OList (CHeadSplit++CTail) = OList (remainderBC_R ++ getOListEntries (OList (remainderB_R ++ BTail) ○ OList (remainderC_R ++ CTail)))) ∧ (remainderA_R=AHeadSplit)) as H_Swap_R.
+give_up.
 
-assert (lengthC < lengthOp ∨ lengthC >= lengthOp) as LenEq. lia.
+(* assert (lengthC < lengthOp ∨ lengthC >= lengthOp) as LenEq. lia.
 destruct LenEq. rename H0 into H_Bigger.
 
 (* Case lengthC < lengthOp *)
@@ -688,18 +698,15 @@ rewrite HremAB.
 rewrite HremA.
 rewrite HremB.
 simpl.
-unfold getOListEntries. destruct (OList (AHeadSplit ++ ATail) ○ OList (BHeadSplit ++ BTail)). auto.
+unfold getOListEntries. destruct (OList (AHeadSplit ++ ATail) ○ OList (BHeadSplit ++ BTail)). auto. *)
 
-rewrite <-H_Swap. clear H_Swap.
-
-
+destruct H_Swap_R as [H_SwapBC H_SwapA].
+rewrite <-H_SwapBC. rewrite H_SwapA. clear H_SwapBC H_SwapA.
 
 do 2 f_equal.
-
-
 give_up.
 
-f_equal.
+(*
 
 set (lengthOfAHeadInB := (fst (SquashIterationDefinition.(getLengthInSequenceB) combinedOp2))).
 set (lengthOfAHeadInC := (fst (SquashIterationDefinition.(getLengthInSequenceB) combinedOp2))).
@@ -728,7 +735,7 @@ rewrite <-H. clear H.
 
 
 
-give_up.
+give_up.*)
 
 split. 
 - specialize nil_cons with (x:=AHead) (l:=ATail). auto.
