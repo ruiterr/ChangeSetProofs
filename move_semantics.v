@@ -783,7 +783,7 @@ subst Y0; subst Y1; subst Y2; subst Y.
 
 specialize moveOperationIntoSquash2 with (AHead := BHead) (BHead := CHead) (CHead := AHead) (ATail := BTail) (BTail := CTail) as H_Swap_R.
 
-assert( (minSplitLength BHead CHead AHead) = minSplitLength AHead BHead CHead ). give_up. rewrite H in H_Swap_R. clear H.
+(* assert( (minSplitLength BHead CHead AHead) = minSplitLength AHead BHead CHead ). give_up. rewrite H in H_Swap_R. clear H. *)
 fold AHeadSplit in H_Swap_R.
 fold BHeadSplit in H_Swap_R.
 fold CHeadSplit in H_Swap_R.
