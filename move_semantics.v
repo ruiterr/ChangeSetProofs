@@ -610,6 +610,11 @@ Admitted.
 Lemma reverseCombine2: (snd(SwappedOpResult2)) = (snd(fst(OpResult2))).
 Admitted.
 
+Let OpResultBC :=  (getNextOperation BHead CHead).
+Let OpResultA_BC := (getNextOperation AHead (fst (fst OpResultBC))).
+Lemma reverseCombine3: (fst( (fst OpResultA_BC)) = (fst(fst(OpResult2)))).
+Admitted.
+
 End SwapProof.
 
 Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
@@ -699,7 +704,9 @@ destruct H_Swap_R as [H_SwapBC H_SwapA]. auto.
 rewrite <-H_SwapBC. rewrite H_SwapA. clear H_SwapBC H_SwapA.
 
 do 2 f_equal.
-give_up.
+specialize reverseCombine3 with (AHead:=AHead) (BHead:=BHead) (CHead:=CHead) as H_op; auto.
+
+cbv. cbv in H_op. rewrite <-H_op; auto.
 
 split. 
 - specialize nil_cons with (x:=AHead) (l:=ATail). auto.
