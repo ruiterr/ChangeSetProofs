@@ -620,6 +620,10 @@ Admitted.
 
 End SwapProof.
 
+Lemma listEmptyOrNot: ∀ (A: operationList), A = OList [] ∨ A <> OList [].
+destruct A. destruct entries. left. reflexivity. specialize nil_cons with (x:=o) (l:=entries). right. intros contra. assert( (o :: entries) = []). injection contra. trivial.  contradict H. rewrite H0. reflexivity.
+Qed.
+
 Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
 intro A. intro B. intro C.
 Opaque squash.
@@ -639,21 +643,15 @@ set (B := (snd (fst x))).
 set (C := (snd x)). 
 
 (* Handle cases where one of the inputs is an empty list *)
-(* destruct A as [AEntries]. destruct AEntries as [|AHead ATail].  repeat rewrite emptyOListNop2. reflexivity. 
-destruct B as [BEntries]. destruct BEntries as [|BHead BTail].  rewrite emptyOListNop. rewrite emptyOListNop2. reflexivity.
-destruct C as [CEntries]. destruct CEntries as [|CHead CTail].  repeat rewrite emptyOListNop. reflexivity. *)
+assert(A = (fst(fst x))). auto. destruct A as [entriesA]. destruct entriesA as [|AHead ATail]. repeat rewrite emptyOListNop2. reflexivity. rename H into H_AeqAHT.
+assert(B = (snd (fst x))). auto. destruct B as [entriesB]. destruct entriesB as [|BHead BTail]. rewrite emptyOListNop. rewrite emptyOListNop2. reflexivity. rename H into H_BeqBHT.
+assert(C = (snd x)). auto. destruct C as [entriesC]. destruct entriesC as [|CHead CTail]. repeat rewrite emptyOListNop. reflexivity. rename H into H_CeqCHT.
 
-
-assert ( A = OList [] ∨ A <> OList []). destruct A. assert(entries = [] ∨ ~(entries = [])).  destruct entries.  auto. right. specialize nil_cons with (x:=o) (l:=entries). auto. inversion H. rewrite H0. left. reflexivity. right.  intros contra.  rewrite H0.
-  destruct H as [H | H_A_nonEmpty]. rewrite H. repeat rewrite emptyOListNop2. reflexivity. 
-assert ( B = OList [] ∨ B <> OList []). give_up. destruct H as [H | H_B_nonEmpty]. rewrite H. rewrite emptyOListNop. rewrite emptyOListNop2. reflexivity. 
-assert ( C = OList [] ∨ C <> OList []). give_up. destruct H as [H | H_C_nonEmpty]. rewrite H. repeat rewrite emptyOListNop. reflexivity.
-
-assert(∃ (AHead:Operation) (ATail: list Operation), A = OList (AHead::ATail)). give_up. destruct H as [AHead [ATail H_AeqHT]].
-assert(∃ (BHead:Operation) (BTail: list Operation), B = OList (BHead::BTail)). give_up. destruct H as [BHead [BTail H_BeqHT]].
-assert(∃ (CHead:Operation) (CTail: list Operation), C = OList (CHead::CTail)). give_up. destruct H as [CHead [CTail H_CeqHT]].
-
-rewrite H_AeqHT. rewrite H_BeqHT. rewrite H_CeqHT.
+set (A := (fst (fst x))).
+set (B := (snd (fst x))).
+set (C := (snd x)). 
+ 
+(*rewrite H_AeqHT. rewrite H_BeqHT. rewrite H_CeqHT.*)
 
 (* Simplify left side *)
 rewrite extractFirstSquashOp with (A:=AHead::ATail) (B:=BHead::BTail). simpl.
@@ -728,24 +726,29 @@ split.
 - specialize nil_cons with (x:=combinedOp1). auto.
 - split. specialize nil_cons with (x:=BHead). auto.
 specialize nil_cons with (x:=CHead). auto.
-- unfold Y. unfold Y0. unfold Y1. unfold Y2. unfold listLen. 
+- (* Induction condition listLen Y < listLen X *)
+  unfold Y. unfold Y0. unfold Y1. unfold Y2. unfold listLen. 
   resolveLet x1. 
-  unfold A0. unfold B0.  unfold C0. unfold x1. fold A. fold B. fold C. rewrite H_AeqHT. rewrite H_BeqHT. rewrite H_CeqHT. unfold getOListLength.
+  unfold A0. unfold B0.  unfold C0. unfold x1. fold A. fold B. fold C.  unfold getOListLength.
 
-repeat rewrite app_length.
-repeat rewrite concat_length.
+  repeat rewrite app_length.
 
-specialize lengthOfSplitHeads with (AHead:=AHead) (BHead:=BHead) (CHead:=CHead). fold AHeadSplit. fold BHeadSplit. fold CHeadSplit.
-intros.
-do 3 forward H; auto. 
-lia.
+  specialize lengthOfSplitHeads with (AHead:=AHead) (BHead:=BHead) (CHead:=CHead). fold AHeadSplit. fold BHeadSplit. fold CHeadSplit.
+  intros.
+  do 3 forward H; auto. 
+  unfold A. rewrite <-H_AeqAHT.
+  unfold B. rewrite <-H_BeqBHT.
+  unfold C. rewrite <-H_CeqCHT.
+  repeat rewrite concat_length.
+
+  lia.
 
 - split. specialize nil_cons with (x:=combinedOp). auto.
-specialize nil_cons with (x:=CHead). auto.
+  specialize nil_cons with (x:=CHead). auto.
 - split.
-specialize nil_cons with (x:=AHead). auto.
-specialize nil_cons with (x:=BHead). auto.
-Admitted.
+  specialize nil_cons with (x:=AHead). auto.
+  specialize nil_cons with (x:=BHead). auto.
+Qed.
 
 
 fold remainderB.
