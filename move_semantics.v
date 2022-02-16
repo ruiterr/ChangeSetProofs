@@ -615,6 +615,9 @@ Let OpResultA_BC := (getNextOperation AHead (fst (fst OpResultBC))).
 Lemma reverseCombine3: (fst( (fst OpResultA_BC)) = (fst(fst(OpResult2)))).
 Admitted.
 
+Lemma lengthOfSplitHeads: (Datatypes.length AHeadSplit) + (Datatypes.length BHeadSplit) + (Datatypes.length CHeadSplit) < 3.
+Admitted.
+
 End SwapProof.
 
 Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
@@ -636,9 +639,21 @@ set (B := (snd (fst x))).
 set (C := (snd x)). 
 
 (* Handle cases where one of the inputs is an empty list *)
-destruct A as [AEntries]. destruct AEntries as [|AHead ATail].  repeat rewrite emptyOListNop2. reflexivity. 
+(* destruct A as [AEntries]. destruct AEntries as [|AHead ATail].  repeat rewrite emptyOListNop2. reflexivity. 
 destruct B as [BEntries]. destruct BEntries as [|BHead BTail].  rewrite emptyOListNop. rewrite emptyOListNop2. reflexivity.
-destruct C as [CEntries]. destruct CEntries as [|CHead CTail].  repeat rewrite emptyOListNop. reflexivity.
+destruct C as [CEntries]. destruct CEntries as [|CHead CTail].  repeat rewrite emptyOListNop. reflexivity. *)
+
+
+assert ( A = OList [] ∨ A <> OList []). destruct A. assert(entries = [] ∨ ~(entries = [])).  destruct entries.  auto. right. specialize nil_cons with (x:=o) (l:=entries). auto. inversion H. rewrite H0. left. reflexivity. right.  intros contra.  rewrite H0.
+  destruct H as [H | H_A_nonEmpty]. rewrite H. repeat rewrite emptyOListNop2. reflexivity. 
+assert ( B = OList [] ∨ B <> OList []). give_up. destruct H as [H | H_B_nonEmpty]. rewrite H. rewrite emptyOListNop. rewrite emptyOListNop2. reflexivity. 
+assert ( C = OList [] ∨ C <> OList []). give_up. destruct H as [H | H_C_nonEmpty]. rewrite H. repeat rewrite emptyOListNop. reflexivity.
+
+assert(∃ (AHead:Operation) (ATail: list Operation), A = OList (AHead::ATail)). give_up. destruct H as [AHead [ATail H_AeqHT]].
+assert(∃ (BHead:Operation) (BTail: list Operation), B = OList (BHead::BTail)). give_up. destruct H as [BHead [BTail H_BeqHT]].
+assert(∃ (CHead:Operation) (CTail: list Operation), C = OList (CHead::CTail)). give_up. destruct H as [CHead [CTail H_CeqHT]].
+
+rewrite H_AeqHT. rewrite H_BeqHT. rewrite H_CeqHT.
 
 (* Simplify left side *)
 rewrite extractFirstSquashOp with (A:=AHead::ATail) (B:=BHead::BTail). simpl.
@@ -713,7 +728,18 @@ split.
 - specialize nil_cons with (x:=combinedOp1). auto.
 - split. specialize nil_cons with (x:=BHead). auto.
 specialize nil_cons with (x:=CHead). auto.
-- give_up.
+- unfold Y. unfold Y0. unfold Y1. unfold Y2. unfold listLen. 
+  resolveLet x1. 
+  unfold A0. unfold B0.  unfold C0. unfold x1. fold A. fold B. fold C. rewrite H_AeqHT. rewrite H_BeqHT. rewrite H_CeqHT. unfold getOListLength.
+
+repeat rewrite app_length.
+repeat rewrite concat_length.
+
+specialize lengthOfSplitHeads with (AHead:=AHead) (BHead:=BHead) (CHead:=CHead). fold AHeadSplit. fold BHeadSplit. fold CHeadSplit.
+intros.
+do 3 forward H; auto. 
+lia.
+
 - split. specialize nil_cons with (x:=combinedOp). auto.
 specialize nil_cons with (x:=CHead). auto.
 - split.
