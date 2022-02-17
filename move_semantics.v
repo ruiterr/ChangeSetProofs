@@ -245,12 +245,71 @@ case_eq (n <? x).
     * auto.
 Qed.
 
+Local Ltac resolveLet VarName := match goal with 
+  | [|- context[match ?term with | (pair (p) (varC)) => match p with | (pair (varA) (varB)) => _ end end]] => 
+    set (VarName:=term); 
+    rewrite surjective_pairing with (p:=VarName); 
+    rewrite surjective_pairing with (p:=(fst VarName));
+    let a := fresh varA in set (a:= (fst (fst VarName)));
+    let b := fresh varB in set (b:= (snd (fst VarName)));
+    let c := fresh varC in set (c:= (snd VarName))
+end.
+
+Section GetNextOperation.
+  Variable iterDef : IterationDefinition.
+  Variables o1 o2 : Operation.
+  
+  Let SAInfo := iterDef.(getLengthInSequenceA) o1.
+  Let SBInfo := iterDef.(getLengthInSequenceB) o2.
+
+  Let len1 := (fst SAInfo).
+  Let len2 := (fst SBInfo).
+
+  Let s1 := (snd SAInfo).
+  Let s2 := (snd SBInfo).
+
+  Let splitOpA := if len2 =? len1 then match s1 with |right => true | left => false end else len2 <? len1.
+
+  Definition getNextOperation : (Operation * (list Operation) * (list Operation)) := 
+
+    let splitOp     := if splitOpA then o1 else o2 in
+    let splitLength := if splitOpA then len2 else len1 in
+    let splitSide   := if splitOpA then s2 else s1 in
+
+    let splitOp := (iterDef.(splitOperation) splitOp splitLength splitSide) in
+    let opA :=  if splitOpA then (fst splitOp) else o1 in
+    let opB :=  if splitOpA then o2 else (fst splitOp) in
+    let remA := if splitOpA then (snd splitOp) else [] in
+    let remB := if splitOpA then [] else (snd splitOp) in
+
+    let resultingOp := iterDef.(computeResultingOperation) opA opB in
+
+    (resultingOp, remA, remB).
+
+  Let remA := (snd (fst getNextOperation)).
+  Let remB := (snd getNextOperation).
+  Lemma getNextOperationRemainderLentgh: (length remA) + (length remB) <= 1.
+    set (nextOp:=getNextOperation).
+    unfold remA. unfold remB.
+    fold nextOp.
+    
+    cbv delta [getNextOperation] in nextOp.
+
+
+    destruct (splitOpA).
+    - unfold nextOp. simpl. specialize splitOperationSequenceLength_cond with (i:=iterDef) (o:=o1) (x:=len2) (s:=s2) as H. lia.
+    - unfold nextOp. simpl. specialize splitOperationSequenceLength_cond with (i:=iterDef) (o:=o2) (x:=len1) (s:=s1) as H. lia.
+  Qed.
+
+
+End GetNextOperation.
+
 Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 : list Operation) (ol2 : list Operation) 
   {measure ((length ol1) + (length ol2)) } : (list Operation) :=
   match ol1 with
     | o1::t1 => match ol2 with
       | o2::t2 => 
-        let SAInfo := iterDef.(getLengthInSequenceA) o1 in
+        (*let SAInfo := iterDef.(getLengthInSequenceA) o1 in
         let SBInfo := iterDef.(getLengthInSequenceB) o2 in
 
         let len1 := (fst SAInfo) in
@@ -267,11 +326,10 @@ Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 
         let opA :=  if splitOpA then (fst splitOp) else o1 in
         let opB :=  if splitOpA then o2 else (fst splitOp) in
         let seqA := if splitOpA then (snd splitOp) ++ t1 else t1 in
-        let seqB := if splitOpA then t2 else (snd splitOp) ++ t2 in
+        let seqB := if splitOpA then t2 else (snd splitOp) ++ t2 in*)
+        let '(resultingOp, remA, remB) := (getNextOperation iterDef o1 o2) in
 
-        let resultingOp := iterDef.(computeResultingOperation) opA opB in
-
-        resultingOp::(iterateOverOperationLists iterDef seqA seqB)
+        resultingOp::(iterateOverOperationLists iterDef (remA++t1) (remB++t2))
       | nil => ol1
       end
     | nil => ol2
@@ -279,14 +337,20 @@ Program Fixpoint iterateOverOperationLists (iterDef : IterationDefinition) (ol1 
 Obligation Tactic := auto.
 Next Obligation.
 intros.
-destruct (splitOpA);
-  intros;
-  subst seqA seqB;
-  rewrite app_length;
-  subst splitOp ol1 ol2;
-  repeat rewrite concat_length;
-  specialize splitOperationSequenceLength_cond with (i := iterDef) (o :=splitOp0) (x := splitLength) (s := splitSide) as H1;
-  lia.
+rewrite <-Heq_ol1.
+rewrite <-Heq_ol2.
+repeat rewrite app_length.
+repeat rewrite concat_length.
+(*rewrite surjective_pairing in Heq_anonymous.*)
+Opaque getNextOperation.
+injection Heq_anonymous as H.
+assert(remA=(snd (fst filtered_var))) as H_remA. cbv. cbv in H0. assumption.
+assert(remB=(snd filtered_var))  as H_remB. cbv. cbv in H1. assumption.
+specialize getNextOperationRemainderLentgh with (iterDef:=iterDef) (o1:=o1) (o2:=o2) as H_lenRemAB.
+fold filtered_var in H_lenRemAB.
+rewrite <-H_remA in H_lenRemAB.
+rewrite <-H_remB in H_lenRemAB.
+lia.
 Qed.
 Obligation Tactic := Tactics.program_simpl.
 
@@ -500,16 +564,6 @@ Lemma extractFirstSquashOp : ∀ (A B : (list Operation)), A <> [] ∧ B <> [] �
   let '(combinedOp, remainderA, remainderB) := (getNextOperation (hd (Skip< 0) A) (hd (Skip< 0) B)) in
   (OList (combinedOp::(getOListEntries ((OList (remainderA++(tail A))) ○ (OList (remainderB++(tail B))))))).
 Admitted.
-
-Local Ltac resolveLet VarName := match goal with 
-  | [|- context[match ?term with | (pair (p) (varC)) => match p with | (pair (varA) (varB)) => _ end end]] => 
-    set (VarName:=term); 
-    rewrite surjective_pairing with (p:=VarName); 
-    rewrite surjective_pairing with (p:=(fst VarName));
-    let a := fresh varA in set (a:= (fst (fst VarName)));
-    let b := fresh varB in set (b:= (snd (fst VarName)));
-    let c := fresh varC in set (c:= (snd VarName))
-end.
 
 Ltac forward_gen H tac :=
   match type of H with
