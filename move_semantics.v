@@ -501,72 +501,6 @@ Eval compute in (squash
 
 Infix "○" := squash (at level 60).
 
-Definition SplitOffLast (list : operationList) : (operationList * operationList).
-give_up.
-Admitted.
-
-Lemma splitOffLastEquivalence: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in A = (A0 ○ A1).
-give_up.
-Admitted.
-
-Lemma splitOffLastResult0Length: ∀ (A:operationList), let (A0, A1) := (SplitOffLast A) in ((getOListLength A0) = ((getOListLength A) - 1)).
-give_up.
-Admitted.
-
-Lemma splitOffLastResult1Structure: ∀ (A:operationList), ∃ (c:nat) (s:side) (o:Operation), let (A0, A1) := (SplitOffLast A) in (getOListEntries A1 = [ (Skip c s); o]).
-give_up.
-Admitted.
-
-Definition splitOList (list:operationList) (n : nat) (s : side) : (operationList * operationList).
-Admitted.
-
-Lemma splitOListEquality: ∀ (A:operationList) (n:nat) (s : side), (OList ((getOListEntries (fst (splitOList A n s))) ++ (getOListEntries (snd (splitOList A n s))))) = A.
-Admitted.
-
-Lemma splitOListSquash: ∀ (A:operationList) (B: operationList) (n:nat) (s : side), (splitOList (A ○ B) n s) = 
-                            ( ((fst (splitOList A n s)) ○ (fst ((splitOList B n s)))),
-                            (  (snd (splitOList A n s)) ○ (snd ((splitOList B n s)))) ).
-Admitted.
-
-Lemma singleOpAssociativity: ∀ (A B : operationList) (o : Operation), 
-  let (l, s) := (SquashIterationDefinition.(getLengthInSequenceA) o) in
-  fst (splitOList (A ○ B) l s) ○ OList [o] = fst (splitOList A l s) ○ (fst (splitOList B l s) ○ OList [o]).
-Admitted.
-
-Theorem splitOListFirst: ∀ (A:operationList), ((getOListLength A) > 0) → (
-       let (firstOP, t) := match A with 
-         | OList (op::t) => (op, t)
-         | OList [] => ((Skip 0 left), [])
-       end in
-       let (l, s) := (SquashIterationDefinition.(getLengthInSequenceA) firstOP) in
-       (splitOList A l s) = ((OList [firstOP]), (OList t))).
-Admitted.
-
-
-Lemma singleSkipNop: ∀ (A : operationList) (n:nat) (s:side), (A ○ (OList [Skip n s]) = A).
-Admitted.
-
-Program Fixpoint bla (n:nat) {measure n} :=
-match n with
-| 0 => 0
-| S n' => S (bla n')
-end.
-
-Print bla.
-Lemma obvious: forall n, bla n = n.
-Proof.
-intro n ; induction n.
- reflexivity.
- unfold bla . rewrite fix_sub_eq . simpl ; fold (bla n).
- rewrite IHn ; reflexivity.
-
-(* This can probably be automated using Ltac *)
- intros x f g Heq.
-  destruct x.
-  reflexivity.
-  f_equal ; apply Heq.
-Qed.
-
 Lemma emptyOListNop: ∀ (A : operationList), (A ○ (OList []) = A).
 intros.
 unfold squash.
@@ -605,6 +539,52 @@ Tactic Notation "forward" constr(H) "by" tactic(tac) := forward_gen H tac.
 
 Eval compute in getNextOperation SquashIterationDefinition (Skip< 5) (Insert< [<$0, 0>; <$1, 1>; <$2, 2>]).
 
+
+Definition getOpFromArray (arrayOp : (list Operation)) := (hd (Skip< 0) arrayOp).
+
+Notation "x ≫  y" := (splitOpAFun SquashIterationDefinition x y) (at level 65, no associativity).
+Notation "x ⊕ y" := (computeResultingOperation SquashIterationDefinition x y) (at level 65, right associativity).
+Notation "x [≺ₐ y ]" := (fst (splitOperation SquashIterationDefinition x (fst (getLengthInSequenceA SquashIterationDefinition y)) (snd (getLengthInSequenceA SquashIterationDefinition y)))) (at level 40, no associativity).
+Notation "x [≻ₐ y ]" := (snd (splitOperation SquashIterationDefinition x (fst (getLengthInSequenceA SquashIterationDefinition y)) (snd (getLengthInSequenceA SquashIterationDefinition y)))) (at level 40, no associativity).
+Notation "x [≺ᵦ y ]" := (fst (splitOperation SquashIterationDefinition x (fst (getLengthInSequenceB SquashIterationDefinition y)) (snd (getLengthInSequenceB SquashIterationDefinition y)))) (at level 40, no associativity).
+Notation "x [≻ᵦ y ]" := (snd (splitOperation SquashIterationDefinition x (fst (getLengthInSequenceB SquashIterationDefinition y)) (snd (getLengthInSequenceB SquashIterationDefinition y)))) (at level 40, no associativity).
+Notation "x [≺≺ y ; z ]" := (fst (splitOperation SquashIterationDefinition x y z)) (at level 40, no associativity).
+Notation "x [≻≻ y ; z ]" := (snd (splitOperation SquashIterationDefinition x y z)) (at level 40, no associativity).
+Notation "⌈ x ⌉ₐ" := (fst (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌈' x '⌉ₐ'").
+Notation "⌊ x ⌋ₐ" := (snd (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌊' x '⌋ₐ'").
+Notation "⌈ x ⌉ᵦ" := (fst (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌈' x '⌉ᵦ'").
+Notation "⌊ x ⌋ᵦ" := (snd (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌊' x '⌋ᵦ'").
+
+Notation "↩ x" := (getOpFromArray x) (at level 50, no associativity, format "'↩' x").
+
+
+Lemma resolveNonEmptyArray: ∀ (x:Operation) (y:(list Operation)), y = [x] → ↩y = x.
+intros.
+unfold getOpFromArray.
+unfold hd.
+rewrite H.
+auto.
+Qed.
+
+Lemma swapCombineWithSplitOfA: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ↩( A[≺ᵦB] ⊕ B)[≻ᵦC] = (↩A[≻ᵦC])[≺ᵦ↩B[≻ᵦC]] ⊕ ↩B[≻ᵦC].
+Admitted.
+
+Lemma swapCombineWithSplitOfB: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ↩(A ⊕ B[≺ₐA])[≻ᵦC] = ↩A[≻ᵦC] ⊕ (↩B[≻ᵦC])[≺ₐ↩A[≻ᵦC]].
+Admitted.
+
+Lemma swapSplitRemainderWithShorterSplitALen: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → A[≻ₐB] = (↩A[≻ᵦC])[≻ₐ↩B[≻ᵦC]].
+Admitted.
+
+Lemma swapSplitRemainderWithShorterSplitBLen: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → A[≻ᵦB] = (↩A[≻ᵦC])[≻ᵦ↩B[≻ᵦC]].
+Admitted.
+
+Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≻ᵦC] ≫ ↩B[≻ᵦC]) = (A ≫ B).
+Admitted.
+
+Lemma splitLengthTransitivity: ∀(A B C:Operation), (A≫B) = true ∧ (B≫C) = true → (A≫C) = true.
+Admitted.
+
+
 Section SwapProof.
 
 Variables AHead BHead CHead : Operation.
@@ -639,8 +619,7 @@ Definition AHeadSplit := if splitOpC then splitOp AHead else remainderA.
 Definition BHeadSplit := if splitOpC then splitOp BHead else remainderB.
 Definition CHeadSplit := remainderC.
 
-Lemma splitOperationRemainder: ∀ (op1 op2: Operation), (splitOpAFun SquashIterationDefinition op1 op2) = true → 
-  ∃ (op:Operation), (snd (splitOperation SquashIterationDefinition op1 (fst (getLengthInSequenceB SquashIterationDefinition op2)) (snd (getLengthInSequenceB SquashIterationDefinition op2)))) = [op].
+Lemma splitOperationRemainder: ∀ A B : Operation, A ≫ B = true → ∃ C : Operation, A[≻ᵦB] = [C].
 Admitted.
 
 Lemma getNextOperationCombinationLengthCSmallerRemAB: (splitOpC = true) → (∃ (remABOp:Operation), (remainderAB = [remABOp])).
@@ -648,7 +627,7 @@ intros.
 cbv delta [remainderAB OpResult2 getNextOperation]. cbv beta. fold splitOpC. rewrite H.
 cbv zeta. hnf. fold lengthC. fold sideC. 
 Opaque computeResultingOperation. Opaque splitOperation.
-simpl. specialize splitOperationRemainder with (op1:=CombinedOp) (op2:=CHead) as H2. 
+simpl. specialize splitOperationRemainder with (A:=CombinedOp) (B:=CHead) as H2. 
 fold lengthC in H2. fold sideC in H2. 
 apply H2. auto.
 Qed.
@@ -656,7 +635,7 @@ Qed.
 Lemma getNextOperationCombinationLengthCSmallerRemA: (splitOpC = true) → (∃ (remAOp:Operation), ([remAOp] = AHeadSplit)).
 intros.
 cbv delta [AHeadSplit splitOp]. cbv beta. fold splitOpC. rewrite H. auto.
-simpl. specialize splitOperationRemainder with (op1:=AHead) (op2:=CHead) as H2. 
+simpl. specialize splitOperationRemainder with (A:=AHead) (B:=CHead) as H2. 
 specialize splitByLargerOp with (A:=AHead) (B:=BHead) (C:=CHead) (iterDef:=SquashIterationDefinition).
 fold OpResult1. fold CombinedOp. fold splitOpC. rewrite H. intros. destruct H0. auto. 
 forward H2. auto. destruct H2. fold lengthC in H2. fold sideC in H2. rewrite H2. 
@@ -666,7 +645,7 @@ Qed.
 Lemma getNextOperationCombinationLengthCSmallerRemB: (splitOpC = true) → (∃ (remBOp:Operation), ([remBOp] = BHeadSplit)).
 intros.
 cbv delta [BHeadSplit splitOp]. cbv beta. fold splitOpC. rewrite H. auto.
-simpl. specialize splitOperationRemainder with (op1:=BHead) (op2:=CHead) as H2. 
+simpl. specialize splitOperationRemainder with (A:=BHead) (B:=CHead) as H2. 
 specialize splitByLargerOp with (A:=AHead) (B:=BHead) (C:=CHead) (iterDef:=SquashIterationDefinition).
 fold OpResult1. fold CombinedOp. fold splitOpC. rewrite H. intros. destruct H0. auto. 
 forward H2. auto. destruct H2. fold lengthC in H2. fold sideC in H2. rewrite H2. 
@@ -683,9 +662,9 @@ intros.
 Opaque computeResultingOperation. Opaque splitOperation.
 cbv delta [AHeadSplit BHeadSplit splitOp]. cbv beta. fold splitOpC. rewrite H. auto.
 simpl. 
-specialize splitOperationRemainder with (op1:=AHead) (op2:=CHead) as H_AHead. 
-specialize splitOperationRemainder with (op1:=BHead) (op2:=CHead) as H_BHead. 
-specialize splitOperationRemainder with (op1:=CombinedOp) (op2:=CHead) as H_CHead. 
+specialize splitOperationRemainder with (A:=AHead) (B:=CHead) as H_AHead. 
+specialize splitOperationRemainder with (A:=BHead) (B:=CHead) as H_BHead. 
+specialize splitOperationRemainder with (A:=CombinedOp) (B:=CHead) as H_CHead. 
 
 specialize splitByLargerOp with (A:=AHead) (B:=BHead) (C:=CHead) (iterDef:=SquashIterationDefinition).
 
@@ -697,7 +676,7 @@ assert (∃ remABOp : Operation,  remainderAB = [remABOp]). {
   cbv delta [remainderAB OpResult2 getNextOperation]. cbv beta. fold splitOpC. rewrite H.
   cbv zeta. hnf. fold lengthC. fold sideC. 
   Opaque computeResultingOperation. Opaque splitOperation.
-  simpl. specialize splitOperationRemainder with (op1:=CombinedOp) (op2:=CHead) as H2. 
+  simpl. specialize splitOperationRemainder with (A:=CombinedOp) (B:=CHead) as H2. 
   fold lengthC in H2. fold sideC in H2. 
   apply H2. auto.
 }
@@ -713,7 +692,15 @@ cbv delta [remainderAB OpResult2 getNextOperation]. cbv beta. fold splitOpC.
 set (splitOpARem := splitOpAFun SquashIterationDefinition remA remB).
 set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
 
-assert(splitOpARem = splitOpA). give_up.
+assert(splitOpARem = splitOpA). 
+unfold splitOpARem.
+unfold splitOpA.
+rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto. rewrite <-H_remA.
+rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto. rewrite <-H_remB.
+unfold lengthC. unfold sideC.
+
+apply splitLengthPreservedUnderCut with (A:=AHead) (B:=BHead) (C:=CHead); auto. 
+
 Opaque getLengthInSequenceA. Opaque getLengthInSequenceB.
 simpl.
 
@@ -727,20 +714,49 @@ case_eq (splitOpARem).
 (* AHead is being split *)
 intros H_SplitOpARemTrue.
 
+rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto.
+rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto.
+rewrite <-H_remA. rewrite <-H_remB. unfold lengthC. unfold sideC.
+
 f_equal.
 f_equal.
 
-give_up.
-give_up.
+rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
+unfold remainderAB.
+unfold OpResult2.
+unfold getNextOperation.
+fold splitOpC. rewrite H.
+simpl.
+unfold CombinedOp. unfold OpResult1. unfold getNextOperation.
+fold splitOpA. rewrite <-H1. rewrite H_SplitOpARemTrue.
+simpl.
 
-intros.
+apply swapCombineWithSplitOfA; auto.
+apply swapSplitRemainderWithShorterSplitBLen; auto.
+
+(* BHead is being split *)
+intros H_SplitOpARemTrue.
+
+rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto.
+rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto.
+rewrite <-H_remA. rewrite <-H_remB. unfold lengthC. unfold sideC.
+
 f_equal.
 f_equal.
 
-give_up.
-give_up.
+rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
+unfold remainderAB.
+unfold OpResult2.
+unfold getNextOperation.
+fold splitOpC. rewrite H.
+simpl.
+unfold CombinedOp. unfold OpResult1. unfold getNextOperation.
+fold splitOpA. rewrite <-H1. rewrite H_SplitOpARemTrue.
+simpl.
 
-Admitted.
+rewrite swapCombineWithSplitOfB; auto.
+rewrite swapSplitRemainderWithShorterSplitALen with (C:=CHead); auto.
+Qed.
 
 Lemma getNextOperationCombinationLengthCBigger: (splitOpC = false ) → 
      (remainderAB = [] ∧ 
@@ -956,295 +972,3 @@ specialize nil_cons with (x:=CHead). auto.
   specialize nil_cons with (x:=BHead). auto.
 Qed.
 
-
-fold remainderB.
-set (nextOp2:=(getNextOperation SquashIterationDefinition
-    (hd (Skip< 0)
-       (fst (fst nextOp)
-        :: getOListEntries
-             (OList (snd (fst nextOp) ++ tl (AHead :: ATail)) ○ OList (snd nextOp ++ tl (BHead :: BTail)))))
-    (hd (Skip< 0) (CHead :: CTail)))).
-rewrite surjective_pairing with (p:=nextOp2).
-rewrite surjective_pairing with (p:=(fst nextOp2)).
-
-
-
-
-rewrite extractFirstSquashOp with (A:=(getOListEntries () (B:=CHead::CTail).
-rewrite extractFirstSquashOp.
-set (A:=(OList (AHead::ATail))).
-set (B:=(OList (BHead::BTail))).
-set (C:=(OList (CHead::CTail))).
-simpl.
-
-
-Lemma trivialOListAssoc: ∀ (B C :operationList),  ((OList []) ○ B) ○ C = (OList []) ○ (B ○ C).
-intros.
-  assert (∀ y, (OList []) ○ y = y) as H0.
-  intros.
-  unfold squash.
-  destruct y.
-  unfold iterateOverOperationLists.
-  unfold iterateOverOperationLists_func.
-  auto.
-
-repeat rewrite H0.
-reflexivity.
-Qed.
-
-(* Theorem simpleOListAssoc: ∀ (A B C :operationList), (∃ (c:nat) (s:side) (o:Operation), (getOListEntries A) = [ (Skip c s); o]) → (A ○ B) ○ C = A ○ (B ○ C).
-intros.
-destruct H.
-destruct H.
-destruct H.
-unfold getOListEntries in H.
-assert (A = (OList [Skip x x0; x1])). rewrite <-H. destruct A. auto.
-rewrite H0. 
-unfold squash.
-destruct A.
-destruct B.
-destruct C.
-unfold iterateOverOperationLists.
-unfold iterateOverOperationLists_func.
-auto.
-give_up.
-Admitted.*)
-
-Theorem simpleOListAssoc: ∀ (A B C :operationList), ((∃ (cA:nat) (sA:side) (oA:Operation), A = OList[ (Skip cA sA); oA]) ∧ 
-                                                     (∃ (cB:nat) (sB:side) (oB:Operation), B = OList[ (Skip cB sB); oB]) ∧ 
-                                                     (∃ (cC:nat) (sC:side) (oC:Operation), C = OList[ (Skip cC sC); oC])) → (A ○ B) ○ C = A ○ (B ○ C).
-intros.
-destruct H as [[cA [sA [oA HA]]] H].
-destruct H as [[cB [sB [oB HB]]] H].
-destruct H as [cC [sC [oC HC]]].
-
-
-(* Extract skip term *)
-set (C0:=(fst (splitOList C cC sC))).
-set (C1:=(snd (splitOList C cC sC))).
-
-assert ((C0 = (OList [(Skip cC sC)])) ∧ C1 = (OList [oC])).
-  specialize splitOListFirst with (A:= C). 
-  rewrite HC. 
-  intros. subst C0. subst C1. subst C. rewrite H; intuition. destruct H as [C0List C1List].
-
-rewrite <-splitOListEquality with (A:=(A ○ B) ○ C) (n:=cC) (s:=sC).
-rewrite <-splitOListEquality with (A:=A ○ (B ○ C)) (n:=cC) (s:=sC).
-
-f_equal.
-f_equal.
-f_equal.
-
-(* Proof equality for skip term *)
-
-(* Simplify left side *)
-rewrite splitOListSquash with (A:=(A ○ B)). 
-  unfold fst at 1. 
-  fold C0. 
-  rewrite C0List. 
-  rewrite singleSkipNop.
-
-(* Simplify right side *)
-rewrite splitOListSquash with (B:=(B ○ C)). 
-  unfold fst at 2. 
-  rewrite splitOListSquash with (A:=B).
-  unfold fst at 3.
-  fold C0. 
-  rewrite C0List. 
-  rewrite singleSkipNop.
-  rewrite splitOListSquash with (A:=A).
-  unfold fst. 
-  auto.
-  
-(* Extract operations term and remainder *)
-set (oCl := (fst (SquashIterationDefinition.(getLengthInSequenceA) oC))).
-set (oCs := (snd (SquashIterationDefinition.(getLengthInSequenceA) oC))).
-set (C1_0:=(fst (splitOList C1 oCl oCs))).
-set (C1_1:=(snd (splitOList C1 oCl oCs))).
-
-assert (C1_0 = (OList [oC]) ∧ C1_1 = (OList [])).
-  specialize splitOListFirst with (A:= C1).
-  rewrite C1List.  rewrite ->surjective_pairing with (p:= (SquashIterationDefinition.(getLengthInSequenceA) oC)). unfold getOListLength. unfold length.
-  intros. subst C1_0. subst C1_1. rewrite C1List. unfold oCl. unfold oCs. rewrite H; intuition. destruct H as [C1_0List C1_1List].
-
-(*Split proof into operations term and remainder *)
-f_equal.
-
-rewrite splitOListSquash with (A:=(A ○ B)).
-unfold snd at 1.
-fold C1.
-
-rewrite splitOListSquash with (B:= (B ○ C)).
-unfold snd at 2.
-
-rewrite splitOListSquash with (B:= C).
-unfold snd at 3.
-fold C1.
-
-rewrite splitOListSquash with (A:=(A)).
-unfold snd at 1.
-set (ARem := snd (splitOList A cC sC)).
-set (BRem := snd (splitOList B cC sC)).
-
-rewrite <-splitOListEquality with (A:=((ARem ○ BRem) ○ C1)) (n:=oCl) (s:=oCs).
-rewrite <-splitOListEquality with (A:=(ARem ○ (BRem ○ C1))) (n:=oCl) (s:=oCs).
-
-(* Proof equality for operation term *)
-f_equal.
-f_equal; f_equal.
-
-(* Simplify left side *)
-rewrite splitOListSquash with (A:=(ARem ○ BRem)). 
-unfold fst at 1. 
-fold C1_0. 
-rewrite C1_0List. 
-
-
-(* Simplify right side *)
-rewrite splitOListSquash with (B:=(BRem ○ C1)). 
-unfold fst at 2. 
-rewrite splitOListSquash with (A:=BRem).
-unfold fst at 3.
-fold C1_0. 
-rewrite C1_0List. 
-
-specialize singleOpAssociativity with (A:= ARem) (B:=BRem) (o:=oC).
-rewrite surjective_pairing with (p := (getLengthInSequenceA SquashIterationDefinition oC)).
-intros.
-assumption.
-  
-
-(* Proof equality for the remainder *)
-rewrite splitOListSquash with (A:=(ARem ○ BRem)).
-unfold snd at 1. 
-fold C1_1.
-rewrite C1_1List.
-rewrite emptyOListNop.
-
-rewrite splitOListSquash with (B:=(BRem ○ C1)).
-unfold snd at 2.
-rewrite splitOListSquash with (A:=BRem).
-unfold snd at 3.
-fold C1_1.
-rewrite C1_1List.
-rewrite emptyOListNop.
-
-rewrite splitOListSquash with (A:=(ARem)).
-unfold snd at 1.
-reflexivity.
-Qed.
-
-(*Theorem squashAssociative: ∀ (A B C :operationList), (A ○ B) ○ C = A ○ (B ○ C).
-intro A.
-induction A as [A IHA] using (induction_ltof1 _ (@getOListLength)); unfold ltof in IHA.
-
-specialize splitOffLastEquivalence with (A:=A).
-
-set (SA := (SplitOffLast A)).
-rewrite surjective_pairing with (p:=SA).
-set (A0 := (fst SA)).
-set (A1 := (snd SA)).
-intros.
-
-specialize splitOffLastResult0Length with (A := A).
-fold SA.
-rewrite surjective_pairing with (p:=SA).
-fold A0.
-intros.
-
-
-specialize splitOffLastResult1Structure with (A := A).
-fold SA.
-rewrite surjective_pairing with (p:=SA).
-fold A1.
-intros.
-
-
-assert ((getOListLength A = 0) ∨ (getOListLength A > 0)) as lA0Eq. lia. 
-
- destruct lA0Eq.
-- assert (A = (OList [])) as ALen0.
-    unfold getOListLength in H2.
-    destruct A.
-    assert (entries = []). apply length_zero_iff_nil. auto.
-    rewrite H3. reflexivity.
-  rewrite ALen0.
-  apply trivialOListAssoc.
-
-- assert (getOListLength A0 < getOListLength A). lia.
-  rewrite H.
-  rewrite IHA with (y:= A0) (B := A1) (C := B). 
-  rewrite IHA with (y:= A0) (B := (A1 ○ B)) (C := C). 
-  rewrite simpleOListAssoc.
-  rewrite IHA with (y:= A0) (B := A1) (C := (B ○ C) ).
-  all: auto.
-
-Qed.
-*)
-
-
-
-
-
-(*set (A0 := fst SA).
-set (A1 := snd SA).*)
-
-give_up.
-Admitted.
-
-
-(*Definition same_id (a : id) (b : id) : bool :=
-  match a with
-    | Id a1 =>   match b with
-      | Id b1 => Nat.eqb a1 b1
-    end
-  end.
-
-Definition anchor_getId (a : anchor) :=
-  match a with
-    | An i s =>  i
-  end.
-
-Inductive moveOp : Type :=
-  | Move (r : range) (t : anchor).
-
-Check [$ 5].
-
-Fixpoint resolveAnchorImpl (a : anchor) (l : list id) (i : nat) : nat := 
-  match l with
-    | [ ] => 1000
-    | h :: t => if ( same_id (anchor_getId a) h) then
-        match a with 
-          An _ side => match side with
-            | left => i
-            | right => i + 1
-          end
-        end
-      else
-        resolveAnchorImpl a t (i + 1)
-  end.
-
-Definition resolveAnchor (a : anchor) (l : list id) : nat := 
-  resolveAnchorImpl a l 0.
-
-Check § 3, left §.
-Eval compute in resolveAnchor ( § 1, left § ) testList.
-
-Definition moveOpApplyToList (m : moveOp) (l : list id) : option (list id) :=
-  match m with Move (Ra s e _) t  =>
-    let rangeStart := resolveAnchor s l in
-    let rangeEnd := resolveAnchor e l in
-    let insertPos := resolveAnchor t l in
-
-    if  (rangeStart <? insertPos) && (insertPos <? rangeEnd) then None else
- 
-    if rangeEnd <? rangeStart then None else
-
-    let extractedRange := firstn (rangeEnd - rangeStart) (skipn rangeStart l)  in
-    let sequenceWithoutRange := (firstn rangeStart l) ++ (skipn rangeEnd l) in 
-    let insertPositionInResult := if insertPos <? rangeStart then insertPos else insertPos - (rangeEnd - rangeStart) in
-      Some ( (firstn insertPositionInResult sequenceWithoutRange) ++ extractedRange ++ (skipn insertPositionInResult sequenceWithoutRange) )
-  end.
-
-Eval compute in  testList.
-Eval compute in moveOpApplyToList  (Move ( { § 2, left § -> § 4, right § } ) (§ 5, right §) ) testList.*)
