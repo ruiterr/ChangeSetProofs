@@ -516,10 +516,43 @@ destruct A.
 f_equal.
 Qed.
 
-Lemma extractFirstSquashOp : ∀ (A B : (list Operation)), A <> [] ∧ B <> [] → (OList A) ○ (OList B) = 
-  let '(combinedOp, remainderA, remainderB) := (getNextOperation SquashIterationDefinition (hd (Skip< 0) A) (hd (Skip< 0) B)) in
-  (OList (combinedOp::(getOListEntries ((OList (remainderA++(tail A))) ○ (OList (remainderB++(tail B))))))).
-Admitted.
+Lemma extractFirstSquashOp : ∀ (A B : (list Operation)), A <> [] ∧ B <> [] → let '(combinedOp, remainderA, remainderB) := (getNextOperation SquashIterationDefinition (hd (Skip< 0) A) (hd (Skip< 0) B)) in
+  (OList A) ○ (OList B) = (OList (combinedOp::(getOListEntries ((OList (remainderA++(tail A))) ○ (OList (remainderB++(tail B))))))).
+intros.
+resolveLet nextOp.
+
+set (LHS:=OList (combinedOp :: getOListEntries (OList (remainderA ++ tl A) ○ OList (remainderB ++ tl B)))).
+cbv delta [squash iterateOverOperationLists iterateOverOperationLists_func]. 
+cbv beta. cbv match.  cbv beta. cbv match.
+
+rewrite fix_sub_eq. cbv beta. cbv match.
+Opaque getNextOperation.
+simpl.
+destruct H.
+destruct A eqn:H_A.
+contradiction.
+
+destruct B eqn:H_B.
+contradiction.
+simpl in nextOp.
+fold nextOp.
+fold combinedOp.
+unfold LHS.
+f_equal.
+
+intros.
+destruct x.
+destruct s.
+simpl.
+
+destruct x0; auto.
+destruct l; auto.
+f_equal.
+rewrite H0.
+auto.
+Qed.
+Transparent getNextOperation.
+
 
 Ltac forward_gen H tac :=
   match type of H with
