@@ -710,37 +710,37 @@ split. auto. split. auto. split. auto.
 
 cbv delta [remainderAB OpResult2 getNextOperation]. cbv beta. fold splitOpC. 
 
-set (splitOpA := splitOpAFun SquashIterationDefinition remA remB).
+set (splitOpARem := splitOpAFun SquashIterationDefinition remA remB).
+set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
 
-destruct(splitOpA).
+assert(splitOpARem = splitOpA). give_up.
 Opaque getLengthInSequenceA. Opaque getLengthInSequenceB.
 simpl.
 
 unfold remainderA.
 unfold remainderB.
-cbv delta [OpResult1 getNextOperation]. cbv beta. simpl. rewrite H_ASmaller. rewrite H.
+cbv delta [OpResult1 getNextOperation]. cbv beta. simpl.
+fold splitOpA.
+rewrite <-H1.
 
+case_eq (splitOpARem).
+(* AHead is being split *)
+intros H_SplitOpARemTrue.
 
-forward H_CHead. auto. destruct H_CHead. fold lengthC in H0. fold sideC in H0. rewrite H0. clear H0.
+f_equal.
+f_equal.
 
-exists x.
+give_up.
+give_up.
 
-
-
-(*Opaque splitOperation. Opaque computeResultingOperation. 
-simpl.*)
-(*Lemma getNextOperationCombinationLengthCSmaller: (splitOpC = true) → 
-    (∃ (remABOp remAOp remBOp : Operation), (
-      remainderAB = [remABOp]) ∧ 
-      [remAOp] = AHeadSplit ∧ 
-      [remBOp] = BHeadSplit ∧ 
-      (remABOp, remainderA, remainderB) = (getNextOperation SquashIterationDefinition remAOp remBOp)).
 intros.
-cbv delta [remainderAB OpResult2 getNextOperation].
-cbv beta. cbv delta [AHeadSplit BHeadSplit]. rewrite H.
-simpl.
+f_equal.
+f_equal.
 
-Admitted. *)
+give_up.
+give_up.
+
+Admitted.
 
 Lemma getNextOperationCombinationLengthCBigger: (splitOpC = false ) → 
      (remainderAB = [] ∧ 
