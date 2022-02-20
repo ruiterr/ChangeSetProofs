@@ -601,15 +601,16 @@ rewrite H.
 auto.
 Qed.
 
-Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ⌊ A ⌋ₐ = right.
+Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ((⌈ B⌉ᵦ =? ⌈ A ⌉ₐ) = true ∧ ⌊ A ⌋ₐ = right).
 intros.
 unfold splitOpAFun in H.
 destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ).
 - destruct (⌊A⌋ₐ). 
   + discriminate H.
-  + right. reflexivity. 
+  + right. auto. 
 - left. assumption.
 Qed.
+
 
 Lemma swapCombineWithSplitOfA: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ↩( A[≺ᵦB] ⊕ B)[≻ᵦC] = (↩A[≻ᵦC])[≺ᵦ↩B[≻ᵦC]] ⊕ ↩B[≻ᵦC].
 Admitted.
@@ -624,6 +625,66 @@ Lemma swapSplitRemainderWithShorterSplitBLen: ∀(A B C:Operation), (A≫C) = tr
 Admitted.
 
 Lemma splitLengthInB: ∀(A C:Operation), (A≫C) = true -> ⌈↩A [≻ᵦC]⌉ᵦ = ⌈A⌉ᵦ - ⌈C⌉ᵦ.
+intros.
+apply destructAGreaterB in H.
+
+
+destruct A eqn:H_destA. (*destruct C eqn:H_destC.*)
+Opaque length.
+Opaque plus.
+Opaque minus.
+Opaque leb.
+Opaque getLengthInSequenceA.
+Opaque getLengthInSequenceB.
+
+all: cbv delta [splitOperation]; simpl; unfold SplitHelper. {
+Transparent getLengthInSequenceA.
+Opaque getLengthInSequenceB.
+ - destruct H. 
+   + cbv delta [getLengthInSequenceA] in H. simpl in H. rewrite H. simpl.
+     set (lenC:=⌈C⌉ᵦ).
+     Transparent getLengthInSequenceB.
+     simpl. reflexivity.
+   + destruct H as [H_eqAmount H_eqSide].
+     assert(⌈C⌉ᵦ <? amount = false). 
+     apply Nat.ltb_ge.
+     apply Nat.eqb_eq in H_eqAmount.
+     set (lenC:=⌈C⌉ᵦ).
+     fold lenC in H_eqAmount.
+     cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. rewrite H_eqAmount. lia.
+     rewrite H.
+     cbv delta [getLengthInSequenceA] in H_eqSide. simpl in H_eqSide.
+     rewrite H_eqSide.
+     destruct (⌊C⌋ᵦ).
+     * set (lenC:=⌈C⌉ᵦ). simpl.
+       fold lenC in H_eqAmount.
+       cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. apply Nat.eqb_eq in H_eqAmount.
+       lia.
+     * set (lenC:=⌈C⌉ᵦ). 
+       fold lenC in H_eqAmount.
+       cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. apply Nat.eqb_eq in H_eqAmount.
+       Eval compute in (↩snd (Skip> amount, [])).
+
+
+(*all: unfold getLengthInSequenceA.
+all: unfold getLengthInSequenceB.
+all: try destruct entries as [entriesList] eqn:H_eqEntries. 
+all: try destruct entries0 as [entriesList0] eqn:H_eqEntries0.
+all: unfold getLengthInSequenceA in H.
+all: unfold getLengthInSequenceB in H.
+all: simpl in H.
+all: unfold getLengthInSequenceA in H.
+all: unfold getLengthInSequenceB in H.
+all: simpl in H.
+
+all: destruct H.
+all: simpl; unfold SplitHelper; try rewrite H; cbv.
+give_up.
+destruct H. assert(S amount0 <=? amount = false). give_up. rewrite H1. simpl.
+
+all: simpl. 
+all: unfold SplitHelper. try rewrite H.*)
+
 Admitted.
 
 Lemma splitLengthInA: ∀(A C:Operation), (A≫C) = true -> ⌈↩A [≻ᵦC]⌉ₐ = ⌈A⌉ₐ - ⌈C⌉ₐ.
@@ -632,12 +693,13 @@ Admitted.
 Lemma seqLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ⌈↩B [≻ᵦC]⌉ᵦ ?= (⌈↩A [≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ ?= ⌈A⌉ₐ).
 intros.
 destruct H as [H_AgtC H_BgtC].
-(*apply destructAGreaterB in H_AgtC.
-apply destructAGreaterB in H_BgtC.*)
+apply destructAGreaterB in H_AgtC as H_AgtC2.
+apply destructAGreaterB in H_BgtC as H_BgtC2.
 
 rewrite splitLengthInB; auto.
 rewrite splitLengthInA; auto.
-destruct H_AgtC; destruct H_BgtC.
+
+(*destruct H_AgtC; destruct H_BgtC.
 destruct A eqn:H_destA; destruct B eqn:H_destB; destruct C eqn:H_destC.
 Transparent getLengthInSequenceA.
 Transparent getLengthInSequenceB.
@@ -660,7 +722,7 @@ all: simpl in H0.
 (* Opaque splitOperation. *)
 Opaque length.
 all: simpl; unfold SplitHelper; try rewrite H; try rewrite H0; simpl.
-give_up. give_up. give_up. give_up.
+give_up. give_up. give_up. give_up.*)
 
 
 Admitted.
