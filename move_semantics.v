@@ -351,6 +351,9 @@ Section GetNextOperation.
   Let s2 := (snd SBInfo).
 
   Definition splitOpAFun := if len2 =? len1 then match s1 with |right => true | left => false end else len2 <? len1.
+  Definition opAGtB := if len2 =? len1 then match s1,s2 with |right,left => true | _,_ => false end else len2 <? len1.
+  Definition opAEqB := if len2 =? len1 then match s1,s2 with |right,right => true |left,left=>true |_,_=>false end else false.
+
 
   Let splitOpA := splitOpAFun.
 
@@ -577,7 +580,9 @@ Eval compute in getNextOperation SquashIterationDefinition (Skip< 5) (Insert< [<
 
 Definition getOpFromArray (arrayOp : (list Operation)) := (hd (Skip< 0) arrayOp).
 
-Notation "x ≫  y" := (splitOpAFun SquashIterationDefinition x y) (at level 65, no associativity).
+Notation "x ≫  y" := (opAGtB SquashIterationDefinition x y) (at level 65, no associativity).
+Notation "x ≻  y" := (splitOpAFun SquashIterationDefinition x y) (at level 65, no associativity).
+
 Notation "x ⊕ y" := (computeResultingOperation SquashIterationDefinition x y) (at level 65, right associativity).
 Notation "x [≺ₐ y ]" := (fst (splitOperation SquashIterationDefinition x (fst (getLengthInSequenceA SquashIterationDefinition y)) (snd (getLengthInSequenceA SquashIterationDefinition y)))) (at level 40, no associativity).
 Notation "x [≻ₐ y ]" := (snd (splitOperation SquashIterationDefinition x (fst (getLengthInSequenceA SquashIterationDefinition y)) (snd (getLengthInSequenceA SquashIterationDefinition y)))) (at level 40, no associativity).
@@ -601,9 +606,9 @@ rewrite H.
 auto.
 Qed.
 
-Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ((⌈ B⌉ᵦ =? ⌈ A ⌉ₐ) = true ∧ ⌊ A ⌋ₐ = right).
+Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ((⌈B⌉ᵦ =? ⌈ A ⌉ₐ) = true ∧ ⌊ A ⌋ₐ = right).
 intros.
-unfold splitOpAFun in H.
+unfold opAGtB in H.
 destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ).
 - destruct (⌊A⌋ₐ). 
   + discriminate H.
@@ -663,7 +668,8 @@ Opaque getLengthInSequenceB.
      * set (lenC:=⌈C⌉ᵦ). 
        fold lenC in H_eqAmount.
        cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. apply Nat.eqb_eq in H_eqAmount.
-       Eval compute in (↩snd (Skip> amount, [])).
+       simpl. rewrite H_eqAmount. lia.
+       (* Eval compute in (↩snd (Skip> amount, [])).*)
 
 
 (*all: unfold getLengthInSequenceA.
@@ -759,18 +765,27 @@ all: try rewrite H_Amount in H; simpl in H.
 all: solve [exfalso; apply H; auto].
 Qed.
 
-Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≻ᵦC] ≫ ↩B[≻ᵦC]) = (A ≫ B).
+
+Lemma splitOperationRemainder: ∀ A B : Operation, A ≫ B = true → ∃ C : Operation, A[≻ᵦB] = [C].
+Admitted.
+
+Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≻ᵦC] ≻ ↩B[≻ᵦC]) = (A ≻ B).
 intros.
 cbv delta [splitOpAFun]. cbv beta. cbv zeta.
-destruct(⌊↩A [≻ᵦC]⌋ₐ) eqn:side_AC; destruct(⌊A⌋ₐ) eqn:side_A. all:auto.
-specialize seqLengthPreservedUnderCutEQ with (A:=A) (B:=B) (C:=C). intros. forward H0; auto.
-all: rewrite seqLengthPreservedUnderCutEQ ; auto.
+
 destruct H.
+specialize splitOperationRemainder with (A:=A) (B:=C) as HBC_exists. forward HBC_exists; auto.
+destruct HBC_exists.
+assert(A [≻ᵦC] <> []) as H_HC_notEmptySet. rewrite H1. intuition. discriminate H2.
+destruct(⌊↩A [≻ᵦC]⌋ₐ) eqn:side_AC; destruct(⌊A⌋ₐ) eqn:side_A. all:auto.
+specialize seqLengthPreservedUnderCutEQ with (A:=A) (B:=B) (C:=C). intros. forward H2; auto.
+all: rewrite seqLengthPreservedUnderCutEQ ; auto.
 
 all: destruct(⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H3. 
-all: auto; specialize sideRemainsUnchanged with (A:=A) (C:=C) as H_Side; rewrite H_Side in side_AC; rewrite side_A in side_AC; try discriminate.
+all: auto; specialize sideRemainsUnchanged with (A:=A) (C:=C) as H_Side; rewrite H_Side in side_AC; try rewrite side_A in side_AC; try discriminate.
 
-all: rewrite seqLengthPreservedUnderCutLT ; auto.
+all: try rewrite seqLengthPreservedUnderCutLT ; auto.
+all: assumption.
 Qed.
 
 
@@ -872,8 +887,6 @@ lia.
 
 Admitted.*)
 
-Lemma splitOperationRemainder: ∀ A B : Operation, A ≫ B = true → ∃ C : Operation, A[≻ᵦB] = [C].
-Admitted.
 
 Section SplitOpByLarger.
   Variable A B C : Operation.
@@ -918,7 +931,7 @@ Definition BHeadSplit := if splitOpC then splitOp BHead else remainderB.
 Definition CHeadSplit := remainderC.
 
 
-Lemma getNextOperationCombinationLengthCSmallerRemAB: (splitOpC = true) → (∃ (remABOp:Operation), (remainderAB = [remABOp])).
+(*Lemma getNextOperationCombinationLengthCSmallerRemAB: (splitOpC = true) → (∃ (remABOp:Operation), (remainderAB = [remABOp])).
 intros.
 cbv delta [remainderAB OpResult2 getNextOperation]. cbv beta. fold splitOpC. rewrite H.
 cbv zeta. hnf. fold lengthC. fold sideC. 
@@ -946,17 +959,18 @@ specialize splitByLargerOp with (A:=AHead) (B:=BHead) (C:=CHead).
 fold OpResult1. fold CombinedOp. fold splitOpC. rewrite H. intros. destruct H0. auto. 
 forward H2. auto. destruct H2. fold lengthC in H2. fold sideC in H2. rewrite H2. 
 exists x. auto.
-Qed.
+Qed.*)
 
-Lemma getNextOperationCombinationLengthCSmaller: (splitOpC = true) → 
+Lemma getNextOperationCombinationLengthCSmaller: (CombinedOp ≫ CHead) = true → 
     (∃ (remABOp remAOp remBOp : Operation), (
       remainderAB = [remABOp]) ∧ 
       [remAOp] = AHeadSplit ∧ 
       [remBOp] = BHeadSplit ∧ 
       (remABOp, remainderA, remainderB) = (getNextOperation SquashIterationDefinition remAOp remBOp)).
 intros.
+assert(splitOpC = true) as H_splitOpC. give_up.
 Opaque computeResultingOperation. Opaque splitOperation.
-cbv delta [AHeadSplit BHeadSplit splitOp]. cbv beta. fold splitOpC. rewrite H. auto.
+cbv delta [AHeadSplit BHeadSplit splitOp]. cbv beta. fold splitOpC. rewrite H_splitOpC. auto.
 simpl. 
 specialize splitOperationRemainder with (A:=AHead) (B:=CHead) as H_AHead. 
 specialize splitOperationRemainder with (A:=BHead) (B:=CHead) as H_BHead. 
@@ -970,7 +984,7 @@ forward H_AHead. auto. destruct H_AHead as [remA H_remA]. fold lengthC in H_remA
 forward H_BHead. auto. destruct H_BHead as [remB H_remB]. fold lengthC in H_remB. fold sideC in H_remB. rewrite H_remB.
 
 assert (∃ remABOp : Operation,  remainderAB = [remABOp]). {
-  cbv delta [remainderAB OpResult2 getNextOperation]. cbv beta. fold splitOpC. rewrite H.
+  cbv delta [remainderAB OpResult2 getNextOperation]. cbv beta. fold splitOpC. rewrite H_splitOpC.
   cbv zeta. hnf. fold lengthC. fold sideC. 
   Opaque computeResultingOperation. Opaque splitOperation.
   simpl. specialize splitOperationRemainder with (A:=CombinedOp) (B:=CHead) as H2. 
@@ -1022,7 +1036,7 @@ rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
 unfold remainderAB.
 unfold OpResult2.
 unfold getNextOperation.
-fold splitOpC. rewrite H.
+fold splitOpC. rewrite H_splitOpC.
 simpl.
 unfold CombinedOp. unfold OpResult1. unfold getNextOperation.
 fold splitOpA. rewrite <-H1. rewrite H_SplitOpARemTrue.
@@ -1045,7 +1059,7 @@ rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
 unfold remainderAB.
 unfold OpResult2.
 unfold getNextOperation.
-fold splitOpC. rewrite H.
+fold splitOpC. rewrite H_splitOpC.
 simpl.
 unfold CombinedOp. unfold OpResult1. unfold getNextOperation.
 fold splitOpA. rewrite <-H1. rewrite H_SplitOpARemTrue.
@@ -1053,7 +1067,7 @@ simpl.
 
 rewrite swapCombineWithSplitOfB; auto.
 rewrite swapSplitRemainderWithShorterSplitALen with (C:=CHead); auto.
-Qed.
+Admitted.
 
 Lemma getNextOperationCombinationLengthCBigger: (splitOpC = false ) → 
      (remainderAB = [] ∧ 
@@ -1076,6 +1090,22 @@ Lemma moveOperationIntoSquash: (OList (AHeadSplit++ATail) ○ OList (BHeadSplit+
   case_eq splitOpC.  intros H_splitOpC.
 
   (* Case splitOpC = true *)
+  destruct (opAEqB SquashIterationDefinition CombinedOp CHead) eqn:H_ABSameSize.
+  assert(⌈CombinedOp⌉ₐ = ⌈CHead⌉ᵦ ∧ ⌊CombinedOp⌋ₐ =⌊CHead⌋ᵦ).
+  unfold opAEqB in H_ABSameSize.
+  split.
+  destruct (⌈CHead⌉ᵦ =? ⌈CombinedOp⌉ₐ) eqn:lenAeqlenB; try discriminate H_ABSameSize; try apply beq_nat_true in lenAeqlenB; auto. 
+  destruct (⌈CHead⌉ᵦ =? ⌈CombinedOp⌉ₐ) eqn:lenAeqlenB; destruct(⌊CombinedOp⌋ₐ) eqn:H_Aside; destruct(⌊CHead⌋ᵦ) eqn:H_Bside; try discriminate H_ABSameSize; try apply beq_nat_true in lenAeqlenB; auto. 
+  
+  destruct H.
+  assert(AHeadSplit = []). unfold AHeadSplit. rewrite H_splitOpC. unfold splitOp. give_up.
+  assert(BHeadSplit = []). unfold BHeadSplit. rewrite H_splitOpC. unfold splitOp. give_up.
+  assert(remainderA = []). give_up.
+  assert(remainderB = []). give_up.
+  assert(remainderAB = []). give_up.
+  rewrite H1. rewrite H2. rewrite H3. rewrite H4. rewrite H5. auto.
+
+  assert(CombinedOp ≫ CHead = true) as H_COpEqCH. give_up.
   specialize getNextOperationCombinationLengthCSmaller as H. 
   forward H; auto.
   destruct H as [remABOp [remAOp [remBOp [H_remainderAB [H_AHeadSplit [H_BHeadSplit H_Remainders]]]]]].
@@ -1122,7 +1152,7 @@ Lemma moveOperationIntoSquash: (OList (AHeadSplit++ATail) ○ OList (BHeadSplit+
   simpl.
   unfold getOListEntries. destruct (OList (AHeadSplit ++ ATail) ○ OList (BHeadSplit ++ BTail)). auto.
   auto. 
-  Qed.
+  Admitted.
 
 Let SwappedOpResult2 := (getNextOperation SquashIterationDefinition CHead CombinedOp).
 Lemma reverseCombine1: (snd(fst(SwappedOpResult2))) = (snd(OpResult2)).
