@@ -448,6 +448,7 @@ Print SquashIterationDefinition.
 
 Eval compute in SquashIterationDefinition.(splitOperation) (Skip> 0) 0 left.
 Eval compute in SquashIterationDefinition.(splitOperation) (Remove< [<$0, 0>; <$1, 1>; <$2, 2>]) 0 right.
+Eval compute in SquashIterationDefinition.(splitOperation) (Skip> 1) 3 right.
 
 Definition squash (OpsA : operationList) (OpsB : operationList) : operationList := match OpsA,OpsB with
   | OList lA, OList lB => OList (iterateOverOperationLists SquashIterationDefinition lA lB) 
@@ -584,8 +585,8 @@ Notation "x [≺ᵦ y ]" := (fst (splitOperation SquashIterationDefinition x (fs
 Notation "x [≻ᵦ y ]" := (snd (splitOperation SquashIterationDefinition x (fst (getLengthInSequenceB SquashIterationDefinition y)) (snd (getLengthInSequenceB SquashIterationDefinition y)))) (at level 40, no associativity).
 Notation "x [≺≺ y ; z ]" := (fst (splitOperation SquashIterationDefinition x y z)) (at level 40, no associativity).
 Notation "x [≻≻ y ; z ]" := (snd (splitOperation SquashIterationDefinition x y z)) (at level 40, no associativity).
-Notation "⌈ x ⌉ₐ" := (fst (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌈' x '⌉ₐ'").
-Notation "⌊ x ⌋ₐ" := (snd (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌊' x '⌋ₐ'").
+Notation "⌈ x ⌉ₐ" := (fst (getLengthInSequenceA SquashIterationDefinition x)) (at level 40, no associativity, format "'⌈' x '⌉ₐ'").
+Notation "⌊ x ⌋ₐ" := (snd (getLengthInSequenceA SquashIterationDefinition x)) (at level 40, no associativity, format "'⌊' x '⌋ₐ'").
 Notation "⌈ x ⌉ᵦ" := (fst (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌈' x '⌉ᵦ'").
 Notation "⌊ x ⌋ᵦ" := (snd (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌊' x '⌋ᵦ'").
 
@@ -612,11 +613,163 @@ Admitted.
 Lemma swapSplitRemainderWithShorterSplitBLen: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → A[≻ᵦB] = (↩A[≻ᵦC])[≻ᵦ↩B[≻ᵦC]].
 Admitted.
 
-Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≻ᵦC] ≫ ↩B[≻ᵦC]) = (A ≫ B).
+
+Lemma seqLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ⌈↩B [≻ᵦC]⌉ᵦ ?= (⌈↩A [≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ ?= ⌈A⌉ₐ).
 Admitted.
 
-Lemma splitLengthTransitivity: ∀(A B C:Operation), (A≫B) = true ∧ (B≫C) = true → (A≫C) = true.
+
+Lemma seqLengthPreservedUnderCutEQ: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ⌈↩B [≻ᵦC]⌉ᵦ =? (⌈↩A [≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ =? ⌈A⌉ₐ).
 Admitted.
+
+Lemma seqLengthPreservedUnderCutLT: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ⌈↩B [≻ᵦC]⌉ᵦ <? (⌈↩A [≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ <? ⌈A⌉ₐ).
+Admitted.
+
+Lemma sideRemainsUnchanged: ∀(A C:Operation), A[≻ᵦC]<>[] → ⌊↩A[≻ᵦC]⌋ₐ = ⌊A⌋ₐ.
+intros.
+Opaque length.
+cbv delta [getLengthInSequenceA splitOperation getOpFromArray]. cbv beta. cbv zeta. 
+Transparent SplitHelper.
+all: simpl; unfold SplitHelper; simpl.
+destruct A eqn:H_A; destruct C eqn:H_C. 
+all: simpl.
+all: try destruct(amount0 <? amount) eqn:H_Amount; simpl; auto.
+all: destruct side0 eqn:H_Side0; destruct side1 eqn:H_Side1; simpl; auto.
+all: try destruct  entries; try destruct entries0; simpl.
+
+all: simpl in H; unfold SplitHelper in H.
+
+all: try destruct(0 <? amount); simpl; auto.
+all: try destruct(Datatypes.length entries <? amount); simpl; auto.
+all: try destruct(amount <? Datatypes.length entries); simpl; auto.
+all: try destruct(0 <? Datatypes.length entries); simpl; auto.
+all: try destruct(Datatypes.length entries0 <? Datatypes.length entries); simpl; auto.
+
+all: try rewrite H_Amount in H; simpl in H.
+
+all: solve [exfalso; apply H; auto].
+Qed.
+
+Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≻ᵦC] ≫ ↩B[≻ᵦC]) = (A ≫ B).
+intros.
+cbv delta [splitOpAFun]. cbv beta. cbv zeta.
+destruct(⌊↩A [≻ᵦC]⌋ₐ) eqn:side_AC; destruct(⌊A⌋ₐ) eqn:side_A. all:auto.
+specialize seqLengthPreservedUnderCutEQ with (A:=A) (B:=B) (C:=C). intros. forward H0; auto.
+all: rewrite seqLengthPreservedUnderCutEQ ; auto.
+destruct H.
+
+all: destruct(⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H3. 
+all: auto; specialize sideRemainsUnchanged with (A:=A) (C:=C) as H_Side; rewrite H_Side in side_AC; rewrite side_A in side_AC; try discriminate.
+
+all: rewrite seqLengthPreservedUnderCutLT ; auto.
+Qed.
+
+
+(*Opaque length.
+destruct A. destruct B. destruct C. {
+ destruct side0; destruct side1; destruct side2 eqn:H_s2. 
+
+all: (
+  cbv delta [splitOpAFun getLengthInSequenceA getLengthInSequenceB SplitHelper]; cbv beta; simpl;  intros; unfold SplitHelper; destruct H;
+  destruct(amount1=?amount); try discriminate H;
+  destruct(amount1=?amount0); try discriminate H0;
+  try rewrite H; try rewrite H0; simpl 
+).
+
+all: destruct(amount1<?amount0). all:destruct(amount1 <? amount). all:simpl.
+
+all: destruct (amount0 - amount1 =? amount - amount1) eqn:H1.
+all: try apply beq_nat_true  in H1.
+all: try apply Nat.ltb_lt in H.
+all: try apply Nat.ltb_lt in H0.
+assert(amount0 = amount).
+rewrite <-Nat.add_cancel_l with (p:=amount1) in H1.
+rewrite le_plus_minus_r in H1.
+rewrite le_plus_minus_r in H1; auto. lia. lia. 
+rewrite <-beq_nat_true_iff in H2.
+rewrite H2. auto.
+
+assert(amount0 <> amount). give_up.
+rewrite <-beq_nat_false_iff in H2.
+rewrite H2. auto. give_up.
+
+
+cbv delta [splitOpAFun getLengthInSequenceA getLengthInSequenceB SplitHelper]. cbv beta. simpl.  intros. unfold SplitHelper. destruct H. 
+destruct(amount1=?amount); try discriminate H.
+destruct(amount1=?amount0); try discriminate H0.
+rewrite H. rewrite H0. simpl. 
+destruct (amount0 - amount1 =? amount - amount1) eqn:H1.
+apply beq_nat_true  in H1.
+apply Nat.ltb_lt in H.
+apply Nat.ltb_lt in H0.
+assert(amount0 = amount).
+rewrite <-Nat.add_cancel_l with (p:=amount1) in H1.
+rewrite le_plus_minus_r in H1.
+rewrite le_plus_minus_r in H1; auto. lia. lia. 
+rewrite <-beq_nat_true_iff in H2.
+rewrite H2. auto.
+
+assert(amount0 <> amount). give_up.
+rewrite <-beq_nat_false_iff in H2.
+rewrite H2. auto. give_up.
+
+Admitted.*)
+
+Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ⌊ A ⌋ₐ = right.
+intros.
+unfold splitOpAFun in H.
+destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ).
+- destruct (⌊A⌋ₐ). 
+  + discriminate H.
+  + right. reflexivity. 
+- left. assumption.
+Qed.
+
+(* Lemma splitLengthTransitivity: ∀(A B C:Operation), (A≫B) = true ∧ (B≫C) = true → (A≫C) = true.
+intros. destruct H as [H_AgtC H_BgtC].
+(* unfold splitOpAFun in H_AgtC. *)
+apply destructAGreaterB in H_AgtC.
+apply destructAGreaterB in H_BgtC.
+
+unfold splitOpAFun.
+
+destruct H_AgtC.
+destruct H_BgtC.
+
+rewrite Nat.ltb_lt in H.
+rewrite Nat.ltb_lt in H0.
+assert(⌈B⌉ᵦ < ⌈A⌉ₐ ∧ ⌈C⌉ᵦ < ⌈B⌉ₐ → ⌈C⌉ᵦ < ⌈A⌉ₐ).
+Opaque length.
+
+destruct B.  
+  - destruct A; 
+         intros; destruct H1; 
+         apply lt_trans with (n:=⌈C⌉ᵦ) (m:=⌈Skip amount side0⌉ᵦ); auto. 
+  - destruct A. destruct C. cbv. simpl. destruct entries eqn:H_eqEntries. intros. destruct H1. cbv in H0. cbv in H0. lia.
+         intros. destruct H1. assert(⌈Skip amount side1⌉ₐ = ⌈Skip amount side1⌉ᵦ). cbv. reflexivity. 
+         assert(⌈Insert entries side0⌉ᵦ = 0). cbv. 
+         apply lt_trans with (n:=⌈C⌉ᵦ) (m:=⌈Insert entries side0⌉ᵦ) (p:=⌈Skip amount side1⌉ₐ); auto. assumption. 
+  - destruct A;
+         intros; destruct H1; 
+         apply lt_trans with (n:=⌈C⌉ᵦ) (m:=⌈Insert entries side0⌉ₐ); auto. 
+
+
+     
+ unfold getLengthInSequenceA. unfold getLengthInSequenceB. simpl. lia.
+
+assert(⌈C⌉ᵦ =? ⌈A⌉ₐ = false). 
+specialize lt_trans with (n:=⌈C⌉ᵦ) (m:=⌈B⌉ᵦ) (p:=⌈A⌉ₐ) as H_CltA. forward H_CltA. 
+assert(⌈C⌉ᵦ < ⌈A⌉ₐ). lia. 
+assert(⌈C⌉ᵦ <> ⌈A⌉ₐ). lia. 
+destruct (⌈C⌉ᵦ =? ⌈A⌉ₐ) eqn:X. 
+ apply beq_nat_true in X. intuition. 
+ reflexivity.
+
+rewrite H1.
+
+
+lia.
+
+Admitted.*)
 
 Lemma splitOperationRemainder: ∀ A B : Operation, A ≫ B = true → ∃ C : Operation, A[≻ᵦB] = [C].
 Admitted.
