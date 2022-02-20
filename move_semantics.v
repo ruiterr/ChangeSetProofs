@@ -933,7 +933,7 @@ specialize extractFirstSquashOp with (A:=AHead::ATail) (B:=BHead::BTail). simpl.
 resolveLet firstOpL1. intros extractFirstSquashOp1.
 rewrite extractFirstSquashOp1. simpl.
 
-specialize extractFirstSquashOp with (A:=(AHead::ATail)) (B:=getOListEntries (OList (BHead :: BTail) ○ OList (CHead :: CTail))). simpl.
+specialize extractFirstSquashOp with (A:=(combinedOp :: getOListEntries (OList (remainderA ++ ATail) ○ OList (remainderB ++ BTail)))) (B:=CHead :: CTail). simpl.
 
 
 resolveLet firstOpL2. intros extractFirstSquashOp2.
@@ -970,10 +970,10 @@ rewrite IH with (y:=Y).
 
 
 (* Simplify right side *)
-rewrite extractFirstSquashOp with (A:=BHead::BTail) (B:=CHead::CTail). simpl.
-resolveLet firstOpR1. rename remainderA0 into remainderB_R. rename remainderB0 into remainderC_R.
-rewrite extractFirstSquashOp with (A:=AHead::ATail). simpl.
-resolveLet firstOpR2. rename remainderA0 into remainderA_R. rename remainderB0 into remainderBC_R. simpl. 
+specialize extractFirstSquashOp with (A:=BHead::BTail) (B:=CHead::CTail). simpl.
+resolveLet firstOpR1. intros extractFirstSquashOp3. rewrite extractFirstSquashOp3. rename remainderA0 into remainderB_R. rename remainderB0 into remainderC_R.
+specialize extractFirstSquashOp with (A:=AHead::ATail) (B:=combinedOp1 :: getOListEntries (OList (remainderB_R ++ BTail) ○ OList (remainderC_R ++ CTail))). simpl.
+resolveLet firstOpR2. intros extractFirstSquashOp4. rewrite extractFirstSquashOp4. rename remainderA0 into remainderA_R. rename remainderB0 into remainderBC_R. simpl. 
 subst Y0; subst Y1; subst Y2; subst Y.
 
 specialize moveOperationIntoSquash with (AHead := BHead) (BHead := CHead) (CHead := AHead) (ATail := BTail) (BTail := CTail) as H_Swap_R.
