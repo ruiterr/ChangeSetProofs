@@ -306,16 +306,25 @@ Qed.
 
 
 
-
+  (*match goal with 
+   |- context [ match ?term with 
+                | (pair (p) (varC)) => match p with 
+                    | pair (varA) (varB) => _ 
+                  end
+     end ] => idtac varA
+  end.*)
 Local Ltac resolveLet VarName := match goal with 
-  | [|- context[match ?term with | (pair (p) (varC)) => match p with | (pair (varA) (varB)) => _ end end]] => 
-    set (VarName:=term); 
-    rewrite surjective_pairing with (p:=VarName); 
-    rewrite surjective_pairing with (p:=(fst VarName));
-    let a := fresh varA in set (a:= (fst (fst VarName)));
-    let b := fresh varB in set (b:= (snd (fst VarName)));
-    let c := fresh varC in set (c:= (snd VarName))
-end.
+   |- context [ match ?term with 
+                | (pair (p) (varC)) => match p with 
+                    | pair (varA) (varB) => _ 
+                  end
+     end ] => set (VarName:=term); 
+              rewrite surjective_pairing with (p:=VarName); 
+              rewrite surjective_pairing with (p:=(fst VarName));
+              let a := fresh varA in set (a:= (fst (fst VarName)));
+              let b := fresh varB in set (b:= (snd (fst VarName)));
+              let c := fresh varC in set (c:= (snd VarName))
+  end.
 
 Local Ltac resolveSimpleLet H := match H with 
   | (let varName := ?term in _) = ?y  => let a := fresh varName in set (a:=term)
@@ -817,16 +826,22 @@ Lemma moveOperationIntoSquash: (OList (AHeadSplit++ATail) ○ OList (BHeadSplit+
   forward H; auto.
   destruct H as [remABOp [remAOp [remBOp [H_remainderAB [H_AHeadSplit [H_BHeadSplit H_Remainders]]]]]].
 
-  specialize extractFirstSquashOp with (A:=AHeadSplit++ATail) (B:=BHeadSplit++BTail) as H_extractFirstOp.
+  specialize extractFirstSquashOp with (A:=AHeadSplit++ATail) (B:=BHeadSplit++BTail).
+
+  resolveLet remainderABOp.
+  intros H_extractFirstOp.
+
+  
   forward H_extractFirstOp. {
     split.
     - rewrite <-H_AHeadSplit. specialize nil_cons with (x:=remAOp) (l:=ATail). auto.
     - rewrite <-H_BHeadSplit. specialize nil_cons with (x:=remBOp) (l:=BTail). auto.
   }
   rewrite H_extractFirstOp.
-
-  resolveLet remainderABOp.
   Opaque getNextOperation.
+  Opaque squash.
+  simpl.
+
   assert (remainderAB = [(fst (fst remainderABOp))]) as H_RAB. unfold remainderABOp. rewrite <-H_AHeadSplit. rewrite <-H_BHeadSplit. simpl. rewrite <-H_Remainders. simpl. rewrite <-H_remainderAB. auto.
   assert (remainderA = (snd (fst remainderABOp))) as H_RA. unfold remainderABOp. rewrite <-H_AHeadSplit. rewrite <-H_BHeadSplit. simpl. rewrite <-H_Remainders. simpl. auto.
   assert (remainderB = (snd remainderABOp)) as H_RB. unfold remainderABOp. rewrite <-H_AHeadSplit. rewrite <-H_BHeadSplit. simpl. rewrite <-H_Remainders. simpl.  auto.
@@ -913,10 +928,17 @@ set (C := (snd x)).
 
 (* Simplify left side *)
 Opaque getNextOperation.
-rewrite extractFirstSquashOp with (A:=AHead::ATail) (B:=BHead::BTail). simpl.
-resolveLet firstOpL1.
-rewrite extractFirstSquashOp. simpl.
-resolveLet firstOpL2. simpl. rename remainderA0 into remainderAB. rename remainderB0 into remainderC.
+Opaque squash.
+specialize extractFirstSquashOp with (A:=AHead::ATail) (B:=BHead::BTail). simpl.
+resolveLet firstOpL1. intros extractFirstSquashOp1.
+rewrite extractFirstSquashOp1. simpl.
+
+specialize extractFirstSquashOp with (A:=(AHead::ATail)) (B:=getOListEntries (OList (BHead :: BTail) ○ OList (CHead :: CTail))). simpl.
+
+
+resolveLet firstOpL2. intros extractFirstSquashOp2.
+rewrite extractFirstSquashOp2. simpl.
+rename remainderA0 into remainderAB. rename remainderB0 into remainderC.
 
 Opaque AHeadSplit.
 Opaque BHeadSplit.
