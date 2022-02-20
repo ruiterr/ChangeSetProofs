@@ -601,6 +601,16 @@ rewrite H.
 auto.
 Qed.
 
+Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ⌊ A ⌋ₐ = right.
+intros.
+unfold splitOpAFun in H.
+destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ).
+- destruct (⌊A⌋ₐ). 
+  + discriminate H.
+  + right. reflexivity. 
+- left. assumption.
+Qed.
+
 Lemma swapCombineWithSplitOfA: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ↩( A[≺ᵦB] ⊕ B)[≻ᵦC] = (↩A[≻ᵦC])[≺ᵦ↩B[≻ᵦC]] ⊕ ↩B[≻ᵦC].
 Admitted.
 
@@ -613,8 +623,46 @@ Admitted.
 Lemma swapSplitRemainderWithShorterSplitBLen: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → A[≻ᵦB] = (↩A[≻ᵦC])[≻ᵦ↩B[≻ᵦC]].
 Admitted.
 
+Lemma splitLengthInB: ∀(A C:Operation), (A≫C) = true -> ⌈↩A [≻ᵦC]⌉ᵦ = ⌈A⌉ᵦ - ⌈C⌉ᵦ.
+Admitted.
+
+Lemma splitLengthInA: ∀(A C:Operation), (A≫C) = true -> ⌈↩A [≻ᵦC]⌉ₐ = ⌈A⌉ₐ - ⌈C⌉ₐ.
+Admitted.
 
 Lemma seqLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ⌈↩B [≻ᵦC]⌉ᵦ ?= (⌈↩A [≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ ?= ⌈A⌉ₐ).
+intros.
+destruct H as [H_AgtC H_BgtC].
+(*apply destructAGreaterB in H_AgtC.
+apply destructAGreaterB in H_BgtC.*)
+
+rewrite splitLengthInB; auto.
+rewrite splitLengthInA; auto.
+destruct H_AgtC; destruct H_BgtC.
+destruct A eqn:H_destA; destruct B eqn:H_destB; destruct C eqn:H_destC.
+Transparent getLengthInSequenceA.
+Transparent getLengthInSequenceB.
+
+all: unfold getLengthInSequenceA in H.
+all: unfold getLengthInSequenceB in H.
+all: simpl in H.
+all:unfold getLengthInSequenceA in H0.
+all: unfold getLengthInSequenceB in H0.
+all: simpl in H0.
+
+simpl; unfold SplitHelper; try rewrite H; try rewrite H0; simpl. give_up.
+destruct entries as [entriesList] eqn:H_eqEntries. 
+simpl in H. simpl in H0.
+all: try destruct entries as [entriesList] eqn:H_eqEntries. 
+all: try destruct entries0 as [entriesList0] eqn:H_eqEntries0. 
+all: simpl in H.
+all: simpl in H0.
+
+(* Opaque splitOperation. *)
+Opaque length.
+all: simpl; unfold SplitHelper; try rewrite H; try rewrite H0; simpl.
+give_up. give_up. give_up. give_up.
+
+
 Admitted.
 
 
@@ -714,15 +762,6 @@ rewrite H2. auto. give_up.
 
 Admitted.*)
 
-Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ⌊ A ⌋ₐ = right.
-intros.
-unfold splitOpAFun in H.
-destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ).
-- destruct (⌊A⌋ₐ). 
-  + discriminate H.
-  + right. reflexivity. 
-- left. assumption.
-Qed.
 
 (* Lemma splitLengthTransitivity: ∀(A B C:Operation), (A≫B) = true ∧ (B≫C) = true → (A≫C) = true.
 intros. destruct H as [H_AgtC H_BgtC].
