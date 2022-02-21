@@ -261,12 +261,6 @@ Program Definition SquashIterationDefinition :=
        | Remove (Seq x) s => ((length x), s)
        end;
 
-     (* getLengthInSequence := fun (op : Operation) => match op with 
-       | Skip x _ => x
-       | Insert (Seq x) _ => 0
-       | Remove (Seq x) _ => (length x)
-       end; *)
-
      splitOperation := fun (op : Operation) (n : nat) (is : side)=> match op with 
        | Skip x s => SplitHelper (fun n s => Skip n s) (fun n s => Skip (x - n) s) n x is s
               
@@ -594,6 +588,7 @@ Notation "⌈ x ⌉ₐ" := (fst (getLengthInSequenceA SquashIterationDefinition 
 Notation "⌊ x ⌋ₐ" := (snd (getLengthInSequenceA SquashIterationDefinition x)) (at level 40, no associativity, format "'⌊' x '⌋ₐ'").
 Notation "⌈ x ⌉ᵦ" := (fst (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌈' x '⌉ᵦ'").
 Notation "⌊ x ⌋ᵦ" := (snd (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌊' x '⌋ᵦ'").
+Notation "| x |" := (opLength x) (at level 40, no associativity, format "'|' x '|'").
 
 Notation "↩ x" := (getOpFromArray x) (at level 50, no associativity, format "'↩' x").
 
@@ -606,13 +601,15 @@ rewrite H.
 auto.
 Qed.
 
-Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ((⌈B⌉ᵦ =? ⌈ A ⌉ₐ) = true ∧ ⌊ A ⌋ₐ = right).
+Lemma destructAGreaterB: ∀(A B:Operation), (A≫B) = true → 
+                          (⌈ B⌉ᵦ <? ⌈ A ⌉ₐ) = true ∨ ((⌈B⌉ᵦ =? ⌈A⌉ₐ) = true ∧ ⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ = left).
 intros.
 unfold opAGtB in H.
 destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ).
-- destruct (⌊A⌋ₐ). 
+- destruct (⌊A⌋ₐ) eqn:H_ASide. 
   + discriminate H.
-  + right. auto. 
+  + right. repeat split; auto. 
+  destruct (⌊B⌋ᵦ);auto. discriminate H. 
 - left. assumption.
 Qed.
 
@@ -629,12 +626,17 @@ Admitted.
 Lemma swapSplitRemainderWithShorterSplitBLen: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → A[≻ᵦB] = (↩A[≻ᵦC])[≻ᵦ↩B[≻ᵦC]].
 Admitted.
 
-Lemma splitLengthInB: ∀(A C:Operation), (A≫C) = true -> ⌈↩A [≻ᵦC]⌉ᵦ = ⌈A⌉ᵦ - ⌈C⌉ᵦ.
+
+Eval compute in ( (Remove> [<$0,0>; <$0,0>; <$0,0>]) ≫ (Skip< 0)).
+Eval compute in ( ⌈Remove> [<$0,0>; <$0,0>; <$0,0>]⌉ᵦ ).
+Eval compute in (⌈Remove> [<$0,0>; <$0,0>; <$0,0>]⌉ᵦ - ⌈Skip> 0⌉ᵦ).
+
+Lemma splitLengthInB: ∀(A C:Operation), (A≫C) = true -> ⌈↩A[≻ᵦC]⌉ᵦ = ⌈A⌉ᵦ - ⌈C⌉ᵦ.
 intros.
 apply destructAGreaterB in H.
 
 
-destruct A eqn:H_destA. (*destruct C eqn:H_destC.*)
+destruct A eqn:H_destA. 
 Opaque length.
 Opaque plus.
 Opaque minus.
@@ -642,15 +644,15 @@ Opaque leb.
 Opaque getLengthInSequenceA.
 Opaque getLengthInSequenceB.
 
-all: cbv delta [splitOperation]; simpl; unfold SplitHelper. {
+all: cbv delta [splitOperation]; simpl; unfold SplitHelper. 
 Transparent getLengthInSequenceA.
 Opaque getLengthInSequenceB.
- - destruct H. 
+ - destruct H. (* A = Skip Operation *)
    + cbv delta [getLengthInSequenceA] in H. simpl in H. rewrite H. simpl.
      set (lenC:=⌈C⌉ᵦ).
      Transparent getLengthInSequenceB.
      simpl. reflexivity.
-   + destruct H as [H_eqAmount H_eqSide].
+   + destruct H as [H_eqAmount [H_eqSideA H_eqSideB]].
      assert(⌈C⌉ᵦ <? amount = false). 
      apply Nat.ltb_ge.
      apply Nat.eqb_eq in H_eqAmount.
@@ -658,20 +660,69 @@ Opaque getLengthInSequenceB.
      fold lenC in H_eqAmount.
      cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. rewrite H_eqAmount. lia.
      rewrite H.
-     cbv delta [getLengthInSequenceA] in H_eqSide. simpl in H_eqSide.
-     rewrite H_eqSide.
-     destruct (⌊C⌋ᵦ).
+     cbv delta [getLengthInSequenceA] in H_eqSideA. simpl in H_eqSideA.
+     rewrite H_eqSideA.
+     destruct (⌊C⌋ᵦ) eqn:H_sideC.
      * set (lenC:=⌈C⌉ᵦ). simpl.
        fold lenC in H_eqAmount.
        cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. apply Nat.eqb_eq in H_eqAmount.
        lia.
-     * set (lenC:=⌈C⌉ᵦ). 
+     * discriminate H_eqSideB.
+
+Opaque getLengthInSequenceB.
+ - destruct H. (* A = Insert Operation *)
+   + destruct entries eqn:H_entries.
+     cbv delta [getLengthInSequenceA] in H. simpl in H.  rewrite H. simpl.
+     set (lenC:=⌈C⌉ᵦ).
+     Transparent getLengthInSequenceB.
+     simpl. give_up.
+   + destruct entries eqn:H_entries.
+     destruct H as [H_eqAmount [H_eqSideA H_eqSideB]].
+     assert(⌈C⌉ᵦ <? (length entries0) = false). 
+     apply Nat.ltb_ge.
+     apply Nat.eqb_eq in H_eqAmount.
+     set (lenC:=⌈C⌉ᵦ).
+     fold lenC in H_eqAmount.
+     cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. rewrite H_eqAmount. lia.
+     rewrite H.
+     cbv delta [getLengthInSequenceA] in H_eqSideA. simpl in H_eqSideA.
+     rewrite H_eqSideA.
+     destruct (⌊C⌋ᵦ) eqn:H_sideC.
+     * set (lenC:=⌈C⌉ᵦ). simpl.
        fold lenC in H_eqAmount.
        cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. apply Nat.eqb_eq in H_eqAmount.
-       simpl. rewrite H_eqAmount. lia.
-       (* Eval compute in (↩snd (Skip> amount, [])).*)
+       give_up.
+     * discriminate H_eqSideB.
 
+Opaque getLengthInSequenceB.
+ - destruct H. (* A = Remove Operation *)
+   + destruct entries eqn:H_entries.
+     cbv delta [getLengthInSequenceA] in H. simpl in H. 
+     apply Nat.ltb_lt in H.
+     apply Nat.nlt_0_r in H.
+     contradiction.
+   + destruct entries eqn:H_entries.
+     destruct H as [H_eqAmount [H_eqSideA H_eqSideB]].
+     apply Nat.eqb_eq in H_eqAmount.
+     set (lenC:=⌈C⌉ᵦ).
+     fold lenC in H_eqAmount.
+     cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. rewrite H_eqAmount. 
+     destruct (0 <? Datatypes.length entries0) eqn:H_numEntriesGt0.
+     * cbv delta [getLengthInSequenceB].
+       simpl. lia.
+     * cbv in H_eqSideA.
+       rewrite H_eqSideA.
+       rewrite H_eqSideB.
+       cbv delta [getLengthInSequenceB]. 
+       simpl.
+       assert( (Datatypes.length entries0) = 0).
+       apply Nat.ltb_ge in H_numEntriesGt0.
+       lia.
+       unfold skipn.
+       rewrite H. lia.
+Admitted.
 
+Eval compute (0 - 5).*)
 (*all: unfold getLengthInSequenceA.
 all: unfold getLengthInSequenceB.
 all: try destruct entries as [entriesList] eqn:H_eqEntries. 
@@ -1312,3 +1363,19 @@ specialize nil_cons with (x:=CHead). auto.
   specialize nil_cons with (x:=BHead). auto.
 Qed.
 
+(*
+A⁻¹ ○ ∅ = A
+
+A⁻¹ ○ A = ∅
+
+A ○ (B ○ C) = (A ○ B) ○ C
+
+A ↷ (B ○ C) = (A ↷ B) ↷ C
+
+(A ↷ ∅) = A
+([] ↷ A) = ∅
+(A ○ B) ↷ C = (A ↷ C) ○ (B ↷ (A⁻¹ ○ C ○ (A ↷ B) ))
+
+∀ ∃
+
+*)
