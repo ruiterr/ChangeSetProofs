@@ -627,9 +627,10 @@ Lemma swapSplitRemainderWithShorterSplitBLen: ∀(A B C:Operation), (A≫C) = tr
 Admitted.
 
 
-Eval compute in ( (Remove> [<$0,0>; <$0,0>; <$0,0>]) ≫ (Skip< 0)).
-Eval compute in ( ⌈Remove> [<$0,0>; <$0,0>; <$0,0>]⌉ᵦ ).
-Eval compute in (⌈Remove> [<$0,0>; <$0,0>; <$0,0>]⌉ᵦ - ⌈Skip> 0⌉ᵦ).
+Eval compute in ( (Insert> [<$0,0>; <$0,0>; <$0,0>]) ≫ (Skip< 2)).
+Eval compute in ( ⌈Insert> [<$0,0>; <$0,0>; <$0,0>]⌉ᵦ ).
+Eval compute in (⌈Skip> 2⌉ᵦ).
+Eval compute in (⌈Insert> [<$0,0>; <$0,0>; <$0,0>]⌉ᵦ - ⌈Skip> 2⌉ᵦ).
 
 Lemma splitLengthInB: ∀(A C:Operation), (A≫C) = true -> ⌈↩A[≻ᵦC]⌉ᵦ = ⌈A⌉ᵦ - ⌈C⌉ᵦ.
 intros.
@@ -694,7 +695,7 @@ Opaque getLengthInSequenceB.
        give_up.
      * discriminate H_eqSideB.
 
-Opaque getLengthInSequenceB.
+ Opaque getLengthInSequenceB.
  - destruct H. (* A = Remove Operation *)
    + destruct entries eqn:H_entries.
      cbv delta [getLengthInSequenceA] in H. simpl in H. 
@@ -722,37 +723,77 @@ Opaque getLengthInSequenceB.
        rewrite H. lia.
 Admitted.
 
-Eval compute (0 - 5).*)
-(*all: unfold getLengthInSequenceA.
-all: unfold getLengthInSequenceB.
-all: try destruct entries as [entriesList] eqn:H_eqEntries. 
-all: try destruct entries0 as [entriesList0] eqn:H_eqEntries0.
-all: unfold getLengthInSequenceA in H.
-all: unfold getLengthInSequenceB in H.
-all: simpl in H.
-all: unfold getLengthInSequenceA in H.
-all: unfold getLengthInSequenceB in H.
-all: simpl in H.
-
-all: destruct H.
-all: simpl; unfold SplitHelper; try rewrite H; cbv.
-give_up.
-destruct H. assert(S amount0 <=? amount = false). give_up. rewrite H1. simpl.
-
-all: simpl. 
-all: unfold SplitHelper. try rewrite H.*)
-
-Admitted.
-
 Lemma splitLengthInA: ∀(A C:Operation), (A≫C) = true -> ⌈↩A [≻ᵦC]⌉ₐ = ⌈A⌉ₐ - ⌈C⌉ₐ.
 Admitted.
 
-Lemma seqLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ⌈↩B [≻ᵦC]⌉ᵦ ?= (⌈↩A [≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ ?= ⌈A⌉ₐ).
+Definition MyFun (A B C: Operation) := ((A≫C), (B≫C), ⌈↩B[≻ᵦC]⌉ᵦ, (⌈↩A[≻ᵦC]⌉ₐ), ⌈B⌉ᵦ,  ⌈A⌉ₐ).
+Transparent getLengthInSequenceB.
+Transparent length.
+Transparent leb.
+Eval compute in (MyFun (Insert> [<$0,0>; <$0,0>; <$0,0>]) (Insert> [<$0,0>; <$0,0>; <$0,0>]) (Skip< 3)).
+
+Definition isInsert (op:Operation) := match op with
+  | Insert _ _=> true
+  | _ => false
+end.
+
+Lemma splitOpRemainsInsert: ∀ (A C: Operation), A[≻ᵦC] ≠ [] ∧ (isInsert A) = true → (isInsert(↩A[≻ᵦC]) = true).
+Admitted.
+
+Definition notEqualLengthInsert (A C:Operation) := (isInsert A) = false ∨ (⌈C⌉ᵦ > 0) ∨ (⌊C⌋ᵦ = right).
+
+
+Lemma splitOperationRemainder: ∀ A B : Operation, A ≫ B = true → ∃ C : Operation, A[≻ᵦB] = [C].
+Admitted.
+
+Lemma seqLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true ∧ 
+                                                      (notEqualLengthInsert B C) → ⌈↩B[≻ᵦC]⌉ᵦ ?= (⌈↩A[≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ ?= ⌈A⌉ₐ).
 intros.
-destruct H as [H_AgtC H_BgtC].
+destruct H as [H_AgtC [H_BgtC H_notEqualLengthInsert]].
 apply destructAGreaterB in H_AgtC as H_AgtC2.
 apply destructAGreaterB in H_BgtC as H_BgtC2.
 
+destruct (isInsert B) eqn:H_BisInsert.
+
+Transparent SplitHelper.
+Opaque length.
+Opaque splitOperation.
+- assert(⌈↩B[≻ᵦC]⌉ᵦ = 0) as H_B1eq0. 
+  cbv in H_BisInsert.
+  set (lenC := ⌈C⌉ᵦ).
+  set (sideC := ⌊C⌋ᵦ).
+  destruct B eqn:H_eqB; try discriminate H_BisInsert.
+  simpl. destruct entries.
+  specialize splitOpRemainsInsert with (A:=B) (C:=C) as H_CisInsert. forward H_CisInsert. { 
+    split.
+    specialize splitOperationRemainder with (A:=B) (B:=C) as H. forward H; auto. rewrite H_eqB. auto. destruct H. rewrite H. discriminate.
+    rewrite H_eqB. simpl. auto.
+  }
+  destruct (↩B[≻ᵦC]) eqn:H_eqC; try discriminate H_CisInsert.
+  rewrite  H_eqB in H_eqC.
+  unfold lenC. unfold sideC.
+  rewrite H_eqC. destruct entries0. simpl. auto.
+
+  rewrite H_B1eq0.
+
+  assert(⌈B⌉ᵦ = 0) as H_B1eq0_2. give_up.
+  rewrite H_B1eq0_2.
+
+  rewrite splitLengthInA; auto.
+
+  destruct H_AgtC2.
+  + assert(⌈A⌉ᵦ > ⌈C⌉ₐ). {
+    rewrite Nat.ltb_lt in H.
+    lia.
+  }
+  Search(_ <? _).
+  lia.
+  
+  rewrite 
+  simpl.
+    rewrite H_eqB. simpl. auto. 
+  destruct . 
+  unfold SplitHelper. destruct C; try destruct entries0; try destruct side; try destruct side0; simpl; cbv. 
 rewrite splitLengthInB; auto.
 rewrite splitLengthInA; auto.
 
@@ -815,10 +856,6 @@ all: try rewrite H_Amount in H; simpl in H.
 
 all: solve [exfalso; apply H; auto].
 Qed.
-
-
-Lemma splitOperationRemainder: ∀ A B : Operation, A ≫ B = true → ∃ C : Operation, A[≻ᵦB] = [C].
-Admitted.
 
 Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≻ᵦC] ≻ ↩B[≻ᵦC]) = (A ≻ B).
 intros.
