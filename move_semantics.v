@@ -1093,10 +1093,11 @@ Definition minSplitLength (A B C : Operation) : nat := (min (min (min lengthA_A 
 Definition splitOp (op:Operation) := snd (splitOperation SquashIterationDefinition op lengthC sideC).
 Let splitOpC := splitOpAFun SquashIterationDefinition CombinedOp CHead.
  
-Definition AHeadSplit := if splitOpC then splitOp AHead else remainderA.
+Definition AHeadSplit := if splitOpC then if (isInsert BHead) then [AHead] else splitOp AHead else remainderA.
 Definition BHeadSplit := if splitOpC then splitOp BHead else remainderB.
 Definition CHeadSplit := remainderC.
 
+Definition MyFun3 := (AHeadSplit, BHeadSplit, CombinedOp, remainderA, remainderB, remainderAB, getNextOperation SquashIterationDefinition (↩AHeadSplit) (↩BHeadSplit)).
 
 (*Lemma getNextOperationCombinationLengthCSmallerRemAB: (splitOpC = true) → (∃ (remABOp:Operation), (remainderAB = [remABOp])).
 intros.
@@ -1139,7 +1140,8 @@ assert(splitOpC = true) as H_splitOpC. give_up.
 Opaque computeResultingOperation. Opaque splitOperation.
 cbv delta [AHeadSplit BHeadSplit splitOp]. cbv beta. fold splitOpC. rewrite H_splitOpC. auto.
 simpl. 
-specialize splitOperationRemainder with (A:=AHead) (B:=CHead) as H_AHead. 
+
+specialize splitOperationRemainder with (A:=AHead) (B:=CHead) as H_AHead.
 specialize splitOperationRemainder with (A:=BHead) (B:=CHead) as H_BHead. 
 specialize splitOperationRemainder with (A:=CombinedOp) (B:=CHead) as H_CHead. 
 
@@ -1147,7 +1149,7 @@ specialize splitByLargerOp with (A:=AHead) (B:=BHead) (C:=CHead).
 
 Print OpResult1.
 fold OpResult1. fold CombinedOp. fold splitOpC. rewrite H. intros. destruct H0 as [H_ASmaller H_BSmaller]. auto. 
-forward H_AHead. auto. destruct H_AHead as [remA H_remA]. fold lengthC in H_remA. fold sideC in H_remA. rewrite H_remA.
+forward H_AHead. auto. destruct H_AHead as [remASplit H_remA]. fold lengthC in H_remA. fold sideC in H_remA. rewrite H_remA.
 forward H_BHead. auto. destruct H_BHead as [remB H_remB]. fold lengthC in H_remB. fold sideC in H_remB. rewrite H_remB.
 
 assert (∃ remABOp : Operation,  remainderAB = [remABOp]). {
@@ -1161,79 +1163,184 @@ assert (∃ remABOp : Operation,  remainderAB = [remABOp]). {
 
 destruct H0.
 rewrite H0.
-exists x. exists remA. exists remB.
+exists x. 
 
-split. auto. split. auto. split. auto.
+set (remA := if (isInsert BHead) then AHead else remASplit).
+exists remA. exists remB.
+split. 
 
+(* Proof remainderAB = [remABOp] *)
+auto.
+
+split.
+
+(* Proof [remAOp] = AHeadSplit *)
+{ 
+ destruct (isInsert BHead) eqn:H_BHeadIsInsert. cbv in H_BHeadIsInsert.
+ - destruct BHead eqn:H_BHead; try discriminate H_BHeadIsInsert.
+   destruct entries. unfold remA. simpl. auto.
+ - destruct BHead eqn:H_BHead; try discriminate H_BHeadIsInsert.
+   all: simpl; unfold remA; auto.
+}
+
+
+(* Proof [remBOp] = BHeadSplit *)
+split. auto.
+
+(* Proof (remABOp, remainderA, remainderB) = (getNextOperation SquashIterationDefinition remAOp remBOp) *)
 cbv delta [remainderAB OpResult2 getNextOperation]. cbv beta. fold splitOpC. 
 
 set (splitOpARem := splitOpAFun SquashIterationDefinition remA remB).
 set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
 
-assert(splitOpARem = splitOpA). 
-unfold splitOpARem.
-unfold splitOpA.
-rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto. rewrite <-H_remA.
-rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto. rewrite <-H_remB.
-unfold lengthC. unfold sideC.
+{
+  destruct (isInsert BHead) eqn:H_BHeadIsInsert. cbv in H_BHeadIsInsert.
+  - destruct BHead eqn:H_BHead; try discriminate H_BHeadIsInsert.
+    assert(⌈remB⌉ᵦ = 0) as H_remBLength0. {
+      rewrite seqBLengthFromNorm. unfold isInsert. 
+      specialize splitOpRemainsInsert with (A:=BHead) (C:=CHead) as H_remBIsInsert.
+      forward H_remBIsInsert. {
+        split. 
+        - fold lengthC. fold sideC. rewrite H_BHead. rewrite ->H_remB. discriminate.
+        - unfold isInsert. rewrite H_BHead. auto.
+      }
+      rewrite H_BHead in H_remBIsInsert.
+      fold lengthC in H_remBIsInsert. fold sideC in H_remBIsInsert.
+      rewrite ->H_remB in H_remBIsInsert. simpl in H_remBIsInsert.
+      
+      destruct remB; cbv in  H_remBIsInsert; try discriminate H_remBIsInsert.
+      auto.
+    }
 
-apply splitLengthPreservedUnderCut with (A:=AHead) (B:=BHead) (C:=CHead); auto.
+    cbv zeta.
+    rewrite H_remBLength0.
+    unfold splitOpAFun in splitOpARem.
+    destruct (⌈remB⌉ᵦ =? ⌈remA⌉ₐ) eqn:H_remBGtRemA.
+    + give_up.
+    + assert(⌈remB⌉ᵦ < ⌈remA⌉ₐ). {
+        apply Nat.eqb_neq in H_remBGtRemA.
+        rewrite H_remBLength0.
+        lia.
+      }
+      rewrite <-Nat.ltb_lt in H1.
+      subst splitOpARem.
+      rewrite H1.
+      unfold remainderA. 
+      unfold remainderB. 
+      unfold OpResult1.
+      unfold getNextOperation.
+      fold splitOpA.
+      unfold splitOpAFun in splitOpA.
+      set (lenBHead := ⌈Insert entries side0⌉ᵦ).
+      fold lenBHead in splitOpA.
+      (* rewrite seqBLengthFromNorm with (A:=(Insert entries side0)) in lenBHead.*)
+      unfold getLengthInSequenceB in lenBHead. cbv in lenBHead.
+      destruct entries eqn:H_eqEntries.
+      unfold lenBHead in splitOpA.
+      destruct (0 =? ⌈AHead⌉ₐ) eqn:lenAHead.
+      * give_up.
+      * rewrite Nat.eqb_neq in lenAHead.
+        assert( (0 <? ⌈AHead⌉ₐ) = true). {rewrite Nat.ltb_lt. lia. }
+        subst splitOpA.
+        Opaque getLengthInSequenceA.
+        Opaque getLengthInSequenceB.
+        rewrite H2. fold lengthC. simpl. subst lenBHead. subst remA. 
+        specialize sideRemainsUnchanged with (A:=BHead) (C:=CHead) as H_remBSide.
+        fold lengthC in H_remBSide. fold sideC in H_remBSide. rewrite H_BHead in H_remBSide.
+        forward H_remBSide. rewrite H_remB. discriminate.
+        rewrite H_remB in H_remBSide. unfold getOpFromArray in H_remBSide. simpl in H_remBSide.
+        Transparent getLengthInSequenceA.
+        unfold getLengthInSequenceA at 2 in H_remBSide. 
+        Opaque getLengthInSequenceA.
+        simpl in H_remBSide.
+        Transparent getLengthInSequenceA.
+        Transparent getLengthInSequenceB.
+        assert(⌊remB⌋ᵦ = ⌊remB⌋ₐ). { cbv. destruct remB; try destruct entries1; simpl; auto. }
+        rewrite H3.
+        rewrite H_remBSide.
+        assert(⌊Insert (Seq entries0) side0⌋ᵦ = side0). { cbv. auto. }
+        rewrite H4.
+        assert (x = ↩remainderAB). {unfold 
 
-Opaque getLengthInSequenceA. Opaque getLengthInSequenceB.
-simpl.
+        rewrite <-H_remB.
+         
+    rewrite H_remBLength0 in splitOpARem.
+    simpl.
+  - assert(splitOpARem = splitOpA) as H_spOAREMeqspOA. 
+    unfold splitOpARem.
+    unfold splitOpA.
+    rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto. unfold remA. rewrite <-H_remA.
+    rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto. rewrite <-H_remB.
+    unfold lengthC. unfold sideC.
 
-unfold remainderA.
-unfold remainderB.
-cbv delta [OpResult1 getNextOperation]. cbv beta. simpl.
-fold splitOpA.
-(*rewrite <-H1.*)
+    apply splitLengthPreservedUnderCut with (A:=AHead) (B:=BHead) (C:=CHead); auto.
 
-case_eq (splitOpARem).
-(* AHead is being split *)
-intros H_SplitOpARemTrue.
 
-rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto.
-rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto.
-rewrite <-H_remA. rewrite <-H_remB. unfold lengthC. unfold sideC.
+    Opaque getLengthInSequenceA. Opaque getLengthInSequenceB.
+    simpl.
 
-f_equal.
-f_equal.
+    unfold remainderA.
+    unfold remainderB.
+    cbv delta [OpResult1 getNextOperation]. cbv beta. simpl.
+    fold splitOpA.
+    (*rewrite <-H1.*)
 
-rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
-unfold remainderAB.
-unfold OpResult2.
-unfold getNextOperation.
-fold splitOpC. rewrite H_splitOpC.
-simpl.
-unfold CombinedOp. unfold OpResult1. unfold getNextOperation.
-fold splitOpA. rewrite <-H1. rewrite H_SplitOpARemTrue.
-simpl.
+    case_eq (splitOpARem).
+    (* AHead is being split *)
+    intros H_SplitOpARemTrue.
 
-apply swapCombineWithSplitOfA; auto.
-apply swapSplitRemainderWithShorterSplitBLen; auto.
+    rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto.
+    rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto.
+    rewrite <-H_spOAREMeqspOA.
+    rewrite H_SplitOpARemTrue.
+    unfold remA.
+    rewrite <-H_remA. rewrite <-H_remB. unfold lengthC. unfold sideC.
 
-(* BHead is being split *)
-intros H_SplitOpARemTrue.
+    f_equal.
+    f_equal.
 
-rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto.
-rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto.
-rewrite <-H_remA. rewrite <-H_remB. unfold lengthC. unfold sideC.
+    rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
+    unfold remainderAB.
+    unfold OpResult2.
+    unfold getNextOperation.
+    fold splitOpC. rewrite H_splitOpC.
+    simpl.
+    unfold CombinedOp. unfold OpResult1. unfold getNextOperation.
+    fold splitOpA.
+    rewrite <-H_spOAREMeqspOA. rewrite H_SplitOpARemTrue.
+    simpl.
 
-f_equal.
-f_equal.
+    apply swapCombineWithSplitOfA; auto.
+    apply swapSplitRemainderWithShorterSplitBLen; auto.
 
-rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
-unfold remainderAB.
-unfold OpResult2.
-unfold getNextOperation.
-fold splitOpC. rewrite H_splitOpC.
-simpl.
-unfold CombinedOp. unfold OpResult1. unfold getNextOperation.
-fold splitOpA. rewrite <-H1. rewrite H_SplitOpARemTrue.
-simpl.
+    (* BHead is being split *)
+    intros H_SplitOpARemTrue.
 
-rewrite swapCombineWithSplitOfB; auto.
-rewrite swapSplitRemainderWithShorterSplitALen with (C:=CHead); auto.
+    rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto.
+    rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto.
+    unfold remA.
+    rewrite <-H_remA. rewrite <-H_remB. unfold lengthC. unfold sideC.
+
+    f_equal.
+    f_equal.
+
+    rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
+    unfold remainderAB.
+    unfold OpResult2.
+    unfold getNextOperation.
+    fold splitOpC. rewrite H_splitOpC.
+    simpl.
+    unfold CombinedOp. unfold OpResult1. unfold getNextOperation.
+    fold splitOpA. rewrite <-H_spOAREMeqspOA. rewrite H_SplitOpARemTrue.
+    simpl.
+
+    rewrite swapCombineWithSplitOfB; auto.
+    fold splitOpA. rewrite <-H_spOAREMeqspOA. rewrite H_SplitOpARemTrue. auto.
+
+    fold splitOpA. rewrite <-H_spOAREMeqspOA. rewrite H_SplitOpARemTrue.
+
+    rewrite swapSplitRemainderWithShorterSplitALen with (C:=CHead); auto.
+  }
 Admitted.
 
 Lemma getNextOperationCombinationLengthCBigger: (splitOpC = false ) → 
@@ -1337,6 +1444,12 @@ Lemma lengthOfSplitHeads: (Datatypes.length AHeadSplit) + (Datatypes.length BHea
 Admitted.
 
 End SwapProof.
+
+Transparent length.
+Transparent splitOperation.
+
+Eval compute in (MyFun (Skip> 3) (Insert> [<$0,0>; <$0,0>;<$0,0>]) (Skip< 3)).
+Eval compute in (MyFun3 (Skip> 3) (Insert> [<$0,0>; <$0,0>;<$0,0>]) (Skip< 3)).
 
 Section HeadSplitSwapLemmas.
   Variables AHead BHead CHead : Operation.
