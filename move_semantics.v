@@ -668,7 +668,6 @@ unfold splitOperation. simpl.
 destruct A eqn:H_A; destruct s; try destruct side0.
 all: unfold SplitHelper.
 all: unfold opLength in H.
-Search(_ <? _).
 all: try destruct entries.
 all: apply Nat.ltb_lt in H.
 all: rewrite H.
@@ -677,6 +676,21 @@ all: simpl.
 all: try rewrite skipn_length.
 all: try lia.
 Qed.
+
+Lemma splitOperationWith0Unchanged: ∀(A:Operation) (s : side), ‖A‖ > 0 → A[≻≻0 ; s] = [A].
+intros.
+unfold splitOperation. simpl.
+destruct A eqn:H_A; destruct s; try destruct side0.
+all: unfold SplitHelper.
+all: try destruct entries.
+all: simpl.
+all: simpl in H.
+all: try assert(0 < amount); try lia.
+all: try assert(0 < Datatypes.length entries); try lia.
+all: try rewrite <-Nat.ltb_lt in H0.
+all: try rewrite H0; try rewrite Nat.sub_0_r; simpl; auto.
+Qed.
+
 
 Lemma seqALengthFromNorm: ∀(A:Operation), ⌈A⌉ₐ = ( if (isRemove A) then 0 else ‖A‖).
 intros.
@@ -1260,12 +1274,128 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
         rewrite H_remBSide.
         assert(⌊Insert (Seq entries0) side0⌋ᵦ = side0). { cbv. auto. }
         rewrite H4.
-        assert (x = ↩remainderAB). {unfold 
+        assert (x = ↩remainderAB). { rewrite H0. simpl. auto. }
+        rewrite H5.
+        assert (↩remainderAB = AHead [≺≺0; side0] ⊕ remB). {
+          Opaque computeResultingOperation.
+          Opaque splitOperation.
+          Opaque SquashIterationDefinition.
+          Opaque Nat.eqb.
+          Opaque Nat.ltb.
+          set (rhs:= AHead [≺≺0; side0] ⊕ remB).
+          cbv delta [getOpFromArray remainderAB OpResult2 getNextOperation CombinedOp]. simpl.
+          assert(AHead ≻ Insert (Seq entries0) side0 = true) as H_AheadGtBHead. {
+           cbv delta [splitOpAFun]. cbv beta. cbv zeta.  
+           cbv delta [getLengthInSequenceB]. unfold SquashIterationDefinition at 1. simpl.
+           specialize Nat.eqb_neq with (x:=0) (y:=⌈AHead⌉ₐ) as H_AHeadNeq0.
+           destruct H_AHeadNeq0 as [_ H_AHeadNeq0].
+           forward H_AHeadNeq0;auto. rewrite H_AHeadNeq0.
+           unfold SquashIterationDefinition at 1. simpl. rewrite H2. 
+           reflexivity.
+          }
+          rewrite H_AheadGtBHead.
+          assert(CombinedOp = AHead [≺ᵦInsert (Seq entries0) side0] ⊕ Insert (Seq entries0) side0). {
+            unfold CombinedOp.
+            unfold OpResult1.
+            unfold getNextOperation.
+            rewrite H_AheadGtBHead. simpl.
+            reflexivity.
+          }
+          
 
-        rewrite <-H_remB.
+          rewrite <-H6.
+          fold splitOpC.
+          rewrite H_splitOpC.
+          rewrite H6.
+          fold lengthC. fold sideC.
+          rewrite seqBLengthFromNorm. unfold isInsert.
+          unfold rhs.
+          assert(AHead [≺≺0; ⌊Insert (Seq entries0) side0⌋ᵦ] ⊕ (Insert (Seq entries0) side0) = (Insert (Seq entries0) side0)) as H_RemoveSplitLeft. {
+            Transparent computeResultingOperation.
+            Transparent SquashIterationDefinition.
+            Transparent splitOperation.
+            Transparent SplitHelper.
+            unfold computeResultingOperation at 1.
+            simpl.
+            destruct AHead eqn:H_AHead; try destruct entries0; try destruct entries1.
+            all: destruct side1; unfold SplitHelper; simpl.
+            all: try assert(0 < amount) as H_amountGt0; simpl in lenAHead; try lia.
+            all: try rewrite <-Nat.ltb_lt in H_amountGt0; try rewrite H_amountGt0; simpl; auto.
+            assert (0 <? Datatypes.length entries0 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
+            rewrite H_entriesGt0; simpl; auto.
+            assert (0 <? Datatypes.length entries0 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
+            rewrite H_entriesGt0; simpl; auto.
+            assert (0 <? Datatypes.length entries1 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
+            rewrite H_entriesGt0; simpl; auto.
+            assert (0 <? Datatypes.length entries1 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
+            rewrite H_entriesGt0; simpl; auto.
+         }
+         rewrite H_RemoveSplitLeft.
+         change remB with (↩[remB]).
+         rewrite <-H_remB.
+         assert(AHead [≺≺0; side0] ⊕ ↩Insert (Seq entries0) side0 [≻≻lengthC; sideC] = ↩(Insert (Seq entries0) side0 [≻≻lengthC; sideC])). {
+
+            Transparent computeResultingOperation.
+            Transparent SquashIterationDefinition.
+            Transparent splitOperation.
+            all: destruct AHead eqn:H_AHead; try destruct entries0; try destruct entries1; try destruct side0; try destruct side1.
+            Transparent SplitHelper.
+            Transparent length.
+            all: unfold splitOperation; simpl; unfold SplitHelper; simpl. 
+            (*all: try assert(0 < amount) as H_amountGt0; simpl in lenAHead; try lia. *)
+            all: simpl in lenAHead.
+            assert(0 < amount) as H_param; only 1: lia.
+            all: try (assert(0 < amount) as H_param; only 1: lia) +
+                     (assert(0 < Datatypes.length entries0) as H_param; only 1: lia) + 
+                     (assert(0 < Datatypes.length entries1) as H_param; only 1: lia).
+            all: try rewrite <-Nat.ltb_lt in H_param; try rewrite H_param; simpl; auto.
+
+            all: try assert( lengthC <? 0 = false) as H_lengthCnlt0; try rewrite Nat.ltb_nlt; try lia.
+            all: try rewrite H_lengthCnlt0.
+            all: try destruct sideC; simpl; auto.
+            (* TODO: These are acutal failure cases, not just missing parts of the proof! *)
+            give_up. give_up.
+            all: (assert( lengthC <? (S (Datatypes.length entries0)) = true) as H_lengthCltEntries; give_up).
+          }
+          rewrite H7. auto.
+        }
+        rewrite H6; auto.
+     
+
+        Transparent getLengthInSequenceA.
+        Transparent getLengthInSequenceB.
+        Opaque computeResultingOperation.
+        Opaque splitOperation.
+        Transparent SquashIterationDefinition.
+        Transparent Nat.eqb.
+        Transparent Nat.ltb.
+
+ (* unfold SplitHelper; simpl.
+            unfold computeResultingOperation at 1.
+            simpl.
+            destruct AHead eqn:H_AHead; try destruct entries0; try destruct entries1.
+            all: destruct side1; unfold SplitHelper; simpl.
+            all: try assert(0 < amount) as H_amountGt0; simpl in lenAHead; try lia.
+            all: try rewrite <-Nat.ltb_lt in H_amountGt0; try rewrite H_amountGt0; simpl; auto.
+            assert (0 <? Datatypes.length entries0 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
+            rewrite H_entriesGt0; simpl; auto.
+            assert (0 <? Datatypes.length entries0 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
+            rewrite H_entriesGt0; simpl; auto.
+            assert (0 <? Datatypes.length entries1 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
+            rewrite H_entriesGt0; simpl; auto.
+            assert (0 <? Datatypes.length entries1 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
+            rewrite H_entriesGt0; simpl; auto.
+          
+          
+
+          
+            Search (_<?_).
+          
+        
+        
          
     rewrite H_remBLength0 in splitOpARem.
-    simpl.
+    simpl.*)
   - assert(splitOpARem = splitOpA) as H_spOAREMeqspOA. 
     unfold splitOpARem.
     unfold splitOpA.
