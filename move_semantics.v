@@ -1252,7 +1252,54 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
     rewrite H_remBLength0.
     unfold splitOpAFun in splitOpARem.
     destruct (⌈remB⌉ᵦ =? ⌈remA⌉ₐ) eqn:H_remBGtRemA.
-    + give_up.
+    + apply Nat.eqb_eq in H_remBGtRemA as H_remBGtRemAnonBool.
+      rewrite <-H_remBGtRemAnonBool.
+      rewrite H_remBLength0.
+      destruct (⌊remA⌋ₐ) eqn:H_remASide; 
+        unfold splitOpARem;
+        unfold remainderA; unfold remainderB; unfold OpResult1.
+        all: destruct entries.
+        all: change remB with (↩[remB]); rewrite <-H_remB.
+        all: unfold remA.
+        all: change x with (↩[x]); rewrite <-H0; unfold remainderAB; unfold OpResult2.
+        all: unfold remA.
+
+        Opaque getLengthInSequenceA.
+        Opaque getLengthInSequenceB. 
+        Opaque computeResultingOperation. 
+        all: unfold getNextOperation.
+        all: destruct (AHead ≻ Insert (Seq entries) side0).
+        all: simpl.
+        all: fold splitOpC; rewrite H_splitOpC.
+        all: rewrite H_remB.
+        destruct AHead eqn:H_AHead.
+        assert(amount = 0). {
+          unfold remA in H_remBGtRemAnonBool.
+          rewrite H_remBLength0 in H_remBGtRemAnonBool.
+          Transparent getLengthInSequenceA. 
+          simpl in H_remBGtRemAnonBool.
+          auto.
+        }
+        rewrite H1.
+        simpl in H_remASide.
+        rewrite H_remASide.
+        assert (⌈Insert (Seq entries) side0⌉ᵦ= 0). {
+          Transparent getLengthInSequenceB.
+          unfold getLengthInSequenceB.
+          cbv. auto.
+        }
+        rewrite H2.
+        assert((Skip< 0) [≻≻0; ⌊Insert (Seq entries) side0⌋ᵦ]=[]).
+
+      assert(⌈remB⌉ᵦ <? ⌈remA⌉ₐ = false ) as H_remBLtRemA. {
+        rewrite Nat.ltb_nlt.
+        
+        rewrite <-H_remBGtRemAnonBool.
+        rewrite H_remBLength0.
+        lia.
+      }
+      rewrite <-H_remBLtRemA.
+      give_up.
     + assert(⌈remB⌉ᵦ < ⌈remA⌉ₐ). {
         apply Nat.eqb_neq in H_remBGtRemA.
         rewrite H_remBLength0.
