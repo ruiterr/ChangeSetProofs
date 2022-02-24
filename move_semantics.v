@@ -515,6 +515,12 @@ Eval compute in (squash
 
 Infix "○" := squash (at level 60).
 
+Eval compute in (    
+  ((OList [(Skip< 0)]) ○ (OList [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]])) ○ (OList [Skip< 0])).
+
+Eval compute in (    
+  (OList [(Skip> 0)]) ○ ((OList [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]]) ○ (OList [Skip< 0]))).
+
 Lemma emptyOListNop: ∀ (A : operationList), (A ○ (OList []) = A).
 intros.
 unfold squash.
@@ -1252,7 +1258,52 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
       destruct entries eqn:H_eqEntries.
       unfold lenBHead in splitOpA.
       destruct (0 =? ⌈AHead⌉ₐ) eqn:lenAHead.
-      * give_up.
+      * simpl.
+        destruct (⌊AHead⌋ₐ); subst splitOpA; simpl.
+        destruct AHead eqn:H_AHead.
+        subst remA. simpl.
+        assert(side1 = right) as H_side1. {
+          specialize destructAGreaterB with (A:=(Skip amount side1)) (B:=CHead) as H_SkipGreaterCHead.
+          forward H_SkipGreaterCHead. auto.
+          rewrite Nat.eqb_eq in lenAHead.
+          rewrite <-lenAHead in H_SkipGreaterCHead.
+          destruct H_SkipGreaterCHead.
+          - rewrite Nat.ltb_lt in H2.
+            apply Nat.nlt_0_r in H2.
+            contradiction.
+          - destruct H2.
+            destruct H3.
+            simpl in H3.
+            assumption.
+        }
+        rewrite H_side1.
+        destruct side0.
+        change remB with (↩[remB]).
+        rewrite <-H_remB.
+        simpl.
+        assert(lengthC = 0) as H_length0. { 
+          specialize destructAGreaterB with (A:=(Skip amount side1)) (B:=CHead) as H_SkipGreaterCHead.
+          forward H_SkipGreaterCHead. auto.
+          destruct H_SkipGreaterCHead.
+          rewrite Nat.ltb_lt in H2.
+          rewrite Nat.eqb_eq in lenAHead.
+          rewrite <-lenAHead in H2.
+          fold lengthC in H2.
+          lia.
+
+          destruct H2.
+          rewrite Nat.eqb_eq in H2.
+          rewrite Nat.eqb_eq in lenAHead.
+          rewrite <-lenAHead in H2.
+          fold lengthC in H2.
+          assumption.
+        }
+
+        rewrite H_length0.
+        rewrite splitOperationWith0Unchanged.
+        simpl.
+        rewrite splitOperationWith0Unchanged.
+        
       * rewrite Nat.eqb_neq in lenAHead.
         assert( (0 <? ⌈AHead⌉ₐ) = true). {rewrite Nat.ltb_lt. lia. }
         subst splitOpA.
@@ -1370,32 +1421,6 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
         Transparent Nat.eqb.
         Transparent Nat.ltb.
 
- (* unfold SplitHelper; simpl.
-            unfold computeResultingOperation at 1.
-            simpl.
-            destruct AHead eqn:H_AHead; try destruct entries0; try destruct entries1.
-            all: destruct side1; unfold SplitHelper; simpl.
-            all: try assert(0 < amount) as H_amountGt0; simpl in lenAHead; try lia.
-            all: try rewrite <-Nat.ltb_lt in H_amountGt0; try rewrite H_amountGt0; simpl; auto.
-            assert (0 <? Datatypes.length entries0 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
-            rewrite H_entriesGt0; simpl; auto.
-            assert (0 <? Datatypes.length entries0 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
-            rewrite H_entriesGt0; simpl; auto.
-            assert (0 <? Datatypes.length entries1 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
-            rewrite H_entriesGt0; simpl; auto.
-            assert (0 <? Datatypes.length entries1 = true) as H_entriesGt0; try rewrite Nat.ltb_lt; try lia.
-            rewrite H_entriesGt0; simpl; auto.
-          
-          
-
-          
-            Search (_<?_).
-          
-        
-        
-         
-    rewrite H_remBLength0 in splitOpARem.
-    simpl.*)
   - assert(splitOpARem = splitOpA) as H_spOAREMeqspOA. 
     unfold splitOpARem.
     unfold splitOpA.
