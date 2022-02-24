@@ -516,10 +516,24 @@ Eval compute in (squash
 Infix "○" := squash (at level 60).
 
 Eval compute in (    
-  ((OList [(Skip< 0)]) ○ (OList [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]])) ○ (OList [Skip< 0])).
+  ((OList [(Skip> 0)]) ○ (OList [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]])) ○ (OList [Skip< 0])).
 
 Eval compute in (    
   (OList [(Skip> 0)]) ○ ((OList [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]]) ○ (OList [Skip< 0]))).
+
+
+Eval compute in (    
+  ((OList [(Skip> 0)]) ○ (OList [Insert< []])) ○ (OList [Skip< 0])).
+
+Eval compute in (    
+  (OList [(Skip> 0)]) ○ ((OList [Insert< []]) ○ (OList [Skip< 0]))).
+
+
+Eval compute in (    
+  ((OList [(Skip> 0)]) ○ (OList [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]]))).
+
+Eval compute in (    
+  ((OList [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]]) ○ (OList [Skip< 0]))).
 
 Lemma emptyOListNop: ∀ (A : operationList), (A ○ (OList []) = A).
 intros.
@@ -613,6 +627,7 @@ Notation "‖ x ‖" := (opLength x) (at level 40, no associativity, format "'�
 
 Notation "↩ x" := (getOpFromArray x) (at level 50, no associativity, format "'↩' x").
 
+Eval compute in ((Insert< [<$0,0>; <$1,1>; <$2,2>]) ≫ (Skip< 0)).
 
 Lemma resolveNonEmptyArray: ∀ (x:Operation) (y:(list Operation)), y = [x] → ↩y = x.
 intros.
@@ -1149,6 +1164,7 @@ forward H2. auto. destruct H2. fold lengthC in H2. fold sideC in H2. rewrite H2.
 exists x. auto.
 Qed.*)
 
+
 Lemma getNextOperationCombinationLengthCSmaller: (CombinedOp ≫ CHead) = true → 
     (∃ (remABOp remAOp remBOp : Operation), (
       remainderAB = [remABOp]) ∧ 
@@ -1252,6 +1268,7 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
       fold splitOpA.
       unfold splitOpAFun in splitOpA.
       set (lenBHead := ⌈Insert entries side0⌉ᵦ).
+      assert(lenBHead = ⌈Insert entries side0⌉ᵦ) as H_lenBHead; auto. 
       fold lenBHead in splitOpA.
       (* rewrite seqBLengthFromNorm with (A:=(Insert entries side0)) in lenBHead.*)
       unfold getLengthInSequenceB in lenBHead. cbv in lenBHead.
@@ -1259,30 +1276,9 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
       unfold lenBHead in splitOpA.
       destruct (0 =? ⌈AHead⌉ₐ) eqn:lenAHead.
       * simpl.
-        destruct (⌊AHead⌋ₐ); subst splitOpA; simpl.
-        destruct AHead eqn:H_AHead.
-        subst remA. simpl.
-        assert(side1 = right) as H_side1. {
-          specialize destructAGreaterB with (A:=(Skip amount side1)) (B:=CHead) as H_SkipGreaterCHead.
-          forward H_SkipGreaterCHead. auto.
-          rewrite Nat.eqb_eq in lenAHead.
-          rewrite <-lenAHead in H_SkipGreaterCHead.
-          destruct H_SkipGreaterCHead.
-          - rewrite Nat.ltb_lt in H2.
-            apply Nat.nlt_0_r in H2.
-            contradiction.
-          - destruct H2.
-            destruct H3.
-            simpl in H3.
-            assumption.
-        }
-        rewrite H_side1.
-        destruct side0.
-        change remB with (↩[remB]).
-        rewrite <-H_remB.
-        simpl.
+
         assert(lengthC = 0) as H_length0. { 
-          specialize destructAGreaterB with (A:=(Skip amount side1)) (B:=CHead) as H_SkipGreaterCHead.
+          specialize destructAGreaterB with (A:=AHead) (B:=CHead) as H_SkipGreaterCHead.
           forward H_SkipGreaterCHead. auto.
           destruct H_SkipGreaterCHead.
           rewrite Nat.ltb_lt in H2.
@@ -1299,11 +1295,29 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
           assumption.
         }
 
-        rewrite H_length0.
-        rewrite splitOperationWith0Unchanged.
-        simpl.
-        rewrite splitOperationWith0Unchanged.
-        
+        change remB with (↩[remB]) in H_remBGtRemA.
+        rewrite <-H_remB in H_remBGtRemA.
+        rewrite H_length0 in H_remBGtRemA.
+        rewrite seqBLengthFromNorm in H_remBGtRemA.
+        rewrite <-H_length0 in H_remBGtRemA.
+        unfold lengthC in H_remBGtRemA.
+        unfold sideC in H_remBGtRemA.
+
+        rewrite splitOpRemainsInsert in H_remBGtRemA; 
+          only 2:split; 
+          only 2: ( 
+            fold lengthC; fold sideC; rewrite H_remB; discriminate
+          ); 
+          only 2: (unfold isInsert; auto).
+
+        fold lengthC in H_remBGtRemA.
+        rewrite H_length0 in H_remBGtRemA.
+        unfold remA in H_remBGtRemA.
+        rewrite Nat.eqb_eq in lenAHead.
+        rewrite <-lenAHead in H_remBGtRemA. 
+        simpl in H_remBGtRemA.
+        discriminate H_remBGtRemA.
+
       * rewrite Nat.eqb_neq in lenAHead.
         assert( (0 <? ⌈AHead⌉ₐ) = true). {rewrite Nat.ltb_lt. lia. }
         subst splitOpA.
@@ -1605,6 +1619,11 @@ Transparent splitOperation.
 
 Eval compute in (MyFun (Skip> 3) (Insert> [<$0,0>; <$0,0>;<$0,0>]) (Skip< 3)).
 Eval compute in (MyFun3 (Skip> 3) (Insert> [<$0,0>; <$0,0>;<$0,0>]) (Skip< 3)).
+Eval compute in (MyFun3 (Skip> 0) (Insert< [<$0, 0>; <$1, 1>; <$2, 2>]) (Skip< 0)).
+
+Definition A := [(Skip> 0)]).
+Definition B := [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]]).
+Definition C := (OList [Skip< 0].
 
 Section HeadSplitSwapLemmas.
   Variables AHead BHead CHead : Operation.
