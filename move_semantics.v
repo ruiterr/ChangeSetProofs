@@ -720,6 +720,27 @@ all: try rewrite H_amount.
 all: simpl; auto.
 Qed.
 
+Lemma splitOperationWith0RightEmpty: ∀(A:Operation) (s : side), ((‖A‖ = 0 ∧ ⌊A⌋ᵦ = right ∧ s = right)) → A[≻≻0 ; s] = [].
+intros.
+unfold splitOperation. simpl.
+destruct A eqn:H_A; destruct s eqn:H_s; try destruct side0 eqn:H_side0.
+all: unfold SplitHelper.
+all: try destruct entries.
+all: simpl.
+all: simpl in H.
+
+all: try (
+  (assert(0 < amount) as H1; only 1: lia) +
+  (assert(0 < Datatypes.length entries) as H1; only 1: lia);
+  rewrite <-Nat.ltb_lt in H1;
+  rewrite H1; 
+  try rewrite Nat.sub_0_r; simpl; auto
+).
+all: try destruct H as [H_amount [H_left H_right]]; try discriminate H_left; try discriminate H_right.
+all: try rewrite H_amount. 
+all: simpl; auto.
+Qed.
+
 Lemma splitOperationWith0Empty: ∀(A:Operation) (s : side), A[≺≺0 ; s] = match A with 
   | Insert _ s1 => Insert (Seq []) (if (0 <? ‖A‖) then s else (smallerSide s s1))
   | Remove _ s1 => Remove (Seq []) (if (0 <? ‖A‖) then s else (smallerSide s s1))
@@ -1406,35 +1427,59 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
         
         change (⌊Insert (Seq entries) side0⌋ₐ) with side0.
         rewrite splitOperationWith0Unchanged. simpl.
-        rewrite splitOperationWith0Unchanged. simpl.
-        rewrite splitOperationWith0Unchanged. simpl.
+        rewrite splitOperationWith0Unchanged with (A:=Insert (Seq entries) side0). simpl.
         unfold CombinedOp.
         unfold OpResult1.
         simpl. rewrite H_AHeadGtBHead.
         simpl. rewrite H_InsertLength. rewrite H_InsertSide.
         reflexivity.
-        destruct AHead; rewrite splitOperationWith0Empty.
-
-        assert(CombinedOp = AHead). {
-          (*unfold CombinedOp.
-          unfold OpResult1.
-          unfold getNextOperation.*)
-          Transparent computeResultingOperation.
-          cbv delta [CombinedOp OpResult1 getNextOperation computeResultingOperation]. simpl.
-          rewrite H_AHeadGtBHead.
-          destruct AHead eqn:H_AHead.
-          - simpl.
-            rewrite H_InsertLength. 
-            rewrite H_InsertSide.
-            destruct side0.
-            rewrite splitOperationWith0Empty.
+        specialize destructAGreaterB with (A:=Insert (Seq entries) side0) (B:=CHead) as H_BGtC.
+        forward H_BGtC. apply H_BSmaller.
+        { 
+          destruct H_BGtC. 
+          - fold lengthC in H1.
+            rewrite H_LengthC in H1.
+            rewrite seqALengthFromNorm in H1. simpl in H1.
+            rewrite Nat.ltb_lt in H1.
+            simpl. lia. 
+          - right. 
+            intuition.
+            fold lengthC in H2.
+            rewrite H_LengthC in H2.
+            rewrite seqALengthFromNorm in H2. unfold isRemove in H2.
+            rewrite Nat.eqb_eq in H2.
+            auto.
         }
 
-        all: destruct (AHead ≻ Insert (Seq entries) side0).
-        all: simpl.
-        all: fold splitOpC; rewrite H_splitOpC.
-        all: rewrite H_remB.
-        destruct AHead eqn:H_AHead.
+        { 
+          unfold splitOpAFun in H_CombinedOpGtCHead.
+          fold lengthC in H_CombinedOpGtCHead. fold sideC in H_CombinedOpGtCHead.
+          rewrite H_LengthC in H_CombinedOpGtCHead. 
+          {
+            destruct (0 <? ‖CombinedOp‖) eqn:H_comGt0. 
+            - rewrite Nat.ltb_lt in H_comGt0. lia.
+            - right; split.
+              rewrite Nat.ltb_nlt in H_comGt0.
+              lia.
+              split; auto.
+              assert (0 =? ⌈CombinedOp⌉ₐ = true) as H_CombinedOpAEq0. {
+                rewrite seqALengthFromNorm.
+                destruct(isRemove CombinedOp); auto.
+                rewrite Nat.eqb_eq. rewrite Nat.ltb_nlt in H_comGt0.
+                lia.
+              }
+              rewrite H_CombinedOpAEq0 in H_CombinedOpGtCHead.
+              destruct (⌊CombinedOp⌋ₐ) eqn:H_CombonedOpA in  H_CombinedOpGtCHead; try discriminate H_CombinedOpGtCHead.
+              rewrite <-sidesEqual.
+              assumption.
+          }
+        }
+        fold lengthC; fold sideC.
+        rewrite H_remB.
+        discriminate.
+        Transparent getLengthInSequenceB.
+        Transparent getLengthInSequenceA.
+        Transparent computeResultingOperation. 
 
     + assert(⌈remB⌉ᵦ < ⌈remA⌉ₐ). {
         apply Nat.eqb_neq in H_remBGtRemA.
@@ -1589,6 +1634,8 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
             all: destruct AHead eqn:H_AHead; try destruct entries0; try destruct entries1; try destruct side0; try destruct side1.
             Transparent SplitHelper.
             Transparent length.
+            Transparent Nat.eqb.
+            Transparent Nat.ltb.
             all: unfold splitOperation; simpl; unfold SplitHelper; simpl. 
             (*all: try assert(0 < amount) as H_amountGt0; simpl in lenAHead; try lia. *)
             all: simpl in lenAHead.
@@ -1600,10 +1647,31 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
 
             all: try assert( lengthC <? 0 = false) as H_lengthCnlt0; try rewrite Nat.ltb_nlt; try lia.
             all: try rewrite H_lengthCnlt0.
-            all: try destruct sideC; simpl; auto.
-            (* TODO: These are acutal failure cases, not just missing parts of the proof! *)
-            give_up. give_up.
-            all: (assert( lengthC <? (S (Datatypes.length entries0)) = true) as H_lengthCltEntries; give_up).
+            all: case_eq(sideC); try (
+              intros; simpl; auto;
+              unfold opAGtB in H_BSmaller;
+              fold lengthC in H_BSmaller; fold sideC in H_BSmaller;
+              rewrite H7 in H_BSmaller;
+              unfold getLengthInSequenceA in H_BSmaller;
+              simpl in H_BSmaller;
+              exfalso;
+              destruct(lengthC =? 0); discriminate H_BSmaller
+            ).
+
+            all: intros; simpl; auto.
+            
+            (* TODO: These are actual failure cases, not just missing parts of the proof! *)
+            (* give_up. give_up.*)
+            all: (assert( lengthC <? (S (Datatypes.length entries0)) = true) as H_lengthCltEntries).
+            all: try rewrite H_lengthCltEntries; simpl; auto.
+            Opaque getLengthInSequenceB.
+            all: (unfold opAGtB in H_BSmaller;
+              fold lengthC in H_BSmaller;
+              unfold getLengthInSequenceA in H_BSmaller;
+              simpl in H_BSmaller;
+              destruct (lengthC =? S (Datatypes.length entries0)); try discriminate H_BSmaller;
+              auto
+            ).
           }
           rewrite H7. auto.
         }
@@ -1805,6 +1873,10 @@ Eval compute in (MyFun3 (Skip> 3) (Insert> [<$0,0>; <$0,0>;<$0,0>]) (Skip< 3)).
 Eval compute in (MyFun3 (Skip> 0) (Insert< [<$0, 0>; <$1, 1>; <$2, 2>]) (Skip< 0)).
 Eval compute in (MyFun3 (Remove> [<$0, 0>; <$1, 1>; <$2, 2>]) 
                          (Insert> [<$0, 0>; <$1, 1>; <$2, 2>])
+                         (Skip< 0)).
+
+Eval compute in (MyFun3 (Skip< 3) 
+                         (Insert> [])
                          (Skip< 0)).
 
 Definition A := [(Skip> 0)]).
