@@ -1098,7 +1098,7 @@ all: try rewrite H_Amount in H; simpl in H.
 all: solve [exfalso; apply H; auto].
 Qed.
 
-Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≻ᵦC] ≻ ↩B[≻ᵦC]) = (A ≻ B).
+Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true ∧ isInsert B = false → (↩A[≻ᵦC] ≻ ↩B[≻ᵦC]) = (A ≻ B).
 intros.
 cbv delta [splitOpAFun]. cbv beta. cbv zeta.
 
@@ -1107,7 +1107,7 @@ specialize splitOperationRemainder with (A:=A) (B:=C) as HBC_exists. forward HBC
 destruct HBC_exists.
 assert(A [≻ᵦC] <> []) as H_HC_notEmptySet. rewrite H1. intuition. discriminate H2.
 destruct(⌊↩A [≻ᵦC]⌋ₐ) eqn:side_AC; destruct(⌊A⌋ₐ) eqn:side_A. all:auto.
-specialize seqLengthPreservedUnderCutEQ with (A:=A) (B:=B) (C:=C). intros. forward H2; auto. give_up.
+specialize seqLengthPreservedUnderCutEQ with (A:=A) (B:=B) (C:=C). intros. forward H2; auto. 
 all: rewrite seqLengthPreservedUnderCutEQ ; auto.
 
 all: destruct(⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H3. 
