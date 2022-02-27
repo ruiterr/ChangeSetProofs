@@ -927,7 +927,7 @@ rewrite seqALengthFromNorm.
 
 apply AGtB_lenAGelenB in H_AgtC as H_AgeC.
 apply AGtB_lenAGelenB in H_BgtC as H_BgeC.
-
+(* TODO: There is a lot of ducplication in this proof *)
 destruct(isRemove A) eqn:H_isRemoveA.
 - assert(⌈C⌉ᵦ = 0) as H_ClenBeq0. { 
    rewrite seqALengthFromNorm in H_AgeC.
@@ -936,33 +936,75 @@ destruct(isRemove A) eqn:H_isRemoveA.
   }
   rewrite H_ClenBeq0.
   rewrite splitOperationWith0Unchanged. 
-  Focus 2. {
+  2: {
     rewrite H_ClenBeq0 in H_BgtC2.
     rewrite seqALengthFromNorm in H_BgtC2.
     destruct (isRemove B) eqn:H_isRemoveB.
-    - assert (0 <? 0 = false) as H_0nlt0. { rewrite Nat.ltb_nlt. lia. } rewrite H_0nlt0 in H_BgtC2.
-      destruct H_BgtC2 as [H_BgtC2 | H_BgtC2]; try discriminate H_BgtC2.
-      destruct H_BgtC2 as [_ [H_sB H_sC]].
-      rewrite sidesEqual in H_sB.
-      rewrite H_sB. rewrite H_sC.
-      destruct(0 <? ‖B‖) eqn:H_0ltB.
-      + rewrite Nat.ltb_lt in H_0ltB. lia.
-      + rewrite Nat.ltb_nlt in H_0ltB. right. 
-        assert(‖B‖ = 0) as H_Beq0. { lia. } rewrite H_Beq0.
-        auto.
-    - destruct(0 <? ‖B‖) eqn:H_0ltB.
-      + rewrite Nat.ltb_lt in H_0ltB. lia.
-      + rewrite Nat.ltb_nlt in H_0ltB. right.
-        destruct H_BgtC2 as [H_BgtC2 | H_BgtC2]; try discriminate H_BgtC2.
-        destruct H_BgtC2 as [_ [H_sB H_sC]].
-        rewrite sidesEqual in H_sB.
-        assert(‖B‖ = 0) as H_Beq0. { lia. } rewrite H_Beq0.
-        auto.
+    1: assert (0 <? 0 = false) as H_0nlt0; only 1: ( rewrite Nat.ltb_nlt; lia ); rewrite H_0nlt0 in H_BgtC2.
+
+    all: destruct(0 <? ‖B‖) eqn:H_0ltB;
+      ( rewrite Nat.ltb_lt in H_0ltB; lia ) +
+      (
+        rewrite Nat.ltb_nlt in H_0ltB; right;
+        destruct H_BgtC2 as [H_BgtC2 | H_BgtC2]; try discriminate H_BgtC2;
+        destruct H_BgtC2 as [_ [H_sB H_sC]];
+        rewrite sidesEqual in H_sB;
+        rewrite H_sB; rewrite H_sC;
+        assert(‖B‖ = 0) as H_Beq0; only 1:lia ;rewrite H_Beq0;
+        auto
+      ).
   }
   unfold getOpFromArray. simpl.
   reflexivity.
 - destruct (isRemove B) eqn:H_isRemoveB.
-  + give_up.
+  + assert(⌈C⌉ᵦ = 0) as H_ClenBeq0. { 
+     rewrite seqALengthFromNorm in H_BgeC.
+     rewrite H_isRemoveB in H_BgeC.
+     lia.
+    }
+    rewrite H_ClenBeq0.
+    rewrite splitOperationWith0Unchanged. 
+    2: {
+      rewrite H_ClenBeq0 in H_BgtC2.
+      rewrite seqALengthFromNorm in H_BgtC2.
+      rewrite H_isRemoveB in H_BgtC2.
+      assert (0 <? 0 = false) as H_0nlt0; only 1: ( rewrite Nat.ltb_nlt; lia ); rewrite H_0nlt0 in H_BgtC2.
+
+      all: destruct(0 <? ‖B‖) eqn:H_0ltB;
+        ( rewrite Nat.ltb_lt in H_0ltB; lia ) +
+        (
+          rewrite Nat.ltb_nlt in H_0ltB; right;
+          destruct H_BgtC2 as [H_BgtC2 | H_BgtC2]; try discriminate H_BgtC2;
+          destruct H_BgtC2 as [_ [H_sB H_sC]];
+          rewrite sidesEqual in H_sB;
+          rewrite H_sB; rewrite H_sC;
+          assert(‖B‖ = 0) as H_Beq0; only 1:lia ;rewrite H_Beq0;
+          auto
+        ).
+    }
+    
+    rewrite splitOperationWith0Unchanged. 
+    2: {
+      rewrite H_ClenBeq0 in H_AgtC2.
+      rewrite seqALengthFromNorm in H_AgtC2.
+      rewrite H_isRemoveA in H_AgtC2.
+
+      all: destruct(0 <? ‖A‖) eqn:H_0ltA;
+        try ( rewrite Nat.ltb_lt in H_0ltA; lia) + 
+        (
+          rewrite Nat.ltb_nlt in H_0ltA; right;
+          destruct H_AgtC2 as [H_AgtC2 | H_AgtC2]; try discriminate H_AgtC2;
+          destruct H_AgtC2 as [_ [H_sB H_sC]];
+          rewrite sidesEqual in H_sB;
+          rewrite H_sB; rewrite H_sC;
+          assert(‖A‖ = 0) as H_Aeq0; only 1:lia; rewrite H_Aeq0;
+          auto
+        ).
+        
+    }
+    unfold getOpFromArray.
+    unfold hd.
+    reflexivity.
   + assert (‖A‖ = ⌈A⌉ₐ) as H_A_Norm. {
       rewrite seqALengthFromNorm with (A:=A).
       rewrite H_isRemoveA.
@@ -989,7 +1031,7 @@ destruct(isRemove A) eqn:H_isRemoveA.
       rewrite Nat.compare_lt_iff in H_BeqA; lia.
     * apply Nat.compare_gt_iff.
       rewrite Nat.compare_gt_iff in H_BeqA; lia.
-Admitted.
+Qed.
 (* - 
     Search(_ ?= _).
 
