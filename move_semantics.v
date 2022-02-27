@@ -1660,17 +1660,92 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
 
             all: intros; simpl; auto.
             
-            (* TODO: These are actual failure cases, not just missing parts of the proof! *)
-            (* give_up. give_up.*)
-            all: (assert( lengthC <? (S (Datatypes.length entries0)) = true) as H_lengthCltEntries).
-            all: try rewrite H_lengthCltEntries; simpl; auto.
             Opaque getLengthInSequenceB.
-            all: (unfold opAGtB in H_BSmaller;
+            all: try solve [(
+              assert( lengthC <? (S (Datatypes.length entries0)) = true) as H_lengthCltEntries; only 1:  (
+                unfold opAGtB in H_BSmaller;
+                fold lengthC in H_BSmaller;
+                unfold getLengthInSequenceA in H_BSmaller;
+                simpl in H_BSmaller;
+                destruct (lengthC =? S (Datatypes.length entries0)); try discriminate H_BSmaller;
+                auto
+              );
+              rewrite H_lengthCltEntries; simpl; auto
+            ) 
+            ].
+            all: try destruct (lengthC <? (S (Datatypes.length entries0))) eqn:H_lenCDL; simpl; auto.
+
+            (* TODO: Why doesn all not work here? *)
+            (
+              unfold opAGtB in H_BSmaller;
+              unfold getLengthInSequenceA in H_BSmaller; simpl in H_BSmaller;
               fold lengthC in H_BSmaller;
-              unfold getLengthInSequenceA in H_BSmaller;
-              simpl in H_BSmaller;
-              destruct (lengthC =? S (Datatypes.length entries0)); try discriminate H_BSmaller;
-              auto
+
+              case_eq (lengthC =? S (Datatypes.length entries0)); only 1: (
+                intro H_Test;
+                rewrite H_Test in H_BSmaller;
+                fold sideC in H_BSmaller;
+                rewrite H7 in H_BSmaller; 
+                discriminate H_BSmaller
+              );
+              intro H_Test;
+              rewrite H_Test in H_BSmaller;
+              rewrite H_lenCDL in H_BSmaller;
+              discriminate H_BSmaller
+            ).
+
+            (
+              unfold opAGtB in H_BSmaller;
+              unfold getLengthInSequenceA in H_BSmaller; simpl in H_BSmaller;
+              fold lengthC in H_BSmaller;
+
+              case_eq (lengthC =? S (Datatypes.length entries0)); only 1: (
+                intro H_Test;
+                rewrite H_Test in H_BSmaller;
+                fold sideC in H_BSmaller;
+                rewrite H7 in H_BSmaller; 
+                discriminate H_BSmaller
+              );
+              intro H_Test;
+              rewrite H_Test in H_BSmaller;
+              rewrite H_lenCDL in H_BSmaller;
+              discriminate H_BSmaller
+            ).
+
+            (
+              unfold opAGtB in H_BSmaller;
+              unfold getLengthInSequenceA in H_BSmaller; simpl in H_BSmaller;
+              fold lengthC in H_BSmaller;
+
+              case_eq (lengthC =? S (Datatypes.length entries0)); only 1: (
+                intro H_Test;
+                rewrite H_Test in H_BSmaller;
+                fold sideC in H_BSmaller;
+                rewrite H7 in H_BSmaller; 
+                discriminate H_BSmaller
+              );
+              intro H_Test;
+              rewrite H_Test in H_BSmaller;
+              rewrite H_lenCDL in H_BSmaller;
+              discriminate H_BSmaller
+            ).
+
+            (
+              unfold opAGtB in H_BSmaller;
+              unfold getLengthInSequenceA in H_BSmaller; simpl in H_BSmaller;
+              fold lengthC in H_BSmaller;
+
+              case_eq (lengthC =? S (Datatypes.length entries0)); only 1: (
+                intro H_Test;
+                rewrite H_Test in H_BSmaller;
+                fold sideC in H_BSmaller;
+                rewrite H7 in H_BSmaller; 
+                discriminate H_BSmaller
+              );
+              intro H_Test;
+              rewrite H_Test in H_BSmaller;
+              rewrite H_lenCDL in H_BSmaller;
+              discriminate H_BSmaller
             ).
           }
           rewrite H7. auto.
