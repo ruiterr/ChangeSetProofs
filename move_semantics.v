@@ -649,6 +649,13 @@ destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ).
 - left. assumption.
 Qed.
 
+Lemma AGtB_lenAGelenB: ∀(A B:Operation), (A≫B) = true → ⌈A⌉ₐ ≥ ⌈B⌉ᵦ.
+intros.
+unfold opAGtB in H.
+destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_AeqB.
+- rewrite Nat.eqb_eq in H_AeqB. lia. 
+- rewrite Nat.ltb_lt in H. lia.
+Qed.
 
 Lemma swapCombineWithSplitOfA: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → ↩( A[≺ᵦB] ⊕ B)[≻ᵦC] = (↩A[≻ᵦC])[≺ᵦ↩B[≻ᵦC]] ⊕ ↩B[≻ᵦC].
 Admitted.
@@ -683,19 +690,27 @@ all: try rewrite firstn_length.
 all: try lia.
 Qed.
 
-Lemma splitOperationLengthR2: ∀(A:Operation) (s : side) (y:nat), y < ‖A‖ → ‖↩A[≻≻ y ; s] ‖ = ‖A‖ - y.
+Lemma splitOperationLengthR2: ∀(A:Operation) (s : side) (y:nat), A[≻≻ y ; s] ≠ [] → ‖↩A[≻≻ y ; s] ‖ = ‖A‖ - y.
 intros.
-unfold splitOperation. simpl.
-destruct A eqn:H_A; destruct s; try destruct side0.
-all: unfold SplitHelper.
-all: unfold opLength in H.
-all: try destruct entries.
-all: apply Nat.ltb_lt in H.
-all: rewrite H.
-all: unfold opLength.
-all: simpl.
-all: try rewrite skipn_length.
-all: try lia.
+destruct(A [≻≻y; s]) eqn:H_splitEmpty.
+- contradiction H; auto.
+- unfold getOpFromArray; simpl.
+  unfold splitOperation in H_splitEmpty. simpl in H_splitEmpty.
+  destruct A eqn:H_A; destruct s; try destruct side0.
+  all: unfold SplitHelper in H_splitEmpty.
+  1-4: destruct (y <? amount) eqn:H_yLtAmount; simpl in H_splitEmpty; try discriminate H_splitEmpty; simpl in H_splitEmpty.
+  1-5: injection H_splitEmpty; intros H_l H_o; rewrite <-H_o.
+  1-5: unfold opLength; auto.
+  rewrite Nat.ltb_nlt in H_yLtAmount.
+  lia.
+
+  all: destruct entries.
+  all: destruct (y <? Datatypes.length entries) eqn:H_yLtAmount; simpl in H_splitEmpty; try discriminate H_splitEmpty; simpl in H_splitEmpty.  
+  all: injection H_splitEmpty; intros H_l H_o; rewrite <-H_o.
+  all: unfold opLength; auto.
+  all: rewrite skipn_length; auto.
+
+  all: rewrite Nat.ltb_nlt in H_yLtAmount; lia.
 Qed.
 
 Lemma splitOperationWith0Unchanged: ∀(A:Operation) (s : side), (‖A‖ > 0 ∨ (‖A‖ = 0 ∧ ⌊A⌋ᵦ = right ∧ s = left)) → A[≻≻0 ; s] = [A].
@@ -793,8 +808,9 @@ destruct A; unfold isRemove.
 all: try destruct entries; simpl; auto.
 Qed.
 
-Lemma splitLengthInB: ∀(A C:Operation), (A≫C) = true -> ⌈↩A[≻ᵦC]⌉ᵦ = ⌈A⌉ᵦ - ⌈C⌉ᵦ.
+Lemma splitLengthInB: ∀(A C:Operation), (A≫C) = true ∧ (isInsert A) = false -> ⌈↩A[≻ᵦC]⌉ᵦ = ⌈A⌉ᵦ - ⌈C⌉ᵦ.
 intros.
+destruct H as [H H_isInsertA].
 apply destructAGreaterB in H.
 
 
@@ -831,30 +847,9 @@ Opaque getLengthInSequenceB.
        lia.
      * discriminate H_eqSideB.
 
- Opaque getLengthInSequenceB.
- - destruct H. (* A = Insert Operation *)
-   + destruct entries eqn:H_entries.
-     cbv delta [getLengthInSequenceA] in H. simpl in H.  rewrite H. simpl.
-     set (lenC:=⌈C⌉ᵦ).
-     Transparent getLengthInSequenceB.
-     simpl. give_up.
-   + destruct entries eqn:H_entries.
-     destruct H as [H_eqAmount [H_eqSideA H_eqSideB]].
-     assert(⌈C⌉ᵦ <? (length entries0) = false). 
-     apply Nat.ltb_ge.
-     apply Nat.eqb_eq in H_eqAmount.
-     set (lenC:=⌈C⌉ᵦ).
-     fold lenC in H_eqAmount.
-     cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. rewrite H_eqAmount. lia.
-     rewrite H.
-     cbv delta [getLengthInSequenceA] in H_eqSideA. simpl in H_eqSideA.
-     rewrite H_eqSideA.
-     destruct (⌊C⌋ᵦ) eqn:H_sideC.
-     * set (lenC:=⌈C⌉ᵦ). simpl.
-       fold lenC in H_eqAmount.
-       cbv delta [getLengthInSequenceA] in H_eqAmount. simpl in H_eqAmount. apply Nat.eqb_eq in H_eqAmount.
-       give_up.
-     * discriminate H_eqSideB.
+ - (* We ruled out this branch in the conditions *)
+   simpl in H_isInsertA.
+   discriminate H_isInsertA.
 
  Opaque getLengthInSequenceB.
  - destruct H. (* A = Remove Operation *)
@@ -882,7 +877,7 @@ Opaque getLengthInSequenceB.
        lia.
        unfold skipn.
        rewrite H. lia.
-Admitted.
+Qed.
 
 Lemma splitLengthInA: ∀(A C:Operation), (A≫C) = true -> ⌈↩A [≻ᵦC]⌉ₐ = ⌈A⌉ₐ - ⌈C⌉ᵦ.
 Admitted.
@@ -895,7 +890,10 @@ Transparent leb.
 Transparent minus.
 Eval compute in (MyFun2 (Skip< 5) (Insert> [<$0,0>; <$0,0>;<$0,0>;<$0,0>;<$0,0>]) (Skip< 3)).
 
-Lemma splitOpRemainsInsert: ∀ (A C: Operation), A[≻ᵦC] ≠ [] ∧ (isInsert A) = true → (isInsert(↩A[≻ᵦC]) = true).
+Lemma splitOpRemainsInsert: ∀ (A C: Operation), A[≻ᵦC] ≠ [] → (isInsert(↩A[≻ᵦC]) = (isInsert A)).
+Admitted.
+
+Lemma splitOpRemainsRemove: ∀ (A C: Operation), A[≻ᵦC] ≠ [] → (isRemove(↩A[≻ᵦC]) = (isRemove A)).
 Admitted.
 
 Definition notLargerLengthInsert (A C:Operation) := (isInsert A) = false ∨ (⌈C⌉ᵦ < ⌈A⌉ₐ).
@@ -907,9 +905,102 @@ Admitted.
 Lemma seqLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true ∧ 
                                                       (isInsert B) = false → ⌈↩B[≻ᵦC]⌉ᵦ ?= (⌈↩A[≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ ?= ⌈A⌉ₐ).
 intros.
-destruct H as [H_AgtC [H_BgtC H_notLargerLengthInsert]].
+destruct H as [H_AgtC [H_BgtC H_BisNotInsert]].
 apply destructAGreaterB in H_AgtC as H_AgtC2.
 apply destructAGreaterB in H_BgtC as H_BgtC2.
+apply splitOperationRemainder in H_AgtC as H_ACutExists.
+destruct H_ACutExists as [ACut H_ACut].
+apply splitOperationRemainder in H_BgtC as H_BCutExists.
+destruct H_BCutExists as [BCut H_BCut].
+
+rewrite seqBLengthFromNorm.
+rewrite splitOpRemainsInsert.
+2: rewrite H_BCut; discriminate.
+rewrite H_BisNotInsert.
+rewrite seqBLengthFromNorm with (A:=B).
+rewrite H_BisNotInsert.
+
+rewrite seqALengthFromNorm.
+rewrite splitOpRemainsRemove.
+2: rewrite H_ACut; discriminate.
+rewrite seqALengthFromNorm.
+
+apply AGtB_lenAGelenB in H_AgtC as H_AgeC.
+apply AGtB_lenAGelenB in H_BgtC as H_BgeC.
+
+destruct(isRemove A) eqn:H_isRemoveA.
+- assert(⌈C⌉ᵦ = 0) as H_ClenBeq0. { 
+   rewrite seqALengthFromNorm in H_AgeC.
+   rewrite H_isRemoveA in H_AgeC.
+   lia.
+  }
+  rewrite H_ClenBeq0.
+  rewrite splitOperationWith0Unchanged. 
+  Focus 2. {
+    rewrite H_ClenBeq0 in H_BgtC2.
+    rewrite seqALengthFromNorm in H_BgtC2.
+    destruct (isRemove B) eqn:H_isRemoveB.
+    - assert (0 <? 0 = false) as H_0nlt0. { rewrite Nat.ltb_nlt. lia. } rewrite H_0nlt0 in H_BgtC2.
+      destruct H_BgtC2 as [H_BgtC2 | H_BgtC2]; try discriminate H_BgtC2.
+      destruct H_BgtC2 as [_ [H_sB H_sC]].
+      rewrite sidesEqual in H_sB.
+      rewrite H_sB. rewrite H_sC.
+      destruct(0 <? ‖B‖) eqn:H_0ltB.
+      + rewrite Nat.ltb_lt in H_0ltB. lia.
+      + rewrite Nat.ltb_nlt in H_0ltB. right. 
+        assert(‖B‖ = 0) as H_Beq0. { lia. } rewrite H_Beq0.
+        auto.
+    - destruct(0 <? ‖B‖) eqn:H_0ltB.
+      + rewrite Nat.ltb_lt in H_0ltB. lia.
+      + rewrite Nat.ltb_nlt in H_0ltB. right.
+        destruct H_BgtC2 as [H_BgtC2 | H_BgtC2]; try discriminate H_BgtC2.
+        destruct H_BgtC2 as [_ [H_sB H_sC]].
+        rewrite sidesEqual in H_sB.
+        assert(‖B‖ = 0) as H_Beq0. { lia. } rewrite H_Beq0.
+        auto.
+  }
+  unfold getOpFromArray. simpl.
+  reflexivity.
+- destruct (isRemove B) eqn:H_isRemoveB.
+  + give_up.
+  + assert (‖A‖ = ⌈A⌉ₐ) as H_A_Norm. {
+      rewrite seqALengthFromNorm with (A:=A).
+      rewrite H_isRemoveA.
+      auto.
+    }
+    assert (‖B‖ = ⌈B⌉ₐ) as H_B_Norm. {
+      rewrite seqALengthFromNorm with (A:=B).
+      rewrite H_isRemoveB.
+      auto.
+    }
+
+
+    rewrite splitOperationLengthR2.
+    2: rewrite H_BCut; discriminate.
+    rewrite splitOperationLengthR2.
+    2: rewrite H_ACut; discriminate.
+
+    rewrite H_B_Norm.
+    rewrite H_A_Norm.
+    destruct(⌈B⌉ₐ ?= ⌈A⌉ₐ) eqn:H_BeqA.
+    * apply Nat.compare_eq_iff.
+      rewrite Nat.compare_eq_iff in H_BeqA; lia.
+    * apply Nat.compare_lt_iff.
+      rewrite Nat.compare_lt_iff in H_BeqA; lia.
+    * apply Nat.compare_gt_iff.
+      rewrite Nat.compare_gt_iff in H_BeqA; lia.
+Admitted.
+(* - 
+    Search(_ ?= _).
+
+
+  rewrite seqALengthFromNorm in H_AgeC.
+  rewrite seqALengthFromNorm in H_BgeC.
+  rewrite seqBLengthFromNorm in H_AgeC.
+  rewrite seqBLengthFromNorm in H_BgeC.
+  rewrite H_isRemoveA in H_AgeC.
+  rewrite H_isRemoveA in H_AgeC.
+
 
 destruct (isInsert B) eqn:H_BisInsert.
 
@@ -961,10 +1052,10 @@ Opaque splitOperation.
     assert(⌈A⌉ₐ - ⌈C⌉ᵦ = 0) as H_ACeq0. { rewrite Nat.eqb_eq in H_eqLen. lia. }
     rewrite H_ACeq0.
     unfold notLargerLengthInsert in H_notLargerLengthInsert.
-    destruct H_notLargerLengthInsert. (*rewrite H_BisInsert in H. discriminate H.
+    destruct H_notLargerLengthInsert. (*rewrite H_BisInsert in H. discriminate H.*)
     assert(⌈C⌉ᵦ = 0). { 
       rewrite seqBLengthFromNorm in H_B1eq0.
-      assert( isInsert (↩B [≻ᵦC]) = true
+      assert( isInsert (↩B [≻ᵦC]) = true ).
       (*specialize splitOpRemainsInsert*)
       assert((isInsert (↩B [≻ᵦC])
       assert(⌈C⌉ᵦ = ⌈B⌉ᵦ). {
@@ -1005,7 +1096,7 @@ all: simpl; unfold SplitHelper; try rewrite H; try rewrite H0; simpl.
 give_up. give_up. give_up. give_up.*)
 
 
-Admitted.
+Admitted.*)
 
 
 Lemma seqLengthPreservedUnderCutEQ: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true ∧ (isInsert B) = false → ⌈↩B [≻ᵦC]⌉ᵦ =? (⌈↩A [≻ᵦC]⌉ₐ) = (⌈B⌉ᵦ =? ⌈A⌉ₐ).
@@ -1953,10 +2044,6 @@ Eval compute in (MyFun3 (Remove> [<$0, 0>; <$1, 1>; <$2, 2>])
 Eval compute in (MyFun3 (Skip< 3) 
                          (Insert> [])
                          (Skip< 0)).
-
-Definition A := [(Skip> 0)]).
-Definition B := [Insert< [<$0, 0>; <$1, 1>; <$2, 2>]]).
-Definition C := (OList [Skip< 0].
 
 Section HeadSplitSwapLemmas.
   Variables AHead BHead CHead : Operation.
