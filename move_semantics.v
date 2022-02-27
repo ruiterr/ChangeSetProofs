@@ -1366,9 +1366,10 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
       rewrite seqBLengthFromNorm. unfold isInsert. 
       specialize splitOpRemainsInsert with (A:=BHead) (C:=CHead) as H_remBIsInsert.
       forward H_remBIsInsert. {
-        split. 
-        - fold lengthC. fold sideC. rewrite H_BHead. rewrite ->H_remB. discriminate.
-        - unfold isInsert. rewrite H_BHead. auto.
+        specialize splitOperationRemainder with (A:=BHead) (B:=CHead) as H_exists.
+        forward H_exists. rewrite H_BHead. assumption. destruct H_exists as [C H_exists].
+        rewrite H_exists.
+        discriminate.
       }
       rewrite H_BHead in H_remBIsInsert.
       fold lengthC in H_remBIsInsert. fold sideC in H_remBIsInsert.
@@ -1590,12 +1591,12 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
         unfold lengthC in H_remBGtRemA.
         unfold sideC in H_remBGtRemA.
 
-        rewrite splitOpRemainsInsert in H_remBGtRemA; 
-          only 2:split; 
-          only 2: ( 
-            fold lengthC; fold sideC; rewrite H_remB; discriminate
-          ); 
-          only 2: (unfold isInsert; auto).
+        rewrite splitOpRemainsInsert in H_remBGtRemA.
+        2: {
+          specialize splitOperationRemainder with (A:=Insert (Seq entries0) side0) (B:=CHead) as H_exists.
+          forward H_exists. assumption. destruct H_exists as [C H_exists].
+          rewrite H_exists. discriminate.
+        }
 
         fold lengthC in H_remBGtRemA.
         rewrite H_length0 in H_remBGtRemA.
