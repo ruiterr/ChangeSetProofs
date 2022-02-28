@@ -302,7 +302,7 @@ Program Definition SquashIterationDefinition :=
        | Skip l s,      Remove seq2 s2 => Remove seq2 s2
        | Insert seq1 s, Skip l2 s2    => Insert seq1 s
        (* In this case, we have to use seq2, insert always has length 0 in seqB, so if we have both insert, it will also be length 0 in seqA and thus the entry from B is correct*)
-       | Insert seq1 s, Insert seq2 s2 => Insert seq2 s 
+       | Insert seq1 s, Insert seq2 s2 => Insert seq2 s2 
        (* insert and remove cancel out, we represent this by returning a skip 0, which is just a NOP*)
        | Insert seq1 s, Remove seq2 s2 => Skip 0 s
        | Remove seq1 s, Skip l2 s2 => Remove seq1 s
@@ -691,6 +691,12 @@ Admitted.
 Lemma swapSplitRemainderWithShorterSplitBLen: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → A[≻ᵦB] = (↩A[≻ᵦC])[≻ᵦ↩B[≻ᵦC]].
 Admitted.
 
+Lemma combineWithInsertIsInsert: ∀(A B:Operation), (isInsert B) = true → (A ⊕ B ⊖ true) = B.
+intros.
+cbv.
+destruct B; try discriminate H.
+destruct A; auto.
+Qed.
 
 Eval compute in ( (Insert> [<$0,0>; <$0,0>; <$0,0>]) ≫ (Skip< 2)).
 Eval compute in ( ⌈Insert> [<$0,0>; <$0,0>; <$0,0>]⌉ᵦ ).
@@ -1322,10 +1328,6 @@ destruct (A ≻ B) eqn:AGtB.
     all: assert(0<?0 = false) as H_00; try rewrite Nat.ltb_nlt; try lia.
     all: rewrite H_00.
     all: cbv; auto.
-    destruct side1 eqn:H_side1; auto.
-    destruct entries0.
-    cbv in H_sideA.
-    discriminate H_sideA.
   + apply andb_false_iff in H_AEmpty.
    
     rewrite splitOperationWith0Empty.
@@ -1361,19 +1363,7 @@ destruct (A ≻ B) eqn:AGtB.
         auto.
   }
   destruct A; try destruct entries0; unfold computeResultingOperation;simpl;auto.
-  destruct (0 <? Datatypes.length entries0) eqn:H_0LtLenEntries; only 1: reflexivity.
-    
-  assert(side1 = right) as H_side1. {
-    unfold splitOpAFun in AGtB. simpl in AGtB.
-    rewrite Nat.ltb_nlt in H_0LtLenEntries.
-    assert (Datatypes.length entries0 = 0) as H_LenEntriesEq0. lia.
-    rewrite H_LenEntriesEq0 in AGtB.
-    destruct side1; try discriminate AGtB.
-    auto.
-  }
-  rewrite H_side1 at 1.
-  unfold smallerSide at 1.
-  destruct side0; auto.
+  
 - apply ASplit_lenALelenB in AGtB as H_AleB.
   destruct B eqn:H_B; unfold isInsert in H; try discriminate H.
   destruct entries.
@@ -1463,11 +1453,159 @@ specialize splitOperationRemainder with (A:=BHead) (B:=CHead) as H_BHead.
 specialize splitOperationRemainder with (A:=CombinedOp) (B:=CHead) as H_CHead. 
 
 destruct ((isInsert BHead)) eqn:H_isInsertB.
-- unfold OpResult1 in CombinedOp. unfold getNextOperation in CombinedOp.
-  destruct (AHead ≻ BHead).
-  + Opaque getLengthInSequenceA.
-    Opaque getLengthInSequenceB.
-    cbn in CombinedOp.
+- specialize getNextOperationInsert with (A:=AHead) (B:=BHead) as H_NextOp.
+  set (nextOp:=getNextOperation SquashIterationDefinition AHead BHead).
+  forward H_NextOp; only 1: assumption.
+  unfold remainderAB.
+  unfold remainderA.
+  unfold remainderB.
+  unfold OpResult2.
+  cbv delta [getNextOperation].
+  cbv zeta.
+  cbv beta.
+  rewrite H_CombinedOpGtCHead.
+  set (x:=snd (fst (CombinedOp [≺ᵦCHead] ⊕ CHead ⊖ true, CombinedOp [≻ᵦCHead], []))).
+  fold lengthC in x.
+  fold sideC in x.
+  simpl in x.
+  unfold x.
+
+  unfold CombinedOp.
+  unfold OpResult1.
+  rewrite H_NextOp.
+
+  unfold CombinedOp in H.
+  unfold OpResult1 in H.
+  rewrite H_NextOp in H.
+  Opaque getNextOperation.
+  destruct (AHead ≻ BHead) eqn:AGtB.
+  + simpl in H. 
+    change (fst (fst (BHead, if (‖AHead‖ =? 0) && negb (isLeft (⌊BHead⌋ₐ)) then [] else [AHead], []))) with BHead. 
+    forward H_BHead; auto.
+    destruct H_BHead as [remABOp H_BHead].
+    exists remABOp. rewrite <-H_BHead.
+    exists AHead. exists remABOp. rewrite <-H_BHead.
+    split. auto.
+    split. auto.
+    split. auto.
+    assert (AHead ≻ remABOp = true) as H_AheadGtremABOp. give_up.
+    rewrite H_AheadGtremABOp.
+    change remABOp with (getOpFromArray [remABOp]).
+    rewrite <-H_BHead.
+    change (snd (fst (BHead, if (‖AHead‖ =? 0) && negb (isLeft (⌊BHead⌋ₐ)) then [] else [AHead], []))) with (if (‖AHead‖ =? 0) && negb (isLeft (⌊BHead⌋ₐ)) then [] else [AHead]).
+    set (Y:=(snd (BHead, if (‖AHead‖ =? 0) && negb (isLeft (⌊BHead⌋ₐ)) then [] else [AHead], []))).
+    unfold snd in Y.
+    unfold Y.
+
+    rewrite combineWithInsertIsInsert.
+    2: {
+      rewrite splitOpRemainsInsert.
+      assumption.
+      auto.
+      rewrite H_BHead.
+      discriminate.
+    }
+
+    replace (⌈↩BHead [≻ᵦCHead]⌉ᵦ) with 0.
+    2: {
+      rewrite seqBLengthFromNorm.
+      rewrite splitOpRemainsInsert.
+      rewrite H_isInsertB.
+      auto.
+      rewrite H_BHead.
+      discriminate.
+    }
+
+    destruct(‖AHead‖ =? 0) eqn:H_AHeadNormEq0.
+    * apply ASplit_lenAGelenB in AGtB as H_AGeB.
+      apply AGtB_lenAGelenB in H as H_BGeC.
+      assert(⌈AHead⌉ₐ = 0). { 
+        rewrite seqALengthFromNorm.
+        rewrite Nat.eqb_eq in H_AHeadNormEq0.
+        rewrite H_AHeadNormEq0. 
+        rewrite Tauto.if_same. 
+        auto. 
+      }
+      assert(⌈BHead⌉ᵦ = 0). { lia. }
+
+      assert (⌊AHead⌋ᵦ = right) as H_AHeadSideRight. {
+        unfold splitOpAFun in AGtB.
+        
+        rewrite H0 in AGtB.
+        replace (⌈BHead⌉ᵦ) with 0 in AGtB.
+        replace (0 =? 0) with true in AGtB.
+        2: {
+          symmetry.
+          rewrite Nat.eqb_eq.
+          auto.
+        }
+        rewrite <-sidesEqual.
+        destruct (⌊AHead⌋ₐ); try discriminate AGtB.
+        auto.
+      }
+      rewrite Nat.eqb_eq in H_AHeadNormEq0.
+      destruct( ⌊BHead⌋ₐ ) eqn:H_BHeadSide.
+      **  unfold isLeft.
+          unfold negb.
+          unfold andb.
+
+          replace (⌊↩BHead [≻ᵦCHead]⌋ᵦ) with left.
+          2: {
+            rewrite <-sidesEqual.
+            rewrite sideRemainsUnchanged.
+            rewrite H_BHeadSide.
+            auto.
+            rewrite H_BHead.
+            discriminate.
+          }
+          rewrite splitOperationWith0Unchanged.
+          2: {
+            right.
+            split. assumption.
+            split. assumption.
+            auto.
+          }
+          auto.
+      **  unfold isLeft.
+          unfold negb.
+          unfold andb.
+    
+          rewrite splitOperationWith0RightEmpty.
+          2: {
+            split. assumption.
+            split. assumption.
+            replace (⌊↩BHead [≻ᵦCHead]⌋ᵦ) with right.
+            2: {
+              rewrite <-sidesEqual.
+              rewrite sideRemainsUnchanged.
+              rewrite H_BHeadSide.
+              auto.
+              rewrite H_BHead.
+              discriminate.
+            }
+            auto.
+          }
+          auto.
+    * unfold andb.
+      rewrite splitOperationWith0Unchanged.
+      2: {
+        rewrite Nat.eqb_neq in H_AHeadNormEq0.
+        lia.
+  	  }
+      auto.
+  + unfold fst. unfold snd.
+
+  fold nextOp in H_NextOp.
+  (*fold nextOp in CombinedOp.*)
+  fold nextOp in OpResult1.
+  assert (OpResult1 = (if AHead ≻ BHead
+            then (BHead, if (‖AHead‖ =? 0) && negb (isLeft (⌊BHead⌋ₐ)) then [] else [AHead], [])
+            else (AHead ⊕ Insert< [] ⊖ false, [], if (‖BHead‖ =? 0) && isLeft (⌊BHead⌋ₐ) then [] else [BHead]))).
+  unfold OpResult1.
+  assumption.
+  rewrite H0 in CombinedOp.
+  apply H_NextOp in OpResult1.
+
 - 
 specialize splitByLargerOp with (A:=AHead) (B:=BHead) (C:=CHead).
 fold OpResult1. fold CombinedOp. fold splitOpC. rewrite H. rewrite H_isInsertB. intros. forward H0; auto. destruct H0 as [H_ASmaller H_BSmaller].
