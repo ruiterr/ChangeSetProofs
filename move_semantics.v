@@ -1593,7 +1593,121 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
         lia.
   	  }
       auto.
-  + unfold fst. unfold snd.
+  + simpl in H.
+    apply ASplit_lenALelenB in AGtB as H_AltB.
+    rewrite seqBLengthFromNorm in H_AltB.
+    rewrite H_isInsertB in H_AltB.
+    change (fst (fst (AHead ⊕ Insert< [] ⊖ false, [], if (‖BHead‖ =? 0) && isLeft (⌊BHead⌋ₐ) then [] else [BHead]))) with (AHead ⊕ Insert< [] ⊖ false).
+    
+    apply AGtB_lenAGelenB in H as H_lenCHead.
+    assert((⌈AHead ⊕ Insert< [] ⊖ false⌉ₐ) = 0) as H_comLenEq0. {
+      destruct AHead.
+      Transparent computeResultingOperation.
+      all: unfold computeResultingOperation; unfold SquashIterationDefinition at 2.
+      Opaque computeResultingOperation.
+      1-2: cbv; auto.
+      destruct entries.
+      lia.
+    }
+    rewrite H_comLenEq0 in H_lenCHead.
+    assert(lengthC = 0) as H_lengthCeq0. { unfold lengthC. lia. }
+    rewrite H_lengthCeq0.
+    assert (sideC = left ∧ ⌊AHead ⊕ Insert< [] ⊖ false⌋ₐ = right) as H_Sides. {
+      apply destructAGreaterB in H as H_CHeadEq0.
+      rewrite H_comLenEq0 in H_CHeadEq0.
+      fold lengthC in H_CHeadEq0.
+      rewrite H_lengthCeq0 in H_CHeadEq0.
+      destruct H_CHeadEq0 as [H_CHeadEq0|H_CHeadEq0]. 
+      - rewrite Nat.ltb_lt in H_CHeadEq0.
+        contradict H_CHeadEq0. lia.
+      - fold sideC in H_CHeadEq0.
+        destruct H_CHeadEq0 as [_ [H_CHeadEq1 H_CHeadEq0]].
+        split. assumption.
+        assumption.
+    }
+    destruct H_Sides as [H_sideC H_sidesCombined].
+    rewrite H_sideC.
+    rewrite splitOperationWith0Unchanged.
+    2: {
+      destruct AHead.
+      3: destruct (0 <? ‖Remove entries side0 ⊕ Insert< [] ⊖ false‖) eqn:H_removeLt0.
+      3: {
+          rewrite Nat.ltb_lt in H_removeLt0.
+          lia.
+      }
+      all: right.
+      3: rewrite Nat.ltb_nlt in H_removeLt0; split; try lia.
+      3: destruct entries.
+      Transparent computeResultingOperation.
+      all: unfold computeResultingOperation; unfold SquashIterationDefinition at 1.
+      Opaque computeResultingOperation.
+      all: cbv; auto.
+    }
+
+    (*destruct (⌊BHead⌋ₐ) eqn:BHead_Side.
+    * unfold isLeft.*) 
+      assert (BHead [≻≻0; left] = if ((‖BHead‖ =? 0) && (isLeft (⌊BHead⌋ᵦ))) then [] else [BHead]) as H_BHeadReplacement. {
+        destruct BHead eqn:H_BHeadFull; unfold isInsert in H_isInsertB; try discriminate H_isInsertB.
+        destruct entries.
+        Transparent splitOperation.
+        unfold splitOperation.
+        unfold SquashIterationDefinition at 1.
+        unfold SplitHelper.
+        Opaque splitOperation.
+        destruct (‖BHead‖ =? 0) eqn:H_normBHead.
+        - unfold opLength in H_normBHead.
+          rewrite H_BHeadFull in H_normBHead.
+          replace (0 <? Datatypes.length entries) with false.
+          2: {
+            symmetry.
+            rewrite Nat.ltb_nlt.
+            rewrite Nat.eqb_eq in H_normBHead.
+            lia.
+          }
+          unfold opLength.
+          rewrite H_normBHead.
+          destruct side0 eqn:H_side0.
+          + cbv; auto.
+          + unfold isLeft.
+            unfold getLengthInSequenceB.
+            unfold SquashIterationDefinition at 1.
+            rewrite Nat.eqb_eq in H_normBHead.
+            rewrite H_normBHead.
+            rewrite skipn_O.
+            simpl.
+            auto.
+        - unfold opLength in H_normBHead.
+          rewrite H_BHeadFull in H_normBHead.
+          replace (0 <? Datatypes.length entries) with true.
+          2: {
+            symmetry.
+            rewrite Nat.ltb_lt.
+            rewrite Nat.eqb_neq in H_normBHead.
+            lia.
+          }
+          unfold opLength.
+          rewrite H_normBHead.
+          rewrite skipn_O.
+          auto.
+      }
+      rewrite H_BHeadReplacement.
+
+    exists (AHead ⊕ Insert< [] ⊖ false).
+    exists (AHead).
+    exists (if (‖BHead‖ =? 0) && isLeft (⌊BHead⌋ᵦ) then [] else [BHead]).
+      unfold opAGtB in H.
+      fold lengthC in H.
+      rewrite H_lengthCeq0 in H.
+      destruct (AHead) eqn:H_AHeadDest; try destruct entries.
+      Transparent computeResultingOperation.
+      fold sideC in H.
+      Opaque sideC.
+      all: unfold computeResultingOperation in H; unfold SquashIterationDefinition at 2 in H.
+      Opaque computeResultingOperation.
+      1-2: cbv in H; try discriminate H.
+      unfold SquashIterationDefinition at 3 in H.
+      destruct side0; try discriminate H.
+    unfold fst. unfold snd.
 
   fold nextOp in H_NextOp.
   (*fold nextOp in CombinedOp.*)
