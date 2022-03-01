@@ -1694,6 +1694,12 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
 
     exists (AHead ⊕ Insert< [] ⊖ false).
     exists (AHead).
+    assert((‖BHead‖ =? 0) && isLeft (⌊BHead⌋ᵦ) = false). {
+      unfold splitOpAFun in AGtB.
+      replace (⌈AHead⌉ₐ) with 0 in AGtB; only 2:lia.
+      destruct (‖BHead‖ =? 0) eqn:H_BHeadLength.
+      - 
+    }
     exists (if (‖BHead‖ =? 0) && isLeft (⌊BHead⌋ᵦ) then [] else [BHead]).
       unfold opAGtB in H.
       fold lengthC in H.
