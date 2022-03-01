@@ -676,7 +676,7 @@ destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_AeqB.
 - rewrite Nat.ltb_nlt in H. lia.
 Qed.
 
-Lemma  opGtImpliesSplit: ∀(A B:Operation), (A≫B) = true → (A ≻ B) =true.
+Lemma  opGtImpliesSplit: ∀(A B:Operation), (A≫B) = true → (A ≻ B) = true.
 Admitted.
 
 Lemma swapCombineWithSplitOfA: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true → ↩( A[≺ᵦB] ⊕ B ⊖ splitOpA)[≻ᵦC] = (↩A[≻ᵦC])[≺ᵦ↩B[≻ᵦC]] ⊕ ↩B[≻ᵦC] ⊖ splitOpA.
@@ -835,6 +835,26 @@ intros.
 destruct A; unfold isRemove.
 all: try destruct entries; simpl; auto.
 Qed.
+
+Lemma splitOpAFunTransitive: ∀(A B C: Operation), (isInsert B) = false ∧ (A ≻ B) = true ∧ (B ≻ C) = true → (A ≻ C) = true.
+intros.
+destruct H as [H_isInsertB [H_AgtB H_BgtC]].
+unfold splitOpAFun in H_AgtB.
+unfold splitOpAFun in H_BgtC.
+unfold splitOpAFun.
+
+destruct(⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_BeqA.
+- destruct(⌈C⌉ᵦ =? ⌈B⌉ₐ) eqn:H_CeqB.
+  assert (⌈C⌉ᵦ < ⌈A⌉ₐ). {
+    rewrite Nat.eqb_eq in H_BeqA.
+    rewrite Nat.eqb_eq in H_CeqB.
+    assert(⌈B⌉ₐ ≤ ⌈B⌉ᵦ). {
+      rewrite seqBLengthFromNorm.
+      rewrite seqALengthFromNorm.
+      rewrite H_isInsertB.
+      destruct (isRemove B); lia.
+  }
+Admitted.
 
 Definition MyFun (A B C: Operation) := ((A≫C), (B≫C), ⌈↩B[≻ᵦC]⌉ᵦ, (⌈↩A[≻ᵦC]⌉ₐ), ⌈B⌉ᵦ,  ⌈A⌉ₐ).
 Definition MyFun2 (A B C: Operation) := ((↩A[≻ᵦC] ≻ ↩B[≻ᵦC]), (A ≻ B)).
@@ -1287,7 +1307,7 @@ Eval compute in (OList [Remove (Seq []) left]) ○ (OList [Insert (Seq [<$1, 1>]
   lr (Remove< []) (Insert< []); Insert> [<$1,1>]] -> <[] <[] -> Remove
 *)
 
-Eval compute in (getNextOperation SquashIterationDefinition (Insert< []) (Insert> [])).
+Eval compute in (getNextOperation SquashIterationDefinition (Skip< 0) (Insert< [])).
 
 Lemma getNextOperationInsert: ∀(A B:Operation), (isInsert B) = true → (getNextOperation SquashIterationDefinition A B) =
                               if (A ≻ B) then 
@@ -1439,7 +1459,8 @@ Lemma getNextOperationCombinationLengthCSmaller: (CombinedOp ≫ CHead) = true �
     (∃ (remABOp remAOp remBOp : Operation), (
       remainderAB = [remABOp]) ∧ 
       [remAOp] = AHeadSplit ∧ 
-      [remBOp] = BHeadSplit ∧ 
+      ((opAEqB SquashIterationDefinition AHead BHead) = true → [] = BHeadSplit) ∧ 
+      ((opAEqB SquashIterationDefinition AHead BHead) = false → [remBOp] = BHeadSplit) ∧ 
       (remABOp, remainderA, remainderB) = (getNextOperation SquashIterationDefinition remAOp remBOp)).
 intros.
 apply opGtImpliesSplit in H as H_CombinedOpGtCHead.
@@ -1488,7 +1509,9 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
     split. auto.
     split. auto.
     split. auto.
-    assert (AHead ≻ remABOp = true) as H_AheadGtremABOp. give_up.
+    assert (AHead ≻ remABOp = true) as H_AheadGtremABOp. {
+      give_up.
+    }
     rewrite H_AheadGtremABOp.
     change remABOp with (getOpFromArray [remABOp]).
     rewrite <-H_BHead.
