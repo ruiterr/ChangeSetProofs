@@ -1320,7 +1320,7 @@ Eval compute in (getNextOperation SquashIterationDefinition (Skip> 0) (Insert> [
 Lemma getNextOperationInsert: ∀(A B:Operation), (isInsert B) = true → (getNextOperation SquashIterationDefinition A B) =
                               if (A ≻ B) then 
                                 (B, if (‖A‖ =? 0) && (Bool.eqb (isLeft (⌊A⌋ₐ)) (isLeft (⌊B⌋ₐ))) then [] else [A], []) else 
-                                (A ⊕ Insert< [] ⊖ false, [], if (‖B‖ =? 0) && (Bool.eqb (isLeft (⌊A⌋ₐ)) (isLeft (⌊B⌋ₐ))) then [] else [B]).
+                                (A ⊕ (Insert (Seq []) (⌊A⌋ᵦ)) ⊖ false, [], if (‖B‖ =? 0) && (Bool.eqb (isLeft (⌊A⌋ₐ)) (isLeft (⌊B⌋ₐ))) then [] else [B]).
 intros.
 unfold getNextOperation.
 destruct (A ≻ B) eqn:AGtB.
@@ -1415,9 +1415,9 @@ destruct (A ≻ B) eqn:AGtB.
   + unfold opLength.
     destruct (Datatypes.length entries =? 0) eqn:H_lenEntrisEq0.
     * unfold getLengthInSequenceA at 1.
-      unfold SquashIterationDefinition at 4.
+      unfold SquashIterationDefinition at 5.
       unfold isLeft.
-      unfold snd at 2.
+      unfold snd at 3.
       unfold andb.
       unfold splitOperation.
       unfold SquashIterationDefinition at 2.
@@ -1428,7 +1428,11 @@ destruct (A ≻ B) eqn:AGtB.
         lia.
       }
       rewrite H_lenEntrisNGt0.
-      unfold snd.
+      unfold snd at 1.
+      unfold Bool.eqb.
+      unfold sideA in H_sideA.
+      rewrite sidesEqual in H_sideA.
+      rewrite H_sideA.
       reflexivity.
     * unfold andb.
       rewrite splitOperationWith0Unchanged.
@@ -1441,11 +1445,12 @@ destruct (A ≻ B) eqn:AGtB.
         }
         assumption.
       }
+      unfold sideA in H_sideA.
+      rewrite sidesEqual in H_sideA.
+      rewrite H_sideA.
       auto.
-  + unfold getLengthInSequenceA.
-    unfold SquashIterationDefinition at 4.
+  + change (⌊Insert> entries⌋ₐ) with right.
     unfold isLeft.
-    unfold snd at 2.
     unfold andb.
     rewrite Tauto.if_same.
     rewrite splitOperationWith0Unchanged.
@@ -1461,13 +1466,17 @@ destruct (A ≻ B) eqn:AGtB.
     }
     unfold Bool.eqb.
     rewrite Tauto.if_same.
+    unfold smallerSide.
+    unfold sideA in H_sideA.
+    rewrite sidesEqual in H_sideA.
+    rewrite H_sideA.
     auto.
   + unfold opLength.
     destruct (Datatypes.length entries =? 0) eqn:H_lenEntrisEq0.
     * unfold getLengthInSequenceA at 1.
-      unfold SquashIterationDefinition at 4.
+      unfold SquashIterationDefinition at 5.
       unfold isLeft.
-      unfold snd at 2.
+      unfold snd at 3.
       unfold andb.
       unfold splitOperation.
       unfold SquashIterationDefinition at 2.
@@ -1478,9 +1487,12 @@ destruct (A ≻ B) eqn:AGtB.
         lia.
       }
       rewrite H_lenEntrisNGt0.
-      unfold snd.
+      unfold snd at 1.
       unfold smallerSide.
       unfold Bool.eqb.
+      unfold sideA in H_sideA.
+      rewrite sidesEqual in H_sideA.
+      rewrite H_sideA.
       reflexivity.
     * unfold andb.
       rewrite splitOperationWith0Unchanged.
@@ -1493,7 +1505,12 @@ destruct (A ≻ B) eqn:AGtB.
         }
         assumption.
       }
-      auto.
+      unfold smallerSide.
+      rewrite Tauto.if_same.
+      unfold sideA in H_sideA.
+      rewrite sidesEqual in H_sideA.
+      rewrite H_sideA.
+      reflexivity.
 Qed.
 
 
