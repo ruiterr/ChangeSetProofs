@@ -1544,8 +1544,8 @@ Lemma getNextOperationCombinationLengthCSmaller: (CombinedOp ≫ CHead) = true �
     (∃ (remABOp remAOp remBOp : Operation), (
       remainderAB = [remABOp]) ∧ 
       [remAOp] = AHeadSplit ∧ 
-      ((opAEmptyAndSameSide SquashIterationDefinition AHead BHead) = true → [] = BHeadSplit) ∧ 
-      ((opAEmptyAndSameSide SquashIterationDefinition AHead BHead) = false → [remBOp] = BHeadSplit) ∧ 
+      (*((opAEmptyAndSameSide SquashIterationDefinition AHead BHead) = true → [] = BHeadSplit) ∧ 
+      ((opAEmptyAndSameSide SquashIterationDefinition AHead BHead) = false → *)[remBOp] = BHeadSplit ∧ 
       (remABOp, remainderA, remainderB) = (getNextOperation SquashIterationDefinition remAOp remBOp)).
 intros.
 apply opGtImpliesSplit in H as H_CombinedOpGtCHead.
@@ -1596,9 +1596,64 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
     split. auto.
     split. auto.
     rewrite H_ANotEmptyAndSameSideFalse.
-    intros. discriminate H0.
+    intros. (*discriminate H0.*)
     
     assert (AHead ≻ remABOp = true) as H_AheadGtremABOp. {
+      specialize splitOperationLengthR2 with (A:=BHead) (y:=lengthC) (s:=sideC) as H_splitLenOp.
+      unfold lengthC in H_splitLenOp. unfold sideC in H_splitLenOp.
+      rewrite H_BHead in H_splitLenOp.
+      unfold getOpFromArray in H_splitLenOp.
+      forward H_splitLenOp. discriminate.
+      cbn [hd] in H_splitLenOp.
+      unfold splitOpAFun.
+      unfold splitOpAFun in AGtB.
+      rewrite seqBLengthFromNorm in AGtB.
+      rewrite seqBLengthFromNorm.
+      rewrite H_isInsertB in AGtB.
+      specialize splitOpRemainsInsert with (A:=BHead) (C:=CHead) as H_remOpIsInsert.
+      rewrite H_BHead in H_remOpIsInsert.
+      cbn [getOpFromArray hd] in H_remOpIsInsert.
+      forward H_remOpIsInsert. discriminate.
+      rewrite H_remOpIsInsert.
+      rewrite H_isInsertB.
+      destruct(0 =? ⌈AHead⌉ₐ).
+      - destruct (⌊AHead⌋ₐ) eqn:H_sideA; destruct (⌊BHead⌋ᵦ) eqn:H_sideB; try discriminate AGtB.
+        Transparent splitOperation.
+        Transparent SplitHelper.
+        all: cbn [splitOperation SquashIterationDefinition SplitHelper] in H_BHead;
+        destruct BHead; destruct side0; try discriminate H_sideB;
+        unfold SplitHelper in H_BHead;
+        fold lengthC in H_BHead;
+        fold sideC in H_BHead.
+        2-5: destruct entries.
+        1: destruct(lengthC <? amount).
+        3-5: destruct (lengthC <? length entries) eqn:H_lengthC.
+        all: try discriminate H_BHead.
+        all: simpl in H_BHead; destruct (⌊remABOp⌋ᵦ) eqn:H_sideRemABOP; auto.
+        * destruct remABOp; try discriminate H_BHead.
+            destruct side0 eqn:H_side0; try discriminate H_BHead.
+            destruct entries0.
+            cbv in H_sideRemABOP.
+            discriminate H_sideRemABOP.
+        * destruct remABOp; try discriminate H_BHead.
+            destruct side0 eqn:H_side0; try discriminate H_BHead.
+            destruct entries0.
+            cbv in H_sideRemABOP.
+            discriminate H_sideRemABOP.
+        all: destruct remABOp; try discriminate H_BHead;
+            destruct side0 eqn:H_side0; try discriminate H_BHead;
+            try discriminate H_sideRemABOP.
+          * auto.
+          * destruct remABOp; try discriminate H_BHead.
+            destruct side0 eqn:H_side0; try discriminate H_BHead.
+            try discriminate H_sideRemABOP.
+        + discriminate H_BHead.
+
+        unfold splitOperation in H_BHead.
+        unfold SquashIterationDefinition in H_BHead.
+        simpl in H_BHead.
+      
+
       give_up.
     }
     rewrite H_AheadGtremABOp.
@@ -1606,9 +1661,10 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
     rewrite <-H_BHead.
     change (snd (fst (BHead, if opAEmptyAndSameSide SquashIterationDefinition AHead BHead then [AHead] else [], []))) with 
            (if opAEmptyAndSameSide SquashIterationDefinition AHead BHead then [] else [AHead]).
-    set (Y:=(snd (BHead, if (opAEmptyAndSameSide SquashIterationDefinition AHead BHead) then [] else [AHead], []))).
+    (*set (Y:=(snd (BHead, if (opAEmptyAndSameSide SquashIterationDefinition AHead BHead) then [] else [AHead], []))).
     unfold snd in Y.
-    unfold Y.
+    unfold Y.*)
+    cbn -[getLengthInSequenceA getLengthInSequenceB].
 
     rewrite combineWithInsertIsInsert.
     2: {
@@ -1629,7 +1685,7 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
       discriminate.
     }
 
-    rewrite H_ANotEmptyAndSameSideFalse.
+    (*rewrite H_ANotEmptyAndSameSideFalse.*)
 
     destruct(‖AHead‖ =? 0) eqn:H_AHeadNormEq0.
     * apply ASplit_lenAGelenB in AGtB as H_AGeB.
@@ -1658,7 +1714,7 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
         destruct (⌊AHead⌋ₐ); try discriminate AGtB.
         auto.
       }
-      split.
+      (* split. *)
       auto.
 
       rewrite Nat.eqb_eq in H_AHeadNormEq0.
@@ -1820,7 +1876,7 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
 
     exists (BHead).
     repeat split; auto.
-    unfold opAEmptyAndSameSide.
+    (* unfold opAEmptyAndSameSide.
     rewrite H_sideA.
     destruct (‖AHead‖ =? 0) eqn:H_AHeadLength.
     * unfold splitOpAFun in AGtB.
@@ -1836,7 +1892,7 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
       give_up.
     * unfold splitOpAFun in AGtB.
       replace (⌈AHead⌉ₐ) with 0 in AGtB; only 2:lia.
-      give_up.
+      give_up.*)
   (*     destruct (‖BHead‖ =? 0) eqn:H_BHeadLength.
       ** 
       ** rewrite seqBLengthFromNorm in AGtB.
@@ -1905,13 +1961,10 @@ split.
 
 (* Proof [remAOp] = AHeadSplit *)
 { 
- destruct (isInsert BHead) eqn:H_BHeadIsInsert. cbv in H_BHeadIsInsert.
- - destruct BHead eqn:H_BHead; try discriminate H_BHeadIsInsert.
-   destruct entries. unfold remA. simpl. auto.
- - destruct BHead eqn:H_BHead; try discriminate H_BHeadIsInsert.
-   all: simpl; unfold remA; auto.
+  unfold remA.
+  rewrite H_isInsertB.
+  auto.
 }
-
 
 (* Proof [remBOp] = BHeadSplit *)
 split. auto.
@@ -1950,6 +2003,7 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
   rewrite <-H_spOAREMeqspOA.
   rewrite H_SplitOpARemTrue.
   unfold remA.
+  rewrite H_isInsertB.
   rewrite <-H_remA. rewrite <-H_remB. unfold lengthC. unfold sideC.
 
   f_equal.
@@ -1958,6 +2012,7 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
   rewrite <-resolveNonEmptyArray with (x:=x) (y:=remainderAB); auto.
   unfold remainderAB.
   unfold OpResult2.
+  Transparent getNextOperation.
   unfold getNextOperation.
   fold splitOpC. rewrite H_splitOpC.
   simpl.
@@ -1975,6 +2030,7 @@ set (splitOpA := splitOpAFun SquashIterationDefinition AHead BHead).
   rewrite <-resolveNonEmptyArray with (x:=remA) (y:=[remA]); auto.
   rewrite <-resolveNonEmptyArray with (x:=remB) (y:=[remB]); auto.
   unfold remA.
+  rewrite H_isInsertB.
   rewrite <-H_remA. rewrite <-H_remB. unfold lengthC. unfold sideC.
 
   f_equal.
