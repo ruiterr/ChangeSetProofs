@@ -362,9 +362,9 @@ Section GetNextOperation.
   Let s1 := (snd SAInfo).
   Let s2 := (snd SBInfo).
 
-  Definition splitOpAFun := if len2 =? len1 then match s1 with |right => true | left => false end else len2 <? len1.
   Definition opAGtB := if len2 =? len1 then match s1,s2 with |right,left => true | _,_ => false end else len2 <? len1.
   Definition opAEqB := if len2 =? len1 then match s1,s2 with |right,right => true |left,left=>true |_,_=>false end else false.
+  Definition splitOpAFun := if len2 =? len1 then match s1,s2 with |right,left => true | _,_ => false end else len2 <? len1.
 
 
   Let splitOpA := splitOpAFun.
@@ -1076,19 +1076,27 @@ Lemma splitLengthPreservedUnderCut: ∀(A B C:Operation), (A≫C) = true ∧ (B�
 intros.
 cbv delta [splitOpAFun]. cbv beta. cbv zeta.
 
-destruct H.
-specialize splitOperationRemainder with (A:=A) (B:=C) as HBC_exists. forward HBC_exists; auto.
-destruct HBC_exists.
-assert(A [≻ᵦC] <> []) as H_HC_notEmptySet. rewrite H1. intuition. discriminate H2.
+destruct H as [H_AGtC [H_BGtC H_isInsertB]].
+specialize splitOperationRemainder with (A:=A) (B:=C) as HAC_exists. forward HAC_exists; auto.
+specialize splitOperationRemainder with (A:=B) (B:=C) as HBC_exists. forward HBC_exists; auto.
+destruct HAC_exists as [Aop HAC_exists].
+destruct HBC_exists as [Bop HBC_exists].
+assert(A [≻ᵦC] <> []) as H_AC_notEmptySet. rewrite HAC_exists. intuition. discriminate H.
+assert(B [≻ᵦC] <> []) as H_BC_notEmptySet. rewrite HBC_exists. intuition. discriminate H.
 destruct(⌊↩A [≻ᵦC]⌋ₐ) eqn:side_AC; destruct(⌊A⌋ₐ) eqn:side_A. all:auto.
-specialize seqLengthPreservedUnderCutEQ with (A:=A) (B:=B) (C:=C). intros. forward H2; auto. 
+specialize seqLengthPreservedUnderCutEQ with (A:=A) (B:=B) (C:=C). intros. forward H; auto. 
 all: rewrite seqLengthPreservedUnderCutEQ ; auto.
 
 all: destruct(⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H3. 
 all: auto; specialize sideRemainsUnchanged with (A:=A) (C:=C) as H_Side; rewrite H_Side in side_AC; try rewrite side_A in side_AC; try discriminate.
 
 all: try rewrite seqLengthPreservedUnderCutLT ; auto.
-all: assumption.
+rewrite <-sidesEqual.
+specialize sideRemainsUnchanged with (A:=B) (C:=C) as H_SideB.
+rewrite H_SideB. 
+rewrite sidesEqual.
+destruct (⌊B⌋ₐ); auto.
+assumption.
 Qed.
 
 
@@ -1307,12 +1315,12 @@ Eval compute in (OList [Remove (Seq []) left]) ○ (OList [Insert (Seq [<$1, 1>]
   lr (Remove< []) (Insert< []); Insert> [<$1,1>]] -> <[] <[] -> Remove
 *)
 
-Eval compute in (getNextOperation SquashIterationDefinition (Skip< 0) (Insert< [])).
+Eval compute in (getNextOperation SquashIterationDefinition (Skip> 0) (Insert> [])).
 
 Lemma getNextOperationInsert: ∀(A B:Operation), (isInsert B) = true → (getNextOperation SquashIterationDefinition A B) =
                               if (A ≻ B) then 
-                                (B, if (‖A‖ =? 0) && (negb (isLeft (⌊B⌋ₐ))) then [] else [A], []) else 
-                                (A ⊕ Insert< [] ⊖ false, [], if (‖B‖ =? 0) && (isLeft (⌊B⌋ₐ)) then [] else [B]).
+                                (B, if (‖A‖ =? 0) && (Bool.eqb (isLeft (⌊A⌋ₐ)) (isLeft (⌊B⌋ₐ))) then [] else [A], []) else 
+                                (A ⊕ Insert< [] ⊖ false, [], if (‖B‖ =? 0) && (Bool.eqb (isLeft (⌊A⌋ₐ)) (isLeft (⌊B⌋ₐ))) then [] else [B]).
 intros.
 unfold getNextOperation.
 destruct (A ≻ B) eqn:AGtB.
@@ -1322,33 +1330,23 @@ destruct (A ≻ B) eqn:AGtB.
   destruct entries.
   cbv in lenB.
   unfold lenB.
-  destruct ((‖A‖ =? 0) && negb (isLeft (⌊Insert (Seq entries) side0⌋ₐ))) eqn:H_AEmpty.
-  + apply andb_prop in H_AEmpty.
-    destruct H_AEmpty as [H_lenA H_sideB].
+  destruct ((‖A‖ =? 0) && (Bool.eqb (isLeft (⌊A⌋ₐ)) (isLeft (⌊B⌋ₐ)))) eqn:H_AEmptyBool.
+  + apply andb_prop in H_AEmptyBool as H_AEmpty.
+    destruct H_AEmpty as [H_lenA H_sideAB].
     rewrite Nat.eqb_eq in H_lenA.
-    rewrite negb_true_iff in H_sideB.
-    cbv in H_sideB.
-    destruct side0 eqn:H_side0; try discriminate H_sideB.
- 
+    rewrite eqb_true_iff in H_sideAB.
+
     unfold splitOpAFun in AGtB.
     rewrite seqALengthFromNorm in AGtB. rewrite H_lenA in AGtB.
     rewrite seqBLengthFromNorm in AGtB. unfold isInsert in AGtB.
     rewrite Tauto.if_same in AGtB.
-    destruct(⌊A⌋ₐ) eqn:H_sideA; try discriminate AGtB.
+    rewrite H_B in H_sideAB.
+    destruct side0 eqn:H_side0.
+    all: destruct(⌊A⌋ₐ) eqn:H_sideA.
+    all: cbv in H_sideAB; try discriminate H_sideAB.
+    all: simpl in AGtB; try discriminate AGtB.
 
-    rewrite splitOperationWith0RightEmpty.
-    2: {
-      split. assumption.
-      split. rewrite <-sidesEqual. rewrite H_sideA. auto.
-      cbv. auto.
-    }
-    rewrite splitOperationWith0Empty.
-    destruct A eqn:H_A.
-    all: rewrite H_lenA.
-    all: assert(0<?0 = false) as H_00; try rewrite Nat.ltb_nlt; try lia.
-    all: rewrite H_00.
-    all: cbv; auto.
-  + apply andb_false_iff in H_AEmpty.
+  + apply andb_false_iff in H_AEmptyBool as H_AEmpty.
    
     rewrite splitOperationWith0Empty.
     rewrite splitOperationWith0Unchanged.
@@ -1361,28 +1359,39 @@ destruct (A ≻ B) eqn:AGtB.
         right. split. lia.
         rewrite <-Nat.eqb_eq in H_normA.
         rewrite H_normA in H_AEmpty.
-        simpl in H_AEmpty.
-        destruct H_AEmpty as [H_AEmpty|H_AEmpty]. discriminate H_AEmpty.
-        rewrite negb_false_iff in H_AEmpty.
+        destruct H_AEmpty as [H_AEmpty | H_AEmpty]; try discriminate H_AEmpty.
+        rewrite eqb_false_iff in H_AEmpty.
         unfold isLeft in H_AEmpty.
-        destruct side0 eqn:H_side0; try discriminate H_AEmpty.
+        rewrite <-H_B.
+        repeat rewrite <-sidesEqual.
+        destruct (⌊A⌋ₐ) eqn:H_sideA.
+        all: destruct (⌊B⌋ₐ) eqn:H_sideB; cbv in H_AEmpty.
+        1: contradiction H_AEmpty; auto.
+        3: contradiction H_AEmpty; auto.
 
-        unfold splitOpAFun in AGtB.
-        unfold getLengthInSequenceB in AGtB.
-        unfold SquashIterationDefinition at 1 in AGtB.
-        unfold SquashIterationDefinition at 3 in AGtB.
-        rewrite Nat.eqb_eq in H_normA.
-        rewrite seqALengthFromNorm in AGtB.
-        rewrite H_normA in AGtB.
-        rewrite Tauto.if_same in AGtB.
-        unfold fst in AGtB.
-        replace (0=?0) with true in AGtB.
-        rewrite <-sidesEqual.
-        destruct (⌊A⌋ₐ); try discriminate AGtB.
-        cbv.
-        auto.
+        + unfold splitOpAFun in AGtB.
+          unfold getLengthInSequenceB in AGtB.
+          unfold SquashIterationDefinition at 1 in AGtB.
+          unfold SquashIterationDefinition at 3 in AGtB.
+          rewrite Nat.eqb_eq in H_normA.
+          rewrite seqALengthFromNorm in AGtB.
+          rewrite H_normA in AGtB.
+          rewrite Tauto.if_same in AGtB.
+          unfold fst in AGtB.
+          replace (0=?0) with true in AGtB.
+          rewrite H_sideA in AGtB.
+          discriminate AGtB.
+        + auto.
   }
-  destruct A; try destruct entries0; unfold computeResultingOperation;simpl;auto.
+  
+  rewrite H_B in H_AEmptyBool.
+  destruct A; 
+    try destruct entries0; 
+    unfold computeResultingOperation; 
+    simpl; 
+    simpl in H_AEmptyBool;
+    rewrite H_AEmptyBool;
+    auto.
   
 - apply ASplit_lenALelenB in AGtB as H_AleB.
   destruct B eqn:H_B; unfold isInsert in H; try discriminate H.
@@ -1400,10 +1409,9 @@ destruct (A ≻ B) eqn:AGtB.
   fold sideA in AGtB.
   unfold getLengthInSequenceB in AGtB.
   simpl in AGtB.
-  destruct sideA eqn:H_sideA; try discriminate AGtB.
+  destruct sideA eqn:H_sideA; destruct side0 eqn:H_side0; try discriminate AGtB.
   unfold smallerSide.
   rewrite Tauto.if_same.
-  destruct side0.
   + unfold opLength.
     destruct (Datatypes.length entries =? 0) eqn:H_lenEntrisEq0.
     * unfold getLengthInSequenceA at 1.
@@ -1441,15 +1449,49 @@ destruct (A ≻ B) eqn:AGtB.
     unfold andb.
     rewrite Tauto.if_same.
     rewrite splitOperationWith0Unchanged.
+    2: {
+      unfold opLength.
+      destruct (0 <? Datatypes.length entries) eqn:H_lenEntries.
+      - rewrite Nat.ltb_lt in H_lenEntries. auto.
+      - right.
+        split.
+        rewrite Nat.ltb_nlt in H_lenEntries. lia.
+        unfold getLengthInSequenceB. unfold SquashIterationDefinition.
+        auto.
+    }
+    unfold Bool.eqb.
+    rewrite Tauto.if_same.
+    auto.
+  + unfold opLength.
+    destruct (Datatypes.length entries =? 0) eqn:H_lenEntrisEq0.
+    * unfold getLengthInSequenceA at 1.
+      unfold SquashIterationDefinition at 4.
+      unfold isLeft.
+      unfold snd at 2.
+      unfold andb.
+      unfold splitOperation.
+      unfold SquashIterationDefinition at 2.
+      unfold SplitHelper.
+      assert (0 <? Datatypes.length entries = false) as H_lenEntrisNGt0. {
+        rewrite Nat.ltb_nlt. 
+        rewrite Nat.eqb_eq in H_lenEntrisEq0.
+        lia.
+      }
+      rewrite H_lenEntrisNGt0.
+      unfold snd.
+      unfold smallerSide.
+      unfold Bool.eqb.
+      reflexivity.
+    * unfold andb.
+      rewrite splitOperationWith0Unchanged.
       2: {
         unfold opLength.
-        destruct (0 <? Datatypes.length entries) eqn:H_lenEntries.
-        - rewrite Nat.ltb_lt in H_lenEntries. auto.
-        - right.
-          split.
-          rewrite Nat.ltb_nlt in H_lenEntries. lia.
-          unfold getLengthInSequenceB. unfold SquashIterationDefinition.
-          auto.
+        left.
+        assert (Datatypes.length entries > 0). {
+          rewrite Nat.eqb_neq in H_lenEntrisEq0.
+          lia.
+        }
+        assumption.
       }
       auto.
 Qed.
