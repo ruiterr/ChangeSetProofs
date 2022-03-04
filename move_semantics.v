@@ -1616,12 +1616,12 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
       forward H_remOpIsInsert. discriminate.
       rewrite H_remOpIsInsert.
       rewrite H_isInsertB.
-      destruct(0 =? ⌈AHead⌉ₐ).
+      destruct(0 =? ⌈AHead⌉ₐ) eqn:H_AheadLength.
       - destruct (⌊AHead⌋ₐ) eqn:H_sideA; destruct (⌊BHead⌋ᵦ) eqn:H_sideB; try discriminate AGtB.
-        Transparent splitOperation.
-        Transparent SplitHelper.
+        (*Transparent splitOperation.*)
+        (*Transparent SplitHelper.*)
         all: cbn [splitOperation SquashIterationDefinition SplitHelper] in H_BHead;
-        destruct BHead; destruct side0; try discriminate H_sideB;
+        destruct BHead eqn:H_BHeadSplit; destruct side0; try discriminate H_sideB;
         unfold SplitHelper in H_BHead;
         fold lengthC in H_BHead;
         fold sideC in H_BHead.
@@ -1630,31 +1630,13 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
         3-5: destruct (lengthC <? length entries) eqn:H_lengthC.
         all: try discriminate H_BHead.
         all: simpl in H_BHead; destruct (⌊remABOp⌋ᵦ) eqn:H_sideRemABOP; auto.
+        all: cbv in H_sideB; try discriminate H_sideB.
         * destruct remABOp; try discriminate H_BHead.
             destruct side0 eqn:H_side0; try discriminate H_BHead.
             destruct entries0.
             cbv in H_sideRemABOP.
             discriminate H_sideRemABOP.
-        * destruct remABOp; try discriminate H_BHead.
-            destruct side0 eqn:H_side0; try discriminate H_BHead.
-            destruct entries0.
-            cbv in H_sideRemABOP.
-            discriminate H_sideRemABOP.
-        all: destruct remABOp; try discriminate H_BHead;
-            destruct side0 eqn:H_side0; try discriminate H_BHead;
-            try discriminate H_sideRemABOP.
-          * auto.
-          * destruct remABOp; try discriminate H_BHead.
-            destruct side0 eqn:H_side0; try discriminate H_BHead.
-            try discriminate H_sideRemABOP.
-        + discriminate H_BHead.
-
-        unfold splitOperation in H_BHead.
-        unfold SquashIterationDefinition in H_BHead.
-        simpl in H_BHead.
-      
-
-      give_up.
+     - auto.
     }
     rewrite H_AheadGtremABOp.
     change remABOp with (getOpFromArray [remABOp]).
@@ -1804,8 +1786,6 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
         auto.
     }
 
-    (*destruct (⌊BHead⌋ₐ) eqn:BHead_Side.
-    * unfold isLeft.*) 
       assert (BHead [≻≻0; left] = if ((‖BHead‖ =? 0) && (isLeft (⌊BHead⌋ᵦ))) then [] else [BHead]) as H_BHeadReplacement. {
         destruct BHead eqn:H_BHeadFull; unfold isInsert in H_isInsertB; try discriminate H_isInsertB.
         destruct entries.
@@ -1876,59 +1856,6 @@ destruct ((isInsert BHead)) eqn:H_isInsertB.
 
     exists (BHead).
     repeat split; auto.
-    (* unfold opAEmptyAndSameSide.
-    rewrite H_sideA.
-    destruct (‖AHead‖ =? 0) eqn:H_AHeadLength.
-    * unfold splitOpAFun in AGtB.
-      replace (⌈AHead⌉ₐ) with 0 in AGtB; only 2:lia.
-      
-      rewrite seqBLengthFromNorm in AGtB.
-      rewrite H_isInsertB in AGtB.
-      rewrite H_sideA in AGtB.
-      cbn -[getLengthInSequenceB] in AGtB.
-      destruct (⌊BHead⌋ᵦ) eqn:H_sideB; try discriminate AGtB; auto.
-      cbn [isLeft Bool.eqb andb].
-      (* this case is still wrong! *)
-      give_up.
-    * unfold splitOpAFun in AGtB.
-      replace (⌈AHead⌉ₐ) with 0 in AGtB; only 2:lia.
-      give_up.*)
-  (*     destruct (‖BHead‖ =? 0) eqn:H_BHeadLength.
-      ** 
-      ** rewrite seqBLengthFromNorm in AGtB.
-         rewrite H_isInsertB in AGtB.
-         rewrite H_sideA in AGtB.
-         auto.
-      rewrite seqBLengthFromNorm in AGtB.
-        rewrite H_isInsertB in AGtB.
-        rewrite H_sideA in AGtB.
-        cbn -[getLengthInSequenceB] in AGtB.
-        destruct (AGtB); try discriminate AGtB; auto.
-      - auto.
-      unfold opAGtB in H.
-      fold lengthC in H.
-      rewrite H_lengthCeq0 in H.
-      destruct (AHead) eqn:H_AHeadDest; try destruct entries.
-      Transparent computeResultingOperation.
-      fold sideC in H.
-      Opaque sideC.
-      all: unfold computeResultingOperation in H; unfold SquashIterationDefinition at 2 in H.
-      Opaque computeResultingOperation.
-      1-2: cbv in H; try discriminate H.
-      unfold SquashIterationDefinition at 3 in H.
-      destruct side0; try discriminate H.
-    unfold fst. unfold snd.*)
-
-  (* fold nextOp in H_NextOp.
-  (*fold nextOp in CombinedOp.*)
-  fold nextOp in OpResult1.
-  assert (OpResult1 = (if AHead ≻ BHead
-            then (BHead, if (‖AHead‖ =? 0) && negb (isLeft (⌊BHead⌋ₐ)) then [] else [AHead], [])
-            else (AHead ⊕ Insert< [] ⊖ false, [], if (‖BHead‖ =? 0) && isLeft (⌊BHead⌋ₐ) then [] else [BHead]))).
-  unfold OpResult1.
-  assumption.
-  rewrite H0 in CombinedOp.
-  apply H_NextOp in OpResult1.*)
 
 - 
 specialize splitByLargerOp with (A:=AHead) (B:=BHead) (C:=CHead).
