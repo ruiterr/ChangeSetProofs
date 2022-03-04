@@ -1204,8 +1204,107 @@ Section SplitOpByLarger.
   Variable A B C : Operation.
   Let combinedOp := (fst (fst (getNextOperation SquashIterationDefinition A B))).
   Lemma splitByLargerOp: combinedOp ≫ C = true ∧ (isInsert B) = false → A ≫ C = true ∧ B ≫ C = true.
-  intros.
-  unfold getNextOperation in combinedOp.
+  intros [H_combinedGtC H_isInsertB].
+  
+  assert((isRemove A) = false → ‖combinedOp‖ ≤ (min (‖A‖) (‖B‖))). {
+    intros H_isRemoveA.
+
+   assert (‖B‖ = ⌈B⌉ᵦ) as H_B_Norm. {
+      rewrite seqBLengthFromNorm with (A:=B).
+      rewrite H_isInsertB.
+      auto.
+    }
+    assert (‖A‖ = ⌈A⌉ₐ) as H_A_Norm. {
+      rewrite seqALengthFromNorm with (A:=A).
+      rewrite H_isRemoveA.
+      auto.
+    }
+    
+    unfold getNextOperation in combinedOp.
+    destruct(A ≻ B) eqn:H_AGtB;
+    unfold splitOpAFun in H_AGtB;
+    rewrite <-H_A_Norm in H_AGtB; 
+    rewrite <-H_B_Norm in H_AGtB.
+    assert(‖B‖ = (min (‖A‖) (‖B‖))). 
+    3: assert(‖A‖ = (min (‖A‖) (‖B‖))).
+    1,3: destruct(‖B‖ =? ‖A‖) eqn:H_BeqA. 
+    1,3: rewrite Nat.eqb_eq in H_BeqA; lia.
+    1: rewrite Nat.ltb_lt in H_AGtB. lia.
+    1: rewrite Nat.ltb_nlt in H_AGtB. lia.
+
+    all: unfold combinedOp.
+    all: unfold fst at 2.
+    all: unfold fst at 1.
+
+    all:unfold isRemove in H_isRemoveA.
+    all:unfold isInsert in H_isInsertB.
+    assert( (‖B‖ =? ‖A‖ = true) → ⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ= left) as H_sides.
+    3: assert( (‖B‖ =? ‖A‖ = true) → ⌊A⌋ₐ = left ∨ (⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ= right)) as H_sides.
+    1,3: intros H_ABNorm; rewrite H_ABNorm in H_AGtB.
+    1,2: destruct (⌊A⌋ₐ); try discriminate H_AGtB.
+    1-3: destruct (⌊B⌋ᵦ); try discriminate H_AGtB.
+    1-4: auto.
+
+    1,2: destruct(‖B‖ =? ‖A‖) eqn:H_BeqA.
+    1,3: forward H_sides; auto.
+    1: destruct H_sides as [H_sideA H_sideB].
+    1,2: assert(‖B‖ <? ‖A‖ = false) as H_BLtA; only 1,3: (
+     rewrite Nat.ltb_nlt; rewrite Nat.eqb_eq in H_BeqA; lia
+    ).
+    3: assert(‖B‖ <? ‖A‖ = true) as H_BLtA; try (
+     rewrite Nat.ltb_lt; rewrite Nat.eqb_neq in H_BeqA; lia 
+    ).
+    4: assert(‖A‖ <? ‖B‖ = true) as H_BLtA; try (
+     rewrite Nat.ltb_lt; rewrite Nat.eqb_neq in H_BeqA; lia 
+    ).
+      all: destruct A eqn:H_A; destruct  B eqn:H_B; try discriminate H_isRemoveA; try discriminate H_isInsertB.
+      all: try destruct entries.
+      all: try destruct entries0.
+      all: simpl in H.
+      all: simpl in H_BLtA.
+      all: cbn; unfold SplitHelper.
+      all: try simpl in H_sideA; try rewrite H_sideA.
+      all: try simpl in H_sideB; try rewrite H_sideB.
+      all: try rewrite H_BLtA; simpl.
+      all: try replace (amount <? amount) with false; try lia.
+      all: try rewrite firstn_all.
+      all: try rewrite Nat.ltb_irrefl; auto.
+      all: try simpl in H_BeqA; try rewrite Nat.eqb_eq in H_BeqA; try rewrite Nat.eqb_neq in H_BeqA; try rewrite H_BeqA; try lia.
+      all: try rewrite Nat.ltb_irrefl.
+      all: try (simpl in H_sides; destruct (H_sides); (rewrite H0) + (destruct H0; rewrite H0); destruct side1; simpl; try lia).
+      all: rewrite firstn_le_length; lia.
+    }
+    
+    apply AGtB_lenAGelenB in H_combinedGtC as H_combinedGtC.
+
+    
+      assumption.
+      1: destruct(amount0 <? amount) eqn:H_amount.
+      (*3-4: destruct entries. destruct(amount0 <? amount) eqn:H_amount.*)
+
+      simpl.
+      assumption.
+      simpl.
+      destruct side0 eqn:H_side0.
+      unfold opLength in H_AGtB.
+      simpl.
+      assumption.
+      1: destruct(amount0 <? amount) eqn:H_amount.
+      rewrite splitOperationLengthR1 with (y:=lengthB) (s:=sideB) in combinedOp.
+      
+    set (lenA :=  ⌈A⌉ₐ).
+    set (lenB :=  ⌈B⌉ᵦ).
+    fold lenA in AGtB.
+    fold lenB in AGtB.
+    specialize seqBLengthFromNorm with (A:=B) as Test.
+    pose(lenA=⌈A⌉ₐ).
+    rewrite seqALengthFromNorm in P.
+    replace (fst (getLengthInSequenceB SquashIterationDefinition B)) with (if isInsert B then 0 else ‖B‖) in P;  try assumption.
+    rewrite Test in lenB.
+    rewrite seqALengthFromNorm with (A:=A) in lenA.
+    destruct (A ≻ B).
+    
+  }
   destruct (A ≻ B).
   - unfold computeResultingOperation in combinedOp.
     cbn [SquashIterationDefinition] in combinedOp.
