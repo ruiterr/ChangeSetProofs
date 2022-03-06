@@ -1205,6 +1205,67 @@ Section SplitOpByLarger.
   Let combinedOp := (fst (fst (getNextOperation SquashIterationDefinition A B))).
   Lemma splitByLargerOp: combinedOp ≫ C = true ∧ (isInsert B) = false → A ≫ C = true ∧ B ≫ C = true.
   intros [H_combinedGtC H_isInsertB].
+  destruct(isRemove A) eqn:H_isRemoveA.
+  - destruct A eqn:H_A; unfold isRemove in H_isRemoveA; try discriminate H_isRemoveA.
+    destruct entries.
+    
+    cbn -[getLengthInSequenceA getLengthInSequenceB computeResultingOperation] in combinedOp.
+    destruct (Remove (Seq entries) side0 ≻ B) eqn:H_AGtB.
+    + apply ASplit_lenAGelenB in H_AGtB as H_LAGeLB.
+      cbn -[getLengthInSequenceB] in H_LAGeLB.
+      unfold SplitHelper in combinedOp.
+      set (x:=⌈B⌉ᵦ <? Datatypes.length entries).
+      fold x in combinedOp.
+      destruct (x) eqn:H_AEntries.
+      all: (
+        cbn -[getLengthInSequenceB computeResultingOperation] in combinedOp;
+        unfold combinedOp in H_combinedGtC;
+        replace (⌈B⌉ᵦ) with 0 in H_combinedGtC; try lia;
+        try rewrite firstn_O in H_combinedGtC;
+        try rewrite firstn_all in H_combinedGtC;
+        cbn -[getLengthInSequenceB] in H_combinedGtC
+      ).
+
+      2: (
+        unfold splitOpAFun in H_AGtB;
+        cbn -[getLengthInSequenceB] in H_AGtB;
+        replace (⌈B⌉ᵦ) with 0 in H_AGtB; try lia;
+        cbn -[getLengthInSequenceB] in H_AGtB;
+        destruct side0 eqn:H_side0; try discriminate H_AGtB;
+        destruct (⌊B⌋ᵦ); try discriminate H_AGtB
+      ).
+      all: destruct B; try discriminate H_isInsertB.
+      all: (
+          unfold opAGtB in H_combinedGtC; cbn -[getLengthInSequenceB] in H_combinedGtC;
+          unfold opAGtB;
+          try destruct entries0;
+          destruct (⌈C⌉ᵦ =? 0) eqn:H_lengthC; try discriminate H_combinedGtC;
+          destruct( side1 ) eqn:H_side1; try discriminate H_combinedGtC;
+          destruct(⌊C⌋ᵦ) eqn:H_sideC; try discriminate H_combinedGtC;
+          rewrite Nat.eqb_eq in H_lengthC; rewrite H_lengthC; simpl;
+          try assert ((length entries0) = 0) as H_amount;
+          try assert (amount = 0) as H_amount; cbv in H_LAGeLB; try lia;
+          cbv in H_AGtB;
+          rewrite H_amount in H_AGtB;
+          destruct (side0); discriminate H_AGtB
+        ).
+    +
+
+           rewrite Nat.eqb_eq in H_amount. rewrite H_amount.
+        set (lengthB := ⌈B⌉ᵦ).
+        fold lengthB in combinedOp.
+ assert(Nat.ltb (@fst nat side (getLengthInSequenceB SquashIterationDefinition B)) (@Datatypes.length listEntry entries) = false) as H_BLtNumEntries. { rewrite Nat.ltb_nlt. rewrite Nat.eqb_eq in H_AEntries. lia. }
+        set (X:=Nat.ltb (@fst nat side (getLengthInSequenceB SquashIterationDefinition B)) (@Datatypes.length listEntry entries)).
+        fold X in combinedOp.
+        replace (⌈B⌉ᵦ <? Datatypes.length entries) with false in X.
+        assert(X=(⌈B⌉ᵦ <? Datatypes.length entries)) as H_X. {unfold X. reflexivity. }
+        rewrite H_BLtNumEntries in H_X.
+        
+        subst X.
+        Print X.
+        unfold X in  H_X.
+        rewrite H_BLtNumEntries in combinedOp.
+
   
   assert((isRemove A) = false → ‖combinedOp‖ ≤ (min (‖A‖) (‖B‖))). {
     intros H_isRemoveA.
