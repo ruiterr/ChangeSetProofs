@@ -837,6 +837,9 @@ destruct A; unfold isRemove.
 all: try destruct entries; simpl; auto.
 Qed.
 
+Lemma splitAGtBTransitive: ∀(A B C: Operation), (isInsert B) = false ∧ (A ≫ B) = true ∧ (B ≫ C) = true → (A ≫ C) = true.
+Admitted.
+
 Lemma splitOpAFunTransitive: ∀(A B C: Operation), (isInsert B) = false ∧ (A ≻ B) = true ∧ (B ≻ C) = true → (A ≻ C) = true.
 intros.
 destruct H as [H_isInsertB [H_AgtB H_BgtC]].
@@ -1209,9 +1212,10 @@ Section SplitOpByLarger.
   - destruct A eqn:H_A; unfold isRemove in H_isRemoveA; try discriminate H_isRemoveA.
     destruct entries.
     
-    cbn -[getLengthInSequenceA getLengthInSequenceB computeResultingOperation] in combinedOp.
+    cbn -[getLengthInSequenceA getLengthInSequenceB computeResultingOperation splitOperation] in combinedOp.
     destruct (Remove (Seq entries) side0 ≻ B) eqn:H_AGtB.
-    + apply ASplit_lenAGelenB in H_AGtB as H_LAGeLB.
+    + cbn -[getLengthInSequenceA getLengthInSequenceB computeResultingOperation] in combinedOp.
+      apply ASplit_lenAGelenB in H_AGtB as H_LAGeLB.
       cbn -[getLengthInSequenceB] in H_LAGeLB.
       unfold SplitHelper in combinedOp.
       set (x:=⌈B⌉ᵦ <? Datatypes.length entries).
@@ -1249,23 +1253,21 @@ Section SplitOpByLarger.
           rewrite H_amount in H_AGtB;
           destruct (side0); discriminate H_AGtB
         ).
-    +
-
-           rewrite Nat.eqb_eq in H_amount. rewrite H_amount.
-        set (lengthB := ⌈B⌉ᵦ).
-        fold lengthB in combinedOp.
- assert(Nat.ltb (@fst nat side (getLengthInSequenceB SquashIterationDefinition B)) (@Datatypes.length listEntry entries) = false) as H_BLtNumEntries. { rewrite Nat.ltb_nlt. rewrite Nat.eqb_eq in H_AEntries. lia. }
-        set (X:=Nat.ltb (@fst nat side (getLengthInSequenceB SquashIterationDefinition B)) (@Datatypes.length listEntry entries)).
-        fold X in combinedOp.
-        replace (⌈B⌉ᵦ <? Datatypes.length entries) with false in X.
-        assert(X=(⌈B⌉ᵦ <? Datatypes.length entries)) as H_X. {unfold X. reflexivity. }
-        rewrite H_BLtNumEntries in H_X.
-        
-        subst X.
-        Print X.
-        unfold X in  H_X.
-        rewrite H_BLtNumEntries in combinedOp.
-
+    + apply ASplit_lenALelenB in H_AGtB as H_LALeLB.
+      subst combinedOp.
+      replace (⌈Remove (Seq entries) side0⌉ₐ) with 0 in H_combinedGtC. 2:{ cbv. auto. }
+      rewrite splitOperationWith0Empty in H_combinedGtC.
+      cbn in H_combinedGtC.
+      destruct B eqn:H_B.
+      all: rewrite H_combinedGtC; split; auto.
+      specialize splitAGtBTransitive with (A:=A) (B:=B) (C:=C) as H_transitive.
+      rewrite <-H_A in H_combinedGtC.
+      rewrite <-H_A in H_AGtB.
+      rewrite <-H_B in H_AGtB.
+      unfold SplitHelper in H_combinedGtC.
+      set (x:=⌈B⌉ᵦ <? Datatypes.length entries).
+      fold x in H_combinedGtC.
+      destruct (x) eqn:H_AEntries.
   
   assert((isRemove A) = false → ‖combinedOp‖ ≤ (min (‖A‖) (‖B‖))). {
     intros H_isRemoveA.
