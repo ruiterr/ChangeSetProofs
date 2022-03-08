@@ -699,6 +699,15 @@ destruct B; try discriminate H.
 destruct A; auto.
 Qed.
 
+Lemma combineWithRemoveIsRemove: ∀(A B:Operation) (splitA:bool), (isInsert A) = false ∧ (isRemove B) = true → (A ⊕ B ⊖ splitA) = (if (isRemove A) then A else B).
+intros A B splitA [H_isInsertA H_isRemoveB].
+
+cbv.
+destruct B; try discriminate H_isRemoveB.
+destruct A; try discriminate H_isInsertA.
+all: auto.
+Qed.
+
 Eval compute in ( (Insert> [<$0,0>; <$0,0>; <$0,0>]) ≫ (Skip< 2)).
 Eval compute in ( ⌈Insert> [<$0,0>; <$0,0>; <$0,0>]⌉ᵦ ).
 Eval compute in (⌈Skip> 2⌉ᵦ).
@@ -849,6 +858,9 @@ Lemma splitOpRemainsInsert: ∀ (A C: Operation), A[≻ᵦC] ≠ [] → (isInser
 Admitted.
 
 Lemma splitOpRemainsRemove: ∀ (A C: Operation), A[≻ᵦC] ≠ [] → (isRemove(↩A[≻ᵦC]) = (isRemove A)).
+Admitted.
+
+Lemma splitOpRemainsSkip: ∀ (A C: Operation), A[≻ᵦC] ≠ [] → (isSkip(↩A[≻ᵦC]) = (isSkip A)).
 Admitted.
 
 Definition notLargerLengthInsert (A C:Operation) := (isInsert A) = false ∨ (⌈C⌉ᵦ < ⌈A⌉ₐ).
@@ -1184,8 +1196,71 @@ Section SplitOpByLarger.
   Variable A B C : Operation.
   Let combinedOp := (fst (fst (getNextOperation SquashIterationDefinition A B))).
 
-  Lemma removeBImpliesCombinedOpAEq0: (isRemove B) = true → (⌈combinedOp⌉ₐ) = 0.
-  Admitted.
+  Lemma removeBImpliesCombinedOpAEq0: (isRemove B) = true ∧  (isInsert A) = false → (⌈combinedOp⌉ₐ) = 0.
+  intros [H_isRemoveB H_isInsertA].
+  destruct (B) eqn:H_B; try discriminate H_isRemoveB.
+  destruct entries.
+  Opaque computeResultingOperation.
+  unfold combinedOp.
+  unfold getNextOperation.
+  destruct (A ≻ Remove (Seq entries) side0) eqn:H_AGtB.
+  all: rewrite combineWithRemoveIsRemove.
+  2: {
+     rewrite H_isRemoveB.
+     destruct A; try discriminate H_isInsertA.
+     2: destruct entries0.
+     all: cbn -[isInsert]; unfold SplitHelper.
+     1: destruct (Datatypes.length entries <? amount).
+     3: destruct (Datatypes.length entries <? Datatypes.length entries0).
+     all: now (destruct side1;destruct side0).
+  } 
+  3: {
+     rewrite H_isInsertA.
+     split; auto.
+     destruct A eqn:H_A; try discriminate H_isInsertA.
+     2: destruct entries0.
+     all: cbn -[isRemove]; unfold SplitHelper.
+     1: destruct (amount <? Datatypes.length entries).
+     3: destruct (0 <? Datatypes.length entries).
+     all: now (destruct side1;destruct side0).
+  } 
+  - destruct (A) eqn:H_A; try discriminate H_isInsertA.
+    assert (isRemove (Skip amount side1 [≺ᵦRemove (Seq entries) side0]) = false). {
+      all: cbn; cbv delta [SplitHelper]; cbn -[Nat.ltb]; simpl; auto.
+      all: destruct (Datatypes.length entries <? amount).
+      all: destruct side1.
+      all: destruct side0.
+      all: simpl; auto.
+    }
+    rewrite H.
+    auto.
+    assert (isRemove (Remove entries0 side1 [≺ᵦRemove (Seq entries) side0]) = true). {
+      destruct entries0.
+      simpl. unfold SplitHelper.
+      destruct (Datatypes.length entries <? Datatypes.length entries0).
+      simpl. auto.
+      all: destruct side1; simpl; auto.
+      all: destruct side0; simpl; auto.
+    }
+    rewrite H.
+    destruct entries0. 
+    cbn. unfold SplitHelper. simpl. 
+    destruct  (Datatypes.length entries <? Datatypes.length entries0).
+    1-2: simpl; auto.  
+    destruct side1;
+    destruct side0; simpl; auto.
+    
+  - destruct (A) eqn:H_A; try discriminate H_isInsertA.
+    all: unfold isRemove.
+    set (lengthSkip := ⌈Skip amount side1⌉ₐ).
+    all: rewrite seqALengthFromNorm.
+    simpl. unfold SplitHelper.
+    now destruct (lengthSkip <? Datatypes.length entries);
+        destruct side1; 
+        destruct side0.
+    easy.
+  Qed.
+
   Lemma splitByLargerOp: combinedOp ≫ C = true ∧ (isInsert B) = false ∧
                          ((isRemove B) && (0 <? ⌈B⌉ᵦ) && (isLeft (⌊B⌋ᵦ))) = false → A ≫ C = true ∧ B ≫ C = true.
   intros [H_combinedGtC [H_isInsertB H_BisNonEmptyLeftRemove]].
