@@ -837,29 +837,6 @@ destruct A; unfold isRemove.
 all: try destruct entries; simpl; auto.
 Qed.
 
-Lemma splitAGtBTransitive: ∀(A B C: Operation), (isInsert B) = false ∧ (A ≫ B) = true ∧ (B ≫ C) = true → (A ≫ C) = true.
-Admitted.
-
-Lemma splitOpAFunTransitive: ∀(A B C: Operation), (isInsert B) = false ∧ (A ≻ B) = true ∧ (B ≻ C) = true → (A ≻ C) = true.
-intros.
-destruct H as [H_isInsertB [H_AgtB H_BgtC]].
-unfold splitOpAFun in H_AgtB.
-unfold splitOpAFun in H_BgtC.
-unfold splitOpAFun.
-
-destruct(⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_BeqA.
-- destruct(⌈C⌉ᵦ =? ⌈B⌉ₐ) eqn:H_CeqB.
-  assert (⌈C⌉ᵦ < ⌈A⌉ₐ). {
-    rewrite Nat.eqb_eq in H_BeqA.
-    rewrite Nat.eqb_eq in H_CeqB.
-    assert(⌈B⌉ₐ ≤ ⌈B⌉ᵦ). {
-      rewrite seqBLengthFromNorm.
-      rewrite seqALengthFromNorm.
-      rewrite H_isInsertB.
-      destruct (isRemove B); lia.
-  }
-Admitted.
-
 Definition MyFun (A B C: Operation) := ((A≫C), (B≫C), ⌈↩B[≻ᵦC]⌉ᵦ, (⌈↩A[≻ᵦC]⌉ₐ), ⌈B⌉ᵦ,  ⌈A⌉ₐ).
 Definition MyFun2 (A B C: Operation) := ((↩A[≻ᵦC] ≻ ↩B[≻ᵦC]), (A ≻ B)).
 Transparent getLengthInSequenceB.
@@ -1206,6 +1183,9 @@ Admitted.*)
 Section SplitOpByLarger.
   Variable A B C : Operation.
   Let combinedOp := (fst (fst (getNextOperation SquashIterationDefinition A B))).
+
+  Lemma removeBImpliesCombinedOpAEq0: (isRemove B) = true → (⌈combinedOp⌉ₐ) = 0.
+  Admitted.
   Lemma splitByLargerOp: combinedOp ≫ C = true ∧ (isInsert B) = false ∧
                          ((isRemove B) && (0 <? ⌈B⌉ᵦ) && (isLeft (⌊B⌋ᵦ))) = false → A ≫ C = true ∧ B ≫ C = true.
   intros [H_combinedGtC [H_isInsertB H_BisNonEmptyLeftRemove]].
@@ -1366,159 +1346,57 @@ Section SplitOpByLarger.
           discriminate H_BisNonEmptyLeftRemove.
         ** auto.
 
-      assert(⌈C⌉ᵦ = ⌈B⌉ᵦ) as H_CbEqBb. {
-        rewrite seqALengthFromNorm in H_LenCEqLenB.
-        rewrite seqBLengthFromNorm in H_LenCEqLenB.
-        rewrite H_B in H_LenCEqLenB.
-        unfold isRemove in H_LenCEqLenB.
-        repeat rewrite seqBLengthFromNorm.
-        rewrite H_B.
-        destruct (isInsert C).
-        - rewrite Nat.eqb_eq in H_LenCEqLenB.
-          rewrite <-H_LenCEqLenB.
-          cbv. auto.
-        - rewrite Nat.eqb_eq in H_LenCEqLenB.
-          rewrite <-H_LenCEqLenB.
-          cbn -[opLength]. auto.
+  - assert( ‖combinedOp‖ ≤ (min (‖A‖) (‖B‖))) as H_combinedOpNorm. {
+
+      assert (‖B‖ = ⌈B⌉ᵦ) as H_B_Norm. {
+        rewrite seqBLengthFromNorm with (A:=B).
+        rewrite H_isInsertB.
+        auto.
       }
-      unfold splitOpAFun in H_AGtB.
-      unfold opAGtB in H_combinedGtC.
-      assert ((⌈C⌉ᵦ =? ⌈Remove (Seq entries) side0⌉ₐ) = true) as H_AEqC. {
-        rewrite <-H_A.
-        rewrite Nat.eqb_eq.
-        lia.
+      assert (‖A‖ = ⌈A⌉ₐ) as H_A_Norm. {
+        rewrite seqALengthFromNorm with (A:=A).
+        rewrite H_isRemoveA.
+        auto.
       }
+      
+      unfold getNextOperation in combinedOp.
+      destruct(A ≻ B) eqn:H_AGtB;
+      unfold splitOpAFun in H_AGtB;
+      rewrite <-H_A_Norm in H_AGtB; 
+      rewrite <-H_B_Norm in H_AGtB.
+      assert(‖B‖ = (min (‖A‖) (‖B‖))). 
+      3: assert(‖A‖ = (min (‖A‖) (‖B‖))).
+      1,3: destruct(‖B‖ =? ‖A‖) eqn:H_BeqA. 
+      1,3: rewrite Nat.eqb_eq in H_BeqA; lia.
+      1: rewrite Nat.ltb_lt in H_AGtB. lia.
+      1: rewrite Nat.ltb_nlt in H_AGtB. lia.
 
-      assert( (⌈Skip amount side1⌉ᵦ =? ⌈Remove (Seq entries) side0⌉ₐ) = true) as H_AEqB. {
-        rewrite <-H_A.
-        rewrite <-H_B.
-        rewrite Nat.eqb_eq.
-        lia.
-      }
-      rewrite H_AEqC in H_combinedGtC.
-      rewrite H_AEqB in H_AGtB.
-      rewrite <-H_A in H_combinedGtC.
-      rewrite <-H_A in H_AGtB.
-      rewrite <-H_B in H_AGtB.
-      rewrite sidesEqual.
-      destruct (⌊A⌋ₐ) eqn:H_sideA;
-      destruct (⌊B⌋ᵦ) eqn:H_sideB;
-      destruct (⌊C⌋ᵦ) eqn:H_sideC;
-      try discriminate H_combinedGtC;
-      try discriminate H_AGtB.
-      auto.
+      all: unfold combinedOp.
+      all: unfold fst at 2.
+      all: unfold fst at 1.
 
+      all:unfold isRemove in H_isRemoveA.
+      all:unfold isInsert in H_isInsertB.
+      assert( (‖B‖ =? ‖A‖ = true) → ⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ= left) as H_sides.
+      3: assert( (‖B‖ =? ‖A‖ = true) → ⌊A⌋ₐ = left ∨ (⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ= right)) as H_sides.
+      1,3: intros H_ABNorm; rewrite H_ABNorm in H_AGtB.
+      1,2: destruct (⌊A⌋ₐ); try discriminate H_AGtB.
+      1-3: destruct (⌊B⌋ᵦ); try discriminate H_AGtB.
+      1-4: auto.
 
-        Print combinedOp.
-        Transparent length.
-        Eval compute in fst (fst (getNextOperation SquashIterationDefinition (Remove> []) (Remove< [<$1, 1>]))).
-      assert (⌈C⌉ᵦ = ⌈A⌉ᵦ). {
-        rewrite seqALengthFromNorm in H_LenCEqLenB.
-        destruct (isRemove B) eqn:H_removeB.
-        - 
-        (*destruct (isInsert C) eqn:H_insertC.
-        - rewrite seqBLengthFromNorm in H_LenCEqLenB.
-          rewrite H_insertC in H_LenCEqLenB.
-          rewrite Nat.eqb_eq in H_LenCEqLenB.
-          rewrite seqALengthFromNorm in H_LenCEqLenB.
-          destruct *)
+      1,2: destruct(‖B‖ =? ‖A‖) eqn:H_BeqA.
+      1,3: forward H_sides; auto.
+      1: destruct H_sides as [H_sideA H_sideB].
+      1,2: assert(‖B‖ <? ‖A‖ = false) as H_BLtA; only 1,3: (
+       rewrite Nat.ltb_nlt; rewrite Nat.eqb_eq in H_BeqA; lia
+      ).
+      3: assert(‖B‖ <? ‖A‖ = true) as H_BLtA; try (
+       rewrite Nat.ltb_lt; rewrite Nat.eqb_neq in H_BeqA; lia 
+      ).
+      4: assert(‖A‖ <? ‖B‖ = true) as H_BLtA; try (
+       rewrite Nat.ltb_lt; rewrite Nat.eqb_neq in H_BeqA; lia 
+      ).
 
-      unfold splitOpAFun in H_AGtB.
-      rewrite <-H_A in H_AGtB.
-      rewrite <-H_B in H_AGtB.
-      destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_BeqA.
-      destruct (⌊B⌋ₐ) eqn:H_sideB.
-      rewrite <-sidesEqual in H_AGtB.
-      rewrite H_sideB in H_AGtB.
-      destruct (⌊A⌋ₐ) eqn:H_sideA; try discriminate H_AGtB.
-      rewrite <-H_A in H_combinedGtC.
-      unfold opAGtB in H_combinedGtC.
-      destruct (⌈C⌉ᵦ =? ⌈A⌉ₐ).
-      2: {
-        rewrite Nat.ltb_lt in H_combinedGtC.
-        rewrite Nat.eqb_eq in H_BeqA.
-        assert(⌈C⌉ᵦ = ⌈B⌉ᵦ). {
-          rewrite seqALengthFromNorm in H_LenCEqLenB.
-          rewrite seqBLengthFromNorm in H_LenCEqLenB.
-          rewrite H_B in H_LenCEqLenB at 1.
-          cbn -[getLengthInSequenceB] in H_LenCEqLenB.
-        lia.
-      }
-      assert(⌈C⌉ᵦ =? ⌈A⌉ₐ = true). {
-        rewrite Nat.eqb_eq in H_LenCEqLenB.
-        rewrite Nat.eqb_eq in H_BeqA.
-        rewrite Nat.eqb_eq.
-        lia.
-      }
-
-      2: {
-        rewrite Nat.ltb_nlt in H_AGtB.
-        rewrite Nat.eqb_neq in H_BeqA.
-        rewrite Nat.eqb_eq in H_LenCEqLenB.
-        apply not_lt in H_AGtB.
-         lia.
-      }
-
-      specialize splitAGtBTransitive with (A:=A) (B:=B) (C:=C) as H_transitive.
-      rewrite <-H_A in H_combinedGtC.
-      rewrite <-H_A in H_AGtB.
-      rewrite <-H_B in H_AGtB.
-      unfold SplitHelper in H_combinedGtC.
-      set (x:=⌈B⌉ᵦ <? Datatypes.length entries).
-      fold x in H_combinedGtC.
-      destruct (x) eqn:H_AEntries.
-  
-  assert((isRemove A) = false → ‖combinedOp‖ ≤ (min (‖A‖) (‖B‖))). {
-    intros H_isRemoveA.
-
-   assert (‖B‖ = ⌈B⌉ᵦ) as H_B_Norm. {
-      rewrite seqBLengthFromNorm with (A:=B).
-      rewrite H_isInsertB.
-      auto.
-    }
-    assert (‖A‖ = ⌈A⌉ₐ) as H_A_Norm. {
-      rewrite seqALengthFromNorm with (A:=A).
-      rewrite H_isRemoveA.
-      auto.
-    }
-    
-    unfold getNextOperation in combinedOp.
-    destruct(A ≻ B) eqn:H_AGtB;
-    unfold splitOpAFun in H_AGtB;
-    rewrite <-H_A_Norm in H_AGtB; 
-    rewrite <-H_B_Norm in H_AGtB.
-    assert(‖B‖ = (min (‖A‖) (‖B‖))). 
-    3: assert(‖A‖ = (min (‖A‖) (‖B‖))).
-    1,3: destruct(‖B‖ =? ‖A‖) eqn:H_BeqA. 
-    1,3: rewrite Nat.eqb_eq in H_BeqA; lia.
-    1: rewrite Nat.ltb_lt in H_AGtB. lia.
-    1: rewrite Nat.ltb_nlt in H_AGtB. lia.
-
-    all: unfold combinedOp.
-    all: unfold fst at 2.
-    all: unfold fst at 1.
-
-    all:unfold isRemove in H_isRemoveA.
-    all:unfold isInsert in H_isInsertB.
-    assert( (‖B‖ =? ‖A‖ = true) → ⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ= left) as H_sides.
-    3: assert( (‖B‖ =? ‖A‖ = true) → ⌊A⌋ₐ = left ∨ (⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ= right)) as H_sides.
-    1,3: intros H_ABNorm; rewrite H_ABNorm in H_AGtB.
-    1,2: destruct (⌊A⌋ₐ); try discriminate H_AGtB.
-    1-3: destruct (⌊B⌋ᵦ); try discriminate H_AGtB.
-    1-4: auto.
-
-    1,2: destruct(‖B‖ =? ‖A‖) eqn:H_BeqA.
-    1,3: forward H_sides; auto.
-    1: destruct H_sides as [H_sideA H_sideB].
-    1,2: assert(‖B‖ <? ‖A‖ = false) as H_BLtA; only 1,3: (
-     rewrite Nat.ltb_nlt; rewrite Nat.eqb_eq in H_BeqA; lia
-    ).
-    3: assert(‖B‖ <? ‖A‖ = true) as H_BLtA; try (
-     rewrite Nat.ltb_lt; rewrite Nat.eqb_neq in H_BeqA; lia 
-    ).
-    4: assert(‖A‖ <? ‖B‖ = true) as H_BLtA; try (
-     rewrite Nat.ltb_lt; rewrite Nat.eqb_neq in H_BeqA; lia 
-    ).
       all: destruct A eqn:H_A; destruct  B eqn:H_B; try discriminate H_isRemoveA; try discriminate H_isInsertB.
       all: try destruct entries.
       all: try destruct entries0.
@@ -1535,58 +1413,60 @@ Section SplitOpByLarger.
       all: try rewrite Nat.ltb_irrefl.
       all: try (simpl in H_sides; destruct (H_sides); (rewrite H0) + (destruct H0; rewrite H0); destruct side1; simpl; try lia).
       all: rewrite firstn_le_length; lia.
-    }
-    
-    apply AGtB_lenAGelenB in H_combinedGtC as H_combinedGtC.
+     }
+     
+     assert (⌈C⌉ᵦ ≤ (min (‖A‖) (‖B‖))) as H_CLeMinAB. {
 
-    
-      assumption.
-      1: destruct(amount0 <? amount) eqn:H_amount.
-      (*3-4: destruct entries. destruct(amount0 <? amount) eqn:H_amount.*)
+       unfold opAGtB in H_combinedGtC.
+       rewrite seqALengthFromNorm in H_combinedGtC.
+       destruct (isRemove combinedOp).
+        - destruct(⌈C⌉ᵦ =? 0) eqn:H_Ceq0.
+          + rewrite Nat.eqb_eq in H_Ceq0.
+            rewrite H_Ceq0.
+            lia.
+          + rewrite Nat.ltb_lt in H_combinedGtC.
+            lia.
+        - destruct (⌈C⌉ᵦ =? ‖combinedOp‖) eqn:H_CeqCombinedOp.
+          + rewrite Nat.eqb_eq in H_CeqCombinedOp.
+            rewrite H_CeqCombinedOp.
+            assumption.
+          + rewrite Nat.ltb_lt in H_combinedGtC.
+            lia.
+      }
 
-      simpl.
-      assumption.
-      simpl.
-      destruct side0 eqn:H_side0.
-      unfold opLength in H_AGtB.
-      simpl.
-      assumption.
-      1: destruct(amount0 <? amount) eqn:H_amount.
-      rewrite splitOperationLengthR1 with (y:=lengthB) (s:=sideB) in combinedOp.
-      
-    set (lenA :=  ⌈A⌉ₐ).
-    set (lenB :=  ⌈B⌉ᵦ).
-    fold lenA in AGtB.
-    fold lenB in AGtB.
-    specialize seqBLengthFromNorm with (A:=B) as Test.
-    pose(lenA=⌈A⌉ₐ).
-    rewrite seqALengthFromNorm in P.
-    replace (fst (getLengthInSequenceB SquashIterationDefinition B)) with (if isInsert B then 0 else ‖B‖) in P;  try assumption.
-    rewrite Test in lenB.
-    rewrite seqALengthFromNorm with (A:=A) in lenA.
-    destruct (A ≻ B).
-    
-  }
-  destruct (A ≻ B).
-  - unfold computeResultingOperation in combinedOp.
-    cbn [SquashIterationDefinition] in combinedOp.
-    destruct A.
-    Transparent splitOperation.
-    unfold splitOperation in combinedOp.
-    cbn [SquashIterationDefinition] in combinedOp.
-    unfold SplitHelper in combinedOp.
-    assert (⌈B⌉ᵦ <? amount = true) as H_BltAmount. give_up.
-    (*rewrite H_BltAmount in combinedOp.
-    cbn [SquashIterationDefinition] in combinedOp.
-    simpl in combinedOp.
-    cbn in combinedOp.
-    all:   cbn [spliOperation] in combinedOp.
-    simpl in combinedOp.
-    unfold SquashIterationDefinition at 1 in combinedOp.
-simpl in combinedOp.
-    destruct (A) eqn:H_A.
-    -*)
-  Admitted.
+      unfold opAGtB.
+      rewrite seqALengthFromNorm.
+      rewrite H_isRemoveA.
+      split.
+      + destruct (⌈C⌉ᵦ =? ‖A‖) eqn:H_CeqNA.
+        * give_up.
+        * rewrite Nat.ltb_lt.
+          rewrite Nat.eqb_neq in H_CeqNA.
+          lia.
+      + rewrite seqALengthFromNorm.
+        destruct (isRemove B) eqn:H_isRemoveB.
+        * destruct (0 <? ⌈B⌉ᵦ) eqn:H_BNormBigger0.
+          -- unfold opAGtB in H_combinedGtC.
+             rewrite removeBImpliesCombinedOpAEq0 in H_combinedGtC; only 2: auto.
+             destruct (⌈C⌉ᵦ) eqn:H_CB; try discriminate H_combinedGtC.
+             rewrite <-sidesEqual in H_BisNonEmptyLeftRemove.
+             destruct(⌊B⌋ₐ).
+             ++ discriminate H_BisNonEmptyLeftRemove.
+             ++ destruct (⌊combinedOp⌋ₐ); try discriminate H_combinedGtC.
+                destruct (⌊C⌋ᵦ); try discriminate H_combinedGtC.
+                auto.
+          -- rewrite Nat.ltb_nlt in H_BNormBigger0.
+             rewrite seqBLengthFromNorm in H_BNormBigger0.
+             destruct B; try discriminate H_isRemoveB.
+             unfold isInsert in H_BNormBigger0.
+             replace (⌈C⌉ᵦ) with 0; try lia.
+             give_up.
+        * destruct (⌈C⌉ᵦ =? ‖B‖) eqn:H_CeqNA.
+          ** give_up.
+          ** rewrite Nat.ltb_lt.
+             rewrite Nat.eqb_neq in H_CeqNA.
+             lia.
+Admitted.
 
 End SplitOpByLarger.
 
