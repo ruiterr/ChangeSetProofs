@@ -1200,7 +1200,6 @@ Section SplitOpByLarger.
   intros [H_isRemoveB H_isInsertA].
   destruct (B) eqn:H_B; try discriminate H_isRemoveB.
   destruct entries.
-  Opaque computeResultingOperation.
   unfold combinedOp.
   unfold getNextOperation.
   destruct (A ≻ Remove (Seq entries) side0) eqn:H_AGtB.
@@ -1514,7 +1513,23 @@ Section SplitOpByLarger.
       rewrite H_isRemoveA.
       split.
       + destruct (⌈C⌉ᵦ =? ‖A‖) eqn:H_CeqNA.
-        * give_up.
+        * unfold opAGtB in H_combinedGtC.
+          rewrite seqALengthFromNorm in H_combinedGtC.
+          destruct (isRemove combinedOp) eqn:H_combinedIsRemove.
+          1: destruct (⌈C⌉ᵦ =? 0); try discriminate H_combinedGtC.
+          2: ( 
+            rewrite Nat.eqb_eq in H_CeqNA;
+            assert(‖A‖ = Init.Nat.min (‖A‖) (‖B‖)) as H_AIsMin; try  lia;
+            rewrite <-H_AIsMin in H_combinedOpNorm;
+            destruct (⌈C⌉ᵦ =? ‖combinedOp‖); try (rewrite Nat.ltb_lt in H_combinedGtC; lia )
+          ).
+            
+          all: destruct (⌊combinedOp⌋ₐ) eqn:H_combinedOp; try discriminate H_combinedGtC.
+          all: destruct (⌊C⌋ᵦ) eqn:H_sideC; try discriminate H_combinedGtC.
+          destruct A; try discriminate H_isRemoveA.
+          all: destruct B; try discriminate H_isInsertB.
+          all: unfold opLength in H_combinedOpNorm.
+          give_up.
         * rewrite Nat.ltb_lt.
           rewrite Nat.eqb_neq in H_CeqNA.
           lia.
