@@ -751,6 +751,16 @@ destruct(A [≻≻y; s]) eqn:H_splitEmpty.
   all: rewrite Nat.ltb_nlt in H_yLtAmount; lia.
 Qed.
 
+Lemma splitOperationSide: ∀(A:Operation) (s : side) (y:nat),  ⌊A[≺≺ y ; s]⌋ₐ = if (y <? ‖A‖) then s else (smallerSide (⌊A⌋ₐ) s).
+intros.
+cbn -[getLengthInSequenceA Nat.ltb].
+destruct (A) eqn:H_A.
+all: unfold SplitHelper; unfold opLength.
+1: destruct (y <? amount).
+3-4: destruct entries; destruct (y <? length entries).
+all: now try destruct side0; try destruct side1; try destruct s; cbv.
+Qed.
+
 Lemma splitOperationWith0Unchanged: ∀(A:Operation) (s : side), (‖A‖ > 0 ∨ (‖A‖ = 0 ∧ ⌊A⌋ᵦ = right ∧ s = left)) → A[≻≻0 ; s] = [A].
 intros.
 unfold splitOperation. simpl.
@@ -844,6 +854,13 @@ Lemma seqBLengthFromNorm: ∀(A:Operation), ⌈A⌉ᵦ = ( if (isInsert A) then 
 intros.
 destruct A; unfold isRemove.
 all: try destruct entries; simpl; auto.
+Qed.
+
+Lemma combineEqualSides: ∀(A B:Operation) (splitA:bool), ⌊A⌋ₐ = ⌊B⌋ₐ → (⌊A ⊕ B ⊖ splitA⌋ₐ) = ⌊A⌋ₐ.
+intros.
+unfold computeResultingOperation.
+unfold SquashIterationDefinition at 2.
+now destruct A; destruct B; try destruct entries; try destruct entries1; try destruct splitA.
 Qed.
 
 Definition MyFun (A B C: Operation) := ((A≫C), (B≫C), ⌈↩B[≻ᵦC]⌉ᵦ, (⌈↩A[≻ᵦC]⌉ₐ), ⌈B⌉ᵦ,  ⌈A⌉ₐ).
@@ -1507,6 +1524,107 @@ Section SplitOpByLarger.
           + rewrite Nat.ltb_lt in H_combinedGtC.
             lia.
       }
+      
+      assert( ⌊combinedOp⌋ᵦ = right → (if (‖B‖ <? ‖A‖) then ⌊B⌋ᵦ else ⌊A⌋ᵦ) = right) as H_combinedOpRightImpliesAorBRight. {
+        intros H_combinedOpRight.
+        unfold combinedOp in H_combinedOpRight.
+        unfold getNextOperation in H_combinedOpRight.
+        destruct (A ≻ B) eqn:H_AGtB.
+        - cbn [fst] in H_combinedOpRight.
+          rewrite <-sidesEqual in H_combinedOpRight.
+          rewrite combineEqualSides in H_combinedOpRight.
+          rewrite splitOperationSide in H_combinedOpRight.
+          rewrite seqBLengthFromNorm in H_combinedOpRight.
+          rewrite H_isInsertB in H_combinedOpRight.
+          unfold splitOperation in H_combinedOpRight.
+          destruct (‖B‖ <? ‖A‖); auto.
+          unfold smallerSide in H_combinedOpRight.
+          rewrite sidesEqual in H_combinedOpRight.
+          now destruct (⌊A⌋ᵦ); destruct (⌊B⌋ᵦ).
+          rewrite splitOperationSide.
+          rewrite seqBLengthFromNorm.
+          rewrite H_isInsertB.
+          unfold splitOpAFun in H_AGtB.
+          destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_BEqA.
+          + rewrite sidesEqual with (A:=B).
+            now destruct (⌊A⌋ₐ); destruct (⌊B⌋ᵦ); unfold smallerSide; try rewrite Tauto.if_same.
+          + rewrite seqALengthFromNorm in H_AGtB.
+            rewrite seqBLengthFromNorm in H_AGtB.
+            rewrite H_isInsertB in H_AGtB.
+            rewrite H_isRemoveA in H_AGtB.
+            rewrite H_AGtB.
+            rewrite sidesEqual.
+            reflexivity.
+        - cbn [fst] in H_combinedOpRight.
+          rewrite <-sidesEqual in H_combinedOpRight.
+
+          unfold splitOpAFun in H_AGtB.
+          rewrite seqALengthFromNorm in H_AGtB.
+          rewrite seqBLengthFromNorm in H_AGtB.
+          rewrite H_isInsertB in H_AGtB.
+          rewrite H_isRemoveA in H_AGtB.
+          destruct (‖B‖ <? ‖A‖) eqn:H_BltA.
+          replace (‖B‖ =? ‖A‖) with false in H_AGtB; 
+              only 1: discriminate;
+              only 1: (symmetry; rewrite Nat.eqb_neq; rewrite Nat.ltb_lt in H_BltA; lia).
+
+          rewrite combineEqualSides in H_combinedOpRight.
+          2: {
+            rewrite splitOperationSide.
+            rewrite seqALengthFromNorm.
+            rewrite H_isRemoveA.
+            rewrite sidesEqual with (A:=B).
+            destruct (‖B‖ =? ‖A‖) eqn:H_BeqA.
+            - replace (‖A‖ <? ‖B‖) with false.
+              + now destruct (⌊A⌋ₐ); destruct (⌊B⌋ᵦ); unfold smallerSide.
+              + symmetry; rewrite Nat.eqb_eq in H_BeqA; rewrite Nat.ltb_nlt; lia.
+            - replace (‖A‖ <? ‖B‖) with true.
+              2: {
+                symmetry; rewrite Nat.ltb_lt; rewrite Nat.ltb_nlt in H_BltA.
+                rewrite Nat.eqb_neq in H_BeqA.
+                lia.
+              }
+              auto.
+          }
+          now rewrite <-sidesEqual.
+     }
+        
+          (*{
+            destruct (‖B‖ <? ‖A‖) eqn:H_BltA.
+            - replace (‖B‖ =? ‖A‖) with false in H_AGtB. 
+              + discriminate.
+              + symmetry. rewrite Nat.eqb_neq. rewrite Nat.ltb_lt in H_BltA. lia.
+            - now rewrite <-sidesEqual; rewrite H_combinedOpRight.
+          }
+          rewrite seqBLengthFromNorm in H_combinedOpRight.
+          rewrite H_isInsertB in H_combinedOpRight.
+          unfold splitOperation in H_combinedOpRight.
+          destruct (‖B‖ <? ‖A‖); auto.
+          unfold smallerSide in H_combinedOpRight.
+          rewrite sidesEqual in H_combinedOpRight.
+          now destruct (⌊A⌋ᵦ); destruct (⌊B⌋ᵦ).
+          rewrite splitOperationSide.
+          rewrite seqBLengthFromNorm.
+          rewrite H_isInsertB.
+          unfold splitOpAFun in H_AGtB.
+          destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_BEqA.
+          + rewrite sidesEqual with (A:=B).
+            now destruct (⌊A⌋ₐ); destruct (⌊B⌋ᵦ); unfold smallerSide; try rewrite Tauto.if_same.
+          + rewrite seqALengthFromNorm in H_AGtB.
+            rewrite seqBLengthFromNorm in H_AGtB.
+            rewrite H_isInsertB in H_AGtB.
+            rewrite H_isRemoveA in H_AGtB.
+            rewrite H_AGtB.
+            rewrite sidesEqual.
+            reflexivity.
+
+          unfold SquashIterationDefinition at 3 in H_combinedOpRight.
+          destruct (A) eqn:H_A; try discriminate H_isRemoveA.
+          all: unfold SplitHelper in H_combinedOpRight.
+       unfold opAGtB in H_combinedGtC.
+       rewrite seqALengthFromNorm in H_combinedGtC.
+       destruct (isRemove combinedOp).*)
+         
 
       unfold opAGtB.
       rewrite seqALengthFromNorm.
@@ -1515,21 +1633,26 @@ Section SplitOpByLarger.
       + destruct (⌈C⌉ᵦ =? ‖A‖) eqn:H_CeqNA.
         * unfold opAGtB in H_combinedGtC.
           rewrite seqALengthFromNorm in H_combinedGtC.
+          rewrite Nat.eqb_eq in H_CeqNA;
+          assert(‖A‖ = Init.Nat.min (‖A‖) (‖B‖)) as H_AIsMin; try  lia;
           destruct (isRemove combinedOp) eqn:H_combinedIsRemove.
           1: destruct (⌈C⌉ᵦ =? 0); try discriminate H_combinedGtC.
           2: ( 
-            rewrite Nat.eqb_eq in H_CeqNA;
-            assert(‖A‖ = Init.Nat.min (‖A‖) (‖B‖)) as H_AIsMin; try  lia;
             rewrite <-H_AIsMin in H_combinedOpNorm;
             destruct (⌈C⌉ᵦ =? ‖combinedOp‖); try (rewrite Nat.ltb_lt in H_combinedGtC; lia )
           ).
             
           all: destruct (⌊combinedOp⌋ₐ) eqn:H_combinedOp; try discriminate H_combinedGtC.
           all: destruct (⌊C⌋ᵦ) eqn:H_sideC; try discriminate H_combinedGtC.
-          destruct A; try discriminate H_isRemoveA.
-          all: destruct B; try discriminate H_isInsertB.
-          all: unfold opLength in H_combinedOpNorm.
-          give_up.
+          all: rewrite sidesEqual in H_combinedOp.
+          all: apply H_combinedOpRightImpliesAorBRight in H_combinedOp.
+          all: replace (‖B‖ <? ‖A‖) with false in H_combinedOp; only 2,4: (
+            symmetry;
+            rewrite Nat.ltb_nlt;
+            lia
+          ).
+          all: now rewrite sidesEqual; rewrite H_combinedOp.
+
         * rewrite Nat.ltb_lt.
           rewrite Nat.eqb_neq in H_CeqNA.
           lia.
@@ -1537,6 +1660,33 @@ Section SplitOpByLarger.
         destruct (isRemove B) eqn:H_isRemoveB.
         * destruct (0 <? ⌈B⌉ᵦ) eqn:H_BNormBigger0.
           -- unfold opAGtB in H_combinedGtC.
+             destruct (isInsert A) eqn:H_isInsertA.
+             ++ destruct (A) eqn:H_A; try discriminate.
+                destruct (B) eqn:H_B; try discriminate.
+                destruct entries; destruct entries0.
+                cbn in combinedOp.
+                destruct (Insert (Seq entries) side0 ≻ Remove (Seq entries0) side1) eqn:H_AGtB.
+                all: unfold SplitHelper in combinedOp.
+                all: unfold splitOpAFun in H_AGtB.
+                all: cbn -[length Nat.ltb] in H_AGtB.
+                all: destruct (Datatypes.length entries0 <? Datatypes.length entries) eqn:H_e0LtE.
+                2: {
+                  destruct (Datatypes.length entries0 =? Datatypes.length entries) eqn:H_E0eqE.
+                  - destruct side0; destruct side1; try discriminate.
+                  - discriminate H_AGtB.
+                }
+                2: {
+                  destruct (Datatypes.length entries0 =? Datatypes.length entries) eqn:H_E0eqE.
+                  - destruct side0; destruct side1; try discriminate.
+                    give_up.
+                    give_up.
+                  - discriminate H_AGtB.
+                }
+
+                all: simpl in combinedOp.
+                all: unfold combinedOp in H_combinedGtC; cbn [getLengthInSequenceA SquashIterationDefinition fst snd] in H_combinedGtC.
+                destruct (⌈C⌉ᵦ =? 0) eqn:H_CBeq0; try discriminate.
+                now destruct side1; destruct (⌊C⌋ᵦ); simpl.
              rewrite removeBImpliesCombinedOpAEq0 in H_combinedGtC; only 2: auto.
              destruct (⌈C⌉ᵦ) eqn:H_CB; try discriminate H_combinedGtC.
              rewrite <-sidesEqual in H_BisNonEmptyLeftRemove.
