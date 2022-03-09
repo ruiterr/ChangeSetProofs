@@ -1525,7 +1525,7 @@ Section SplitOpByLarger.
             lia.
       }
       
-      assert( ⌊combinedOp⌋ᵦ = right → (if (‖B‖ <? ‖A‖) then ⌊B⌋ᵦ else ⌊A⌋ᵦ) = right) as H_combinedOpRightImpliesAorBRight. {
+      assert( ⌊combinedOp⌋ᵦ = right → ( ((‖B‖ <=? ‖A‖ = true) → ⌊B⌋ᵦ = right) ∧  ((‖A‖ <=? ‖B‖ = true) → ⌊A⌋ᵦ = right))) as H_combinedOpRightImpliesAorBRight. {
         intros H_combinedOpRight.
         unfold combinedOp in H_combinedOpRight.
         unfold getNextOperation in H_combinedOpRight.
@@ -1646,11 +1646,13 @@ Section SplitOpByLarger.
           all: destruct (⌊C⌋ᵦ) eqn:H_sideC; try discriminate H_combinedGtC.
           all: rewrite sidesEqual in H_combinedOp.
           all: apply H_combinedOpRightImpliesAorBRight in H_combinedOp.
-          all: replace (‖B‖ <? ‖A‖) with false in H_combinedOp; only 2,4: (
+          all: replace (‖A‖ <=? ‖B‖) with true in H_combinedOp.
+          2,4: (
             symmetry;
-            rewrite Nat.ltb_nlt;
+            rewrite Nat.leb_le;
             lia
           ).
+          all: destruct H_combinedOp as [H1 H_combinedOp].
           all: now rewrite sidesEqual; rewrite H_combinedOp.
 
         * rewrite Nat.ltb_lt.
@@ -1707,10 +1709,22 @@ Section SplitOpByLarger.
                   auto.
           -- rewrite Nat.ltb_nlt in H_BNormBigger0.
              rewrite seqBLengthFromNorm in H_BNormBigger0.
+             unfold opAGtB in H_combinedGtC.
              destruct B; try discriminate H_isRemoveB.
              unfold isInsert in H_BNormBigger0.
              replace (⌈C⌉ᵦ) with 0; try lia.
-             give_up.
+             replace (‖Remove entries side0‖) with 0 in H_combinedOpNorm; try lia.
+             replace (⌈C⌉ᵦ) with 0 in H_combinedGtC; try lia.
+             rewrite seqALengthFromNorm in H_combinedGtC.
+             replace (‖combinedOp‖) with 0 in H_combinedGtC; try lia.
+             rewrite Tauto.if_same in H_combinedGtC.
+             destruct (⌊combinedOp⌋ₐ) eqn:H_combinedOpSide; destruct (⌊C⌋ᵦ); try discriminate.
+             rewrite sidesEqual in H_combinedOpSide.
+             replace (‖Remove entries side0‖) with 0 in H_combinedOpRightImpliesAorBRight; try lia.
+             forward H_combinedOpRightImpliesAorBRight; auto.
+             destruct H_combinedOpRightImpliesAorBRight as [H_combinedOpRightImpliesAorBRight _].
+             rewrite sidesEqual.
+             rewrite H_combinedOpRightImpliesAorBRight; auto.
         * destruct (⌈C⌉ᵦ =? ‖B‖) eqn:H_CeqNA.
           ** give_up.
           ** rewrite Nat.ltb_lt.
