@@ -1669,32 +1669,42 @@ Section SplitOpByLarger.
                 all: unfold SplitHelper in combinedOp.
                 all: unfold splitOpAFun in H_AGtB.
                 all: cbn -[length Nat.ltb] in H_AGtB.
-                all: destruct (Datatypes.length entries0 <? Datatypes.length entries) eqn:H_e0LtE.
+                1: destruct (Datatypes.length entries0 <? Datatypes.length entries) eqn:H_e0LtE.
                 2: {
                   destruct (Datatypes.length entries0 =? Datatypes.length entries) eqn:H_E0eqE.
                   - destruct side0; destruct side1; try discriminate.
                   - discriminate H_AGtB.
                 }
-                2: {
+
+                2: destruct (Datatypes.length entries <? Datatypes.length entries0) eqn:H_e0LtE.
+                3: {
                   destruct (Datatypes.length entries0 =? Datatypes.length entries) eqn:H_E0eqE.
-                  - destruct side0; destruct side1; try discriminate.
-                    give_up.
-                    give_up.
-                  - discriminate H_AGtB.
+                  - subst combinedOp.
+                    repeat rewrite firstn_all in H_combinedGtC.
+                    repeat rewrite skipn_all in H_combinedGtC.
+                    destruct side0; destruct side1; cbn -[getLengthInSequenceB] in H_combinedGtC; 
+                    try rewrite Tauto.if_same in H_combinedGtC; try discriminate.
+                    now destruct (⌈C⌉ᵦ =? 0); destruct (⌊C⌋ᵦ).
+                  - rewrite Nat.eqb_neq in H_E0eqE.
+                    rewrite Nat.ltb_nlt in H_AGtB.
+                    rewrite Nat.ltb_nlt in H_e0LtE.
+                    lia.
                 }
 
                 all: simpl in combinedOp.
                 all: unfold combinedOp in H_combinedGtC; cbn [getLengthInSequenceA SquashIterationDefinition fst snd] in H_combinedGtC.
-                destruct (⌈C⌉ᵦ =? 0) eqn:H_CBeq0; try discriminate.
+                all: destruct (⌈C⌉ᵦ =? 0) eqn:H_CBeq0; try discriminate.
                 now destruct side1; destruct (⌊C⌋ᵦ); simpl.
-             rewrite removeBImpliesCombinedOpAEq0 in H_combinedGtC; only 2: auto.
-             destruct (⌈C⌉ᵦ) eqn:H_CB; try discriminate H_combinedGtC.
-             rewrite <-sidesEqual in H_BisNonEmptyLeftRemove.
-             destruct(⌊B⌋ₐ).
-             ++ discriminate H_BisNonEmptyLeftRemove.
-             ++ destruct (⌊combinedOp⌋ₐ); try discriminate H_combinedGtC.
-                destruct (⌊C⌋ᵦ); try discriminate H_combinedGtC.
-                auto.
+                destruct side0; destruct (⌊C⌋ᵦ); try discriminate H_combinedGtC.
+                now destruct side1.
+            ++ rewrite removeBImpliesCombinedOpAEq0 in H_combinedGtC; only 2: auto.
+               destruct (⌈C⌉ᵦ) eqn:H_CB; try discriminate H_combinedGtC.
+               rewrite <-sidesEqual in H_BisNonEmptyLeftRemove.
+               destruct(⌊B⌋ₐ).
+               ** discriminate H_BisNonEmptyLeftRemove.
+               ** destruct (⌊combinedOp⌋ₐ); try discriminate H_combinedGtC.
+                  destruct (⌊C⌋ᵦ); try discriminate H_combinedGtC.
+                  auto.
           -- rewrite Nat.ltb_nlt in H_BNormBigger0.
              rewrite seqBLengthFromNorm in H_BNormBigger0.
              destruct B; try discriminate H_isRemoveB.
