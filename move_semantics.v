@@ -1531,30 +1531,58 @@ Section SplitOpByLarger.
         unfold getNextOperation in H_combinedOpRight.
         destruct (A ≻ B) eqn:H_AGtB.
         - cbn [fst] in H_combinedOpRight.
+
+          unfold splitOpAFun in H_AGtB.
+          rewrite seqALengthFromNorm in H_AGtB.
+          rewrite seqBLengthFromNorm in H_AGtB.
+          rewrite H_isInsertB in H_AGtB.
+          rewrite H_isRemoveA in H_AGtB.
+
           rewrite <-sidesEqual in H_combinedOpRight.
           rewrite combineEqualSides in H_combinedOpRight.
           rewrite splitOperationSide in H_combinedOpRight.
           rewrite seqBLengthFromNorm in H_combinedOpRight.
           rewrite H_isInsertB in H_combinedOpRight.
+
+            
           unfold splitOperation in H_combinedOpRight.
-          destruct (‖B‖ <? ‖A‖); auto.
-          unfold smallerSide in H_combinedOpRight.
-          rewrite sidesEqual in H_combinedOpRight.
-          now destruct (⌊A⌋ᵦ); destruct (⌊B⌋ᵦ).
-          rewrite splitOperationSide.
-          rewrite seqBLengthFromNorm.
-          rewrite H_isInsertB.
-          unfold splitOpAFun in H_AGtB.
-          destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_BEqA.
-          + rewrite sidesEqual with (A:=B).
-            now destruct (⌊A⌋ₐ); destruct (⌊B⌋ᵦ); unfold smallerSide; try rewrite Tauto.if_same.
-          + rewrite seqALengthFromNorm in H_AGtB.
-            rewrite seqBLengthFromNorm in H_AGtB.
-            rewrite H_isInsertB in H_AGtB.
-            rewrite H_isRemoveA in H_AGtB.
+          2: {
+            rewrite splitOperationSide.
+            rewrite seqBLengthFromNorm.
+            rewrite H_isInsertB.
+
+            destruct (‖B‖ =? ‖A‖) eqn:H_NAeqNB; auto.
+            rewrite Nat.eqb_eq in H_NAeqNB.
+            rewrite H_NAeqNB.
+            rewrite sidesEqual with (A:=B).
+            unfold smallerSide.
+            replace (‖A‖ <? ‖A‖) with false; only 2: (symmetry; rewrite Nat.ltb_nlt; try lia ).
+            now destruct (⌊A⌋ₐ); destruct (⌊B⌋ᵦ).
             rewrite H_AGtB.
-            rewrite sidesEqual.
-            reflexivity.
+            rewrite sidesEqual. auto.
+          }
+
+          destruct (‖B‖ <? ‖A‖) eqn:H_BLtA; auto.
+          2: {
+            unfold smallerSide in H_combinedOpRight.
+            rewrite sidesEqual in H_combinedOpRight.
+            now destruct (⌊A⌋ᵦ); destruct (⌊B⌋ᵦ).
+          }
+          split.
+          now rewrite H_combinedOpRight.
+
+          
+          unfold splitOpAFun in H_AGtB.
+          destruct (‖B‖ =? ‖A‖) eqn:H_BEqA.
+          + rewrite <-sidesEqual.
+            now destruct (⌊A⌋ₐ); destruct (⌊B⌋ᵦ); unfold smallerSide.
+          + now replace (‖A‖ <=? ‖B‖) with false; only 2: (
+              symmetry; 
+              rewrite Nat.leb_nle; 
+              rewrite Nat.ltb_lt in H_BLtA;
+              rewrite Nat.eqb_neq in H_BEqA;
+              lia
+            ).
         - cbn [fst] in H_combinedOpRight.
           rewrite <-sidesEqual in H_combinedOpRight.
 
@@ -1586,7 +1614,17 @@ Section SplitOpByLarger.
               }
               auto.
           }
-          now rewrite <-sidesEqual.
+          split.
+          destruct(‖B‖ =? ‖A‖) eqn:H_BeqA.
+          + now rewrite H_combinedOpRight in H_AGtB; destruct (⌊B⌋ᵦ).
+          + now replace (‖B‖ <=? ‖A‖) with false; only 2: (
+              symmetry;
+              rewrite Nat.leb_nle; 
+              rewrite Nat.ltb_nlt in H_BltA;
+              rewrite Nat.eqb_neq in H_BeqA; 
+            lia).
+          + rewrite <-sidesEqual.
+            now rewrite H_combinedOpRight.
      }
         
           (*{
