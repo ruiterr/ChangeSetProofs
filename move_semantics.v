@@ -1140,8 +1140,8 @@ Admitted.
 Lemma swapCombineWithSplit: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (‖A‖ = ⌈B⌉ᵦ) ∧ (⌊A⌋ᵦ = ⌊B⌋ᵦ) → ↩( A ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC]) ⊕ (↩B[≫ᵦC]) ⊖ splitOpA.
 Admitted.
 
-Lemma swapCombineWithSplitOfA: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (A≫B) = true  → ↩( A[≺ᵦB] ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]] ⊕ ↩B[≫ᵦC] ⊖ splitOpA.
-intros A B C splitOpA [H_AGtC [H_BGtC H_AGtB]].
+Lemma swapCombineWithSplitOfA: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (A≫B) = true ∧ (isInsert B) = false  → ↩( A[≺ᵦB] ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]] ⊕ ↩B[≫ᵦC] ⊖ splitOpA.
+intros A B C splitOpA [H_AGtC [H_BGtC [H_AGtB H_isInsertB]]].
 
 set (ASplit:=A[≺ᵦB]).
 assert( ‖ASplit‖ = ⌈B⌉ᵦ) as H_normSplit. {
@@ -1176,7 +1176,22 @@ assert (ASplit ≫  C = true) as H_ASplitGtC. {
   rewrite seqALengthFromNorm in H_AGtB.
   destruct (isRemove A); solve_nat.
   destruct (⌈C⌉ᵦ =? ⌈A [≺ᵦB]⌉ₐ) eqn:H_CeqATrunc.
-  - give_up.
+  - fold ASplit.
+    rewrite sidesEqual.
+    rewrite H_sideSplit.
+    unfold opAGtB in H_BGtC.
+    rewrite seqALengthFromNorm in H_BGtC.
+    destruct (isRemove B).
+    + destruct (⌈C⌉ᵦ =? 0); try discriminate.
+      now rewrite sidesEqual in H_BGtC.
+    + rewrite seqALengthFromNorm in H_CeqATrunc.
+      rewrite H_AtruncEqB in H_CeqATrunc.
+      rewrite seqBLengthFromNorm with (A:=B) in H_CeqATrunc.
+      rewrite H_isInsertB in H_CeqATrunc.
+      destruct (isRemove (A [≺≺‖B‖; ⌊B⌋ᵦ])).
+      -- give_up.
+      -- rewrite H_CeqATrunc in H_BGtC.
+         now rewrite sidesEqual in H_BGtC.
   - rewrite seqALengthFromNorm.
     rewrite seqALengthFromNorm in H_CeqATrunc.
     rewrite splitOpLeftRemainsRemove with  (A:=A) (y:=⌈B⌉ᵦ) (s:=⌊B⌋ᵦ) in *.
@@ -1187,13 +1202,13 @@ assert (ASplit ≫  C = true) as H_ASplitGtC. {
     + solve_nat.
     + rewrite H_AtruncEqB in *.
       destruct (isRemove B) eqn:H_isRemoveB.
-      * give_up.
       * rewrite seqBLengthFromNorm with (A:=B) in *.
-        destruct (isInsert B) eqn:H_isInsertB.
-        --  
-        -- solve_nat.
-      solve_nat.
-      
+        destruct B; try discriminate.
+        unfold isInsert in *.
+        solve_nat.
+      * rewrite seqBLengthFromNorm with (A:=B) in *.
+        rewrite H_isInsertB in *.
+        solve_nat.
 }
 
 set (s2:=(↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]]).
