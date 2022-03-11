@@ -11,9 +11,8 @@ Require Import Unicode.Utf8.
 Require Import Coq.Program.Wf.
 Require Import Omega.
 Require Import Lia.
-Add LoadPath "/Users/ruiterr/work/fluid/ChangeSetProofs" as ChangeSets.
-Load NatHelper.
-Import NatHelper.
+(*Add LoadPath "/Users/ruiterr/work/fluid/ChangeSetProofs" as ChangeSets.*)
+Require Import NatHelper.
 
 
 Inductive id : Type := 
@@ -802,6 +801,7 @@ all: unfold SplitHelper.
 all: try destruct entries.
 all: simpl.
 
+
 (* Solve for skip *)
 1-4: (
   destruct(0 <? amount) eqn:H_0LtAmount;
@@ -824,6 +824,21 @@ all: simpl.
 
 Qed.
 
+Lemma resultingOperationLengthLessThanNorms: ∀ (A B :Operation) (s: bool), ‖A ⊕ B ⊖ s‖ ≤ (max (‖A‖) (‖B‖) ).
+intros.
+unfold computeResultingOperation.
+unfold SquashIterationDefinition at 1.
+destruct A eqn:H_A; destruct B eqn:H_B.
+all: try destruct entries; try destruct entries0; try destruct s.
+all: unfold opLength.
+all: try lia.
+Qed.
+
+(*Lemma nextOperationLength:  ∀ (A B :Operation), ‖fst (fst (getNextOperation SquashIterationDefinition A B))‖ ≤ (min (‖A‖) (‖B‖)).
+intros.
+unfold getNextOperation.
+destruct ( A ≻ B ).*)
+
 Lemma sidesEqual: ∀(A:Operation), ⌊A⌋ₐ = ⌊A⌋ᵦ.
 intros.
 all: destruct A; simpl; auto.
@@ -841,6 +856,30 @@ intros.
 destruct A; unfold isRemove.
 all: try destruct entries; simpl; auto.
 Qed.
+
+Lemma seqALengthEqNorm: ∀(A:Operation), (isRemove A) = false → ⌈A⌉ₐ = ‖A‖.
+intros. rewrite seqALengthFromNorm. rewrite H. reflexivity.
+Qed.
+
+Lemma seqBLengthEqNorm: ∀(A:Operation), (isInsert A) = false → ⌈A⌉ᵦ = ‖A‖.
+intros. rewrite seqBLengthFromNorm. rewrite H. reflexivity.
+Qed.
+
+Lemma seqALengthEq0: ∀(A:Operation), ‖A‖ = 0 → ⌈A⌉ₐ = 0.
+intros. rewrite seqALengthFromNorm. rewrite H. rewrite Tauto.if_same. reflexivity.
+Qed.
+
+Lemma seqBLengthEq0: ∀(A:Operation), ‖A‖ = 0 → ⌈A⌉ᵦ = 0.
+intros. rewrite seqBLengthFromNorm. rewrite H. rewrite Tauto.if_same. reflexivity.
+Qed.
+
+Hint Rewrite sidesEqual : changeset.
+Hint Rewrite seqALengthEqNorm using ( easy + solve_nat ) : changeset.
+Hint Rewrite seqBLengthEqNorm using ( easy + solve_nat ) : changeset.
+Hint Rewrite seqALengthEq0 using ( easy + solve_nat ) : changeset.
+Hint Rewrite seqBLengthEq0 using ( easy + solve_nat ) : changeset.
+
+
 
 Lemma combineEqualSides: ∀(A B:Operation) (splitA:bool), ⌊A⌋ₐ = ⌊B⌋ₐ → (⌊A ⊕ B ⊖ splitA⌋ₐ) = ⌊A⌋ₐ.
 intros.
@@ -1595,24 +1634,13 @@ Section SplitOpByLarger.
                ** destruct (⌊combinedOp⌋ₐ); try discriminate H_combinedGtC.
                   destruct (⌊C⌋ᵦ); try discriminate H_combinedGtC.
                   auto.
-          -- rewrite Nat.ltb_nlt in H_BNormBigger0.
-             rewrite seqBLengthFromNorm in H_BNormBigger0.
-             unfold opAGtB in H_combinedGtC.
-             destruct B; try discriminate H_isRemoveB.
-             unfold isInsert in H_BNormBigger0.
-             replace (⌈C⌉ᵦ) with 0; try lia.
-             replace (‖Remove entries side0‖) with 0 in H_combinedOpNorm; try lia.
-             replace (⌈C⌉ᵦ) with 0 in H_combinedGtC; try lia.
-             rewrite seqALengthFromNorm in H_combinedGtC.
-             replace (‖combinedOp‖) with 0 in H_combinedGtC; try lia.
-             rewrite Tauto.if_same in H_combinedGtC.
-             destruct (⌊combinedOp⌋ₐ) eqn:H_combinedOpSide; destruct (⌊C⌋ᵦ); try discriminate.
-             rewrite sidesEqual in H_combinedOpSide.
-             replace (‖Remove entries side0‖) with 0 in H_combinedOpRightImpliesAorBRight; try lia.
-             forward H_combinedOpRightImpliesAorBRight; auto.
-             destruct H_combinedOpRightImpliesAorBRight as [H_combinedOpRightImpliesAorBRight _].
-             rewrite sidesEqual.
-             rewrite H_combinedOpRightImpliesAorBRight; auto.
+          -- unfold opAGtB in H_combinedGtC.
+             autorewrite * with changeset in *.
+             rewrite_nat_all (⌈C⌉ᵦ = 0).
+             destruct (⌊combinedOp⌋ᵦ) eqn:H_combinedOpSide; destruct (⌊C⌋ᵦ); try discriminate.
+
+             destruct H_combinedOpRightImpliesAorBRight as [ H_combinedOpRightImpliesAorBRight _]; auto.
+             now rewrite H_combinedOpRightImpliesAorBRight; auto with solve_nat.
         * destruct (⌈C⌉ᵦ =? ‖B‖) eqn:H_CeqNA.
           -- unfold opAGtB in H_combinedGtC.
              destruct (⌈C⌉ᵦ =? ⌈combinedOp⌉ₐ) eqn:H_combinedSame.
@@ -1621,18 +1649,14 @@ Section SplitOpByLarger.
                 forward H_combinedOpRightImpliesAorBRight; auto.
                 destruct H_combinedOpRightImpliesAorBRight as [H_SideB].
                 rewrite sidesEqual.
-                rewrite H_SideB; only 2: (
-                  rewrite Nat.leb_le;
-                  rewrite Nat.eqb_eq in H_CeqNA;
-                  lia
-                ).
-                now destruct (⌊C⌋ᵦ).
-            ++ give_up.
-          -- tauto.
-             autorewrite with zarith using try lia.
-             rewrite Nat.ltb_lt.
-             rewrite Nat.eqb_neq in H_CeqNA.
-             lia.
+                rewrite H_SideB; auto with solve_nat.
+            ++ assert_nat(‖B‖ ≤ ‖A‖) as H_BLeA.
+               assert(⌈combinedOp⌉ₐ ≤ ‖combinedOp‖) as H_CombinedOpALeCombinedOpNorm. {
+                 rewrite seqALengthFromNorm.
+                 now destruct (isRemove combinedOp); lia.
+               }
+               solve_nat.
+          -- auto with solve_nat.
 Admitted.
 
 End SplitOpByLarger.

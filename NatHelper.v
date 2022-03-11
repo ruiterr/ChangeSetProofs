@@ -5,8 +5,6 @@ Require Coq.Structures.OrdersFacts.
 Require Import Unicode.Utf8.
 Require Import Lia.
 
-Module NatHelper.
-
 Hint Rewrite Nat.eqb_eq : nat_bool.
 Hint Rewrite Nat.eqb_neq : nat_bool.
 Hint Rewrite Nat.ltb_nlt : nat_bool.
@@ -56,6 +54,12 @@ Ltac assert_nat exp :=
 Ltac assert_nat_name exp name :=
   assert exp as name; only 1: solve_nat.
 
+Ltac rewrite_nat_all exp :=
+  let a := fresh in 
+  assert exp as a; only 1: solve_nat;
+  rewrite a in *;
+  clear a.
+
 Tactic Notation "assert_nat" constr(exp) := assert_nat exp.
 Tactic Notation "assert_nat" constr(exp) "as" ident(name) := assert_nat_name exp name.
 
@@ -95,4 +99,3 @@ auto with solve_nat.
 assert_nat ((m <> n)) as H_test.
 rewrite_nat.
 autorewrite with nat_bool in *. *)
-End NatHelper.
