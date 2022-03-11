@@ -11,6 +11,9 @@ Require Import Unicode.Utf8.
 Require Import Coq.Program.Wf.
 Require Import Omega.
 Require Import Lia.
+Add LoadPath "/Users/ruiterr/work/fluid/ChangeSetProofs" as ChangeSets.
+Load NatHelper.
+Import NatHelper.
 
 
 Inductive id : Type := 
@@ -1625,7 +1628,9 @@ Section SplitOpByLarger.
                 ).
                 now destruct (⌊C⌋ᵦ).
             ++ give_up.
-          --  rewrite Nat.ltb_lt.
+          -- tauto.
+             autorewrite with zarith using try lia.
+             rewrite Nat.ltb_lt.
              rewrite Nat.eqb_neq in H_CeqNA.
              lia.
 Admitted.

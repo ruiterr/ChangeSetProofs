@@ -5,7 +5,7 @@ Require Coq.Structures.OrdersFacts.
 Require Import Unicode.Utf8.
 Require Import Lia.
 
-Require nat_helper.
+Module NatHelper.
 
 Hint Rewrite Nat.eqb_eq : nat_bool.
 Hint Rewrite Nat.eqb_neq : nat_bool.
@@ -95,4 +95,4 @@ auto with solve_nat.
 assert_nat ((m <> n)) as H_test.
 rewrite_nat.
 autorewrite with nat_bool in *. *)
-End Nat_Solve.
+End NatHelper.
