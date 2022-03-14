@@ -108,6 +108,12 @@ Definition opLength (x : Operation) := match x with
    | Remove (Seq x) _ => (length x)
 end.
 
+Definition opSide (x : Operation) := match x with 
+   | Skip _ s => s
+   | Insert _ s => s
+   | Remove _ s => s
+end.
+
 Eval compute in (opLength (Remove> [ <$4, 5>; <$5, 6>])).
 
 Definition isInsert (op:Operation) := match op with
@@ -345,6 +351,8 @@ Local Ltac resolveLet VarName := match goal with
 Local Ltac resolveSimpleLet H := match H with 
   | (let varName := ?term in _) = ?y  => let a := fresh varName in set (a:=term)
   end.
+
+Definition opLenAGtB (len1 len2: nat) (s1 s2 : side) := if len2 =? len1 then match s1,s2 with |right,left => true | _,_ => false end else len2 <? len1.
 
 Lemma swapLetEq: ∀ (A B:Type) (v1:A) (t1 : A -> B) (t2 : B), ((let var := v1 in (t1 var))=t2) <-> ((let var2 := v1 in (t1 var2)=t2)).
 intros.
@@ -611,6 +619,8 @@ Notation "⌊ x ⌋ₐ" := (snd (getLengthInSequenceA SquashIterationDefinition 
 Notation "⌈ x ⌉ᵦ" := (fst (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌈' x '⌉ᵦ'").
 Notation "⌊ x ⌋ᵦ" := (snd (getLengthInSequenceB SquashIterationDefinition x)) (at level 40, no associativity, format "'⌊' x '⌋ᵦ'").
 Notation "‖ x ‖" := (opLength x) (at level 40, no associativity, format "'‖' x '‖'").
+Notation "《 x 》" := (opSide x) (at level 40, no associativity, format "'《' x '》'").
+Notation "‖ x ; s1 ‖ ≫ ‖ y ; s2 ‖" := (opLenAGtB x y s1 s2) (at level 40, no associativity).
 
 Notation "↩ x" := (getOpFromArray x) (at level 50, no associativity, format "'↩' x").
 
@@ -642,6 +652,12 @@ unfold opAGtB in H.
 destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ) eqn:H_AeqB.
 - rewrite Nat.eqb_eq in H_AeqB. lia. 
 - rewrite Nat.ltb_lt in H. lia.
+Qed.
+
+Lemma AGtB_AlenGtB: ∀(A B: Operation), (A≫B) = ‖ ⌈A⌉ₐ ; ⌊A⌋ₐ  ‖ ≫ ‖ ⌈B⌉ᵦ ; ⌊B⌋ᵦ ‖.
+intros.
+unfold opAGtB. unfold opLenAGtB.
+auto.
 Qed.
 
 Lemma ASplit_lenAGelenB: ∀(A B:Operation), (A≫B) = true → ⌈A⌉ₐ ≥ ⌈B⌉ᵦ.
@@ -861,13 +877,57 @@ Lemma seqBLengthEq0: ∀(A:Operation), ‖A‖ = 0 → ⌈A⌉ᵦ = 0.
 intros. rewrite seqBLengthFromNorm. rewrite H. rewrite Tauto.if_same. reflexivity.
 Qed.
 
+Lemma sideAeqOpSide: ∀(A : Operation), (⌊A⌋ₐ)= (《A》).
+now destruct A; try destruct entries; simpl.
+Qed.
+Lemma sideBeqOpSide: ∀(A : Operation), (⌊A⌋ᵦ)= (《A》).
+now destruct A; try destruct entries; simpl.
+Qed.
+
+Lemma AGtB_AlenGtBNorm: ∀(A B: Operation), (A≫B) = true → ‖ (‖A‖) ; (《A》)  ‖ ≫ ‖ ⌈B⌉ᵦ ; ⌊B⌋ᵦ ‖ = true.
+intros.
+unfold opAGtB in H. 
+unfold opLenAGtB.
+rewrite seqALengthFromNorm in *.
+rewrite sideAeqOpSide in H.
+destruct (isRemove A).
+- destruct (⌈B⌉ᵦ =? 0) eqn:H_Bbeq0.
+  + destruct (⌈B⌉ᵦ =? ‖A‖) eqn:H_BbeqNa.
+    * auto.
+    * solve_nat.
+  + discriminate.
+- auto.
+Qed.
+
+Lemma destructAGreaterBEq: ∀(A B:Operation), (A≫B) = true ∧ (⌈ B⌉ᵦ =? ⌈ A ⌉ₐ) = true→ 
+                          ((⌈B⌉ᵦ =? ⌈A⌉ₐ) = true ∧ ⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ = left).
+intros A B [H_AGtB H_NAeqNB].
+apply destructAGreaterB in H_AGtB.
+now destruct H_AGtB; try solve_nat.
+Qed.
+
+Lemma normGeSeqALength: ∀ (A:Operation), ‖A‖ ≥ ⌈A⌉ₐ.
+intros. 
+rewrite seqALengthFromNorm.
+destruct (isRemove A); lia.
+Qed.
+Lemma normGeSeqBLength: ∀ (A:Operation), ‖A‖ ≥ ⌈A⌉ᵦ.
+intros. 
+rewrite seqBLengthFromNorm.
+destruct (isInsert A); lia.
+Qed.
+
+Hint Rewrite destructAGreaterBEq using ( easy + solve_nat ) : changeset.
+Hint Rewrite destructAGreaterBEq using ( easy + solve_nat ) : changeset.
 Hint Rewrite sidesEqual : changeset.
-Hint Rewrite seqALengthEqNorm using ( easy + solve_nat ) : changeset.
-Hint Rewrite seqBLengthEqNorm using ( easy + solve_nat ) : changeset.
+Hint Rewrite seqALengthEqNorm using ( easy ) : changeset.
+Hint Rewrite seqBLengthEqNorm using ( easy ) : changeset.
 Hint Rewrite seqALengthEq0 using ( easy + solve_nat ) : changeset.
 Hint Rewrite seqBLengthEq0 using ( easy + solve_nat ) : changeset.
+Hint Rewrite normGeSeqALength : changeset.
+Hint Rewrite normGeSeqBLength : changeset.
 
-
+Local Ltac autorewrite_changesets := autorewrite * with changeset in *.
 
 Lemma combineEqualSides: ∀(A B:Operation) (splitA:bool), ⌊A⌋ₐ = ⌊B⌋ₐ → (⌊A ⊕ B ⊖ splitA⌋ₐ) = ⌊A⌋ₐ.
 intros.
@@ -1137,23 +1197,64 @@ Admitted.
 Lemma swapSplitRemainderWithShorterSplitBLen: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → A[≫ᵦB] = (↩A[≫ᵦC])[≫ᵦ↩B[≫ᵦC]].
 Admitted.
 
-Lemma swapCombineWithSplit: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (‖A‖ = ⌈B⌉ᵦ) ∧ (⌊A⌋ᵦ = ⌊B⌋ᵦ) → ↩( A ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC]) ⊕ (↩B[≫ᵦC]) ⊖ splitOpA.
+Lemma swapRightLeftSplitSeqB: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]] = ↩A[≺ᵦB][≫ᵦC].
+Admitted.
+Lemma swapRightLeftSplitSeqA: ∀(A B C:Operation), (A≫C) = true ∧ (B≫C) = true → (↩A[≫ᵦC])[≺ₐ↩B[≫ᵦC]] = ↩A[≺ₐB][≫ᵦC].
 Admitted.
 
-Lemma swapCombineWithSplitOfA: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (A≫B) = true ∧ (isInsert B) = false  → ↩( A[≺ᵦB] ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]] ⊕ ↩B[≫ᵦC] ⊖ splitOpA.
-intros A B C splitOpA [H_AGtC [H_BGtC [H_AGtB H_isInsertB]]].
 
-set (ASplit:=A[≺ᵦB]).
-assert( ‖ASplit‖ = ⌈B⌉ᵦ) as H_normSplit. {
-  unfold ASplit.
+Lemma swapCombineWithSplit: ∀(A B:Operation) (splitOpA:bool) (x :nat) (s: side), (‖ (‖A‖) ; 《A》‖ ≫ ‖ x ; s ‖ = true) ∧ 
+                                                                                 (‖ (‖B‖) ; 《B》‖ ≫ ‖ x ; s ‖ = true) ∧
+                                                                                 (⌈A⌉ₐ = ⌈B⌉ᵦ) ∧ 
+                                                                                 ((isInsert A) && (isRemove B)) = false → ↩( A ⊕ B ⊖ splitOpA)[≫≫x; s] = (↩A[≫≫x; s]) ⊕ (↩B[≫≫x; s]) ⊖ splitOpA.
+intros A B splitOpA x s [H_AGtXs [H_BGtXs [H_ALenAEqBLenB H_notInsertRemove]]].
+destruct A eqn:H_A; destruct B eqn:H_B; cbn -[Nat.eqb Nat.ltb]; unfold SplitHelper.
+all: try destruct entries; try destruct entries0.
+
+1-9: try try destruct splitOpA; 
+try destruct (x <? Datatypes.length entries) eqn:H_xLtLEntries; 
+try destruct (x <? Datatypes.length entries0) eqn:H_xLtLEntries1; 
+try destruct (x <? amount) eqn:H_xLtLAmount; 
+try destruct (x <? amount0) eqn:H_xLtLAmount0;
+destruct side0;
+destruct side1;
+destruct s eqn:H_s;
+simpl;
+auto;
+simpl in H_ALenAEqBLenB; try rewrite H_ALenAEqBLenB; auto;
+unfold opLenAGtB in H_AGtXs; simpl in H_AGtXs; unfold opLenAGtB in H_BGtXs; simpl in H_BGtXs; try destruct (x =? amount) eqn:H_XEqAmount; try destruct (x =? (length entries) ) eqn:H_XEqEntries; try destruct (x =? (length entries0) ) eqn:H_XEqEntries0; try (easy + solve_nat).
+all: simpl in H_notInsertRemove; discriminate.
+Qed.
+
+Lemma swapCombineWithSplitSeqB: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ 
+                                                                    (⌈A⌉ₐ = ⌈B⌉ᵦ) ∧ ((isInsert A) && (isRemove B)) = false → ↩( A ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC]) ⊕ (↩B[≫ᵦC]) ⊖ splitOpA.
+intros A B C splitOpA [H_AGtC [H_BGtC [H_AaeqBb H_notInsertRemove]]].
+apply AGtB_AlenGtBNorm in H_AGtC.
+apply AGtB_AlenGtBNorm in H_BGtC.
+
+apply swapCombineWithSplit.
+auto.
+Qed.
+
+
+Lemma SplitOpPreservesNorm:  ∀(A B:Operation), (‖B‖ <=? ‖A‖)  = true ∧ (isRemove B) = false → ‖A[≺ₐB]‖ = ‖B‖.
+  intros A B [H_AGtB H_isRemoveB].
+  rewrite splitOperationLengthR1; auto.
+  all: rewrite seqALengthEqNorm; auto.
+  
+  solve_nat.
+Qed.
+
+Lemma SplitOpPreservesNormSeqB:  ∀(A B:Operation), (A ≫  B) = true → ‖A[≺ᵦB]‖ = ⌈B⌉ᵦ.
+  intros A B H_AGtB.
   rewrite splitOperationLengthR1; auto.
   apply AGtB_lenAGelenB in H_AGtB.
   rewrite seqALengthFromNorm in H_AGtB.
   destruct (isRemove A); lia.
-}
+Qed.
 
-assert( ⌊ASplit⌋ᵦ = ⌊B⌋ᵦ) as H_sideSplit. {
-  unfold ASplit.
+Lemma SplitOpPreservesSide: ∀(A B:Operation), (A ≫  B) = true → ⌊A[≺ᵦB]⌋ᵦ = ⌊B⌋ᵦ.
+  intros A B H_AGtB.
   rewrite <-sidesEqual.
   rewrite splitOperationSide with (A:=A) (y:=⌈B⌉ᵦ) (s:=⌊B⌋ᵦ).
   destruct (⌈B⌉ᵦ <? ‖A‖) eqn:H_BltNA.
@@ -1165,20 +1266,21 @@ assert( ⌊ASplit⌋ᵦ = ⌊B⌋ᵦ) as H_sideSplit. {
   }
   destruct (⌈B⌉ᵦ =? ⌈A⌉ₐ); try solve_nat.
   now destruct (⌊A⌋ₐ); destruct (⌊B⌋ᵦ); unfold smallerSide.
-}
+Qed.
 
-assert (ASplit ≫  C = true) as H_ASplitGtC. {
-  unfold ASplit.
+Lemma SplitOpRemainsLarger: ∀(A B C:Operation), (A ≫  C) = true ∧ (B ≫  C) = true ∧ (A ≫ B) = true ∧ (isInsert B) = false → A[≺ᵦB] ≫  C = true.
+  intros A B C [H_AGtC [H_BGtC [H_AGtB H_isInsertB]]].
   unfold opAGtB.
-  apply AGtB_lenAGelenB in H_AGtB.
+  apply AGtB_lenAGelenB in H_AGtB as H_AGeB.
   specialize splitOperationLengthR1 with (A:=A) (y:=⌈B⌉ᵦ) (s:=⌊B⌋ᵦ) as H_AtruncEqB.
   forward H_AtruncEqB.
-  rewrite seqALengthFromNorm in H_AGtB.
-  destruct (isRemove A); solve_nat.
+  rewrite seqALengthFromNorm in H_AGeB.
+  autorewrite_changesets.
+  destruct (isRemove A) eqn:H_isRemoveA; try solve_nat.
+
   destruct (⌈C⌉ᵦ =? ⌈A [≺ᵦB]⌉ₐ) eqn:H_CeqATrunc.
-  - fold ASplit.
-    rewrite sidesEqual.
-    rewrite H_sideSplit.
+  - rewrite sidesEqual.
+    rewrite SplitOpPreservesSide; auto.
     unfold opAGtB in H_BGtC.
     rewrite seqALengthFromNorm in H_BGtC.
     destruct (isRemove B).
@@ -1188,8 +1290,12 @@ assert (ASplit ≫  C = true) as H_ASplitGtC. {
       rewrite H_AtruncEqB in H_CeqATrunc.
       rewrite seqBLengthFromNorm with (A:=B) in H_CeqATrunc.
       rewrite H_isInsertB in H_CeqATrunc.
-      destruct (isRemove (A [≺≺‖B‖; ⌊B⌋ᵦ])).
-      -- give_up.
+      destruct (isRemove A) eqn:H_isRemoveA.
+      all: rewrite seqALengthFromNorm in H_AGeB.
+      all: rewrite splitOpLeftRemainsRemove with (y:=‖B‖) (s:=⌊B⌋ᵦ) in *; rewrite H_isRemoveA in *.
+      -- autorewrite_changesets.
+         rewrite_nat_all ( ⌈C⌉ᵦ =? ‖B‖ = true).
+         assumption.
       -- rewrite H_CeqATrunc in H_BGtC.
          now rewrite sidesEqual in H_BGtC.
   - rewrite seqALengthFromNorm.
@@ -1209,26 +1315,57 @@ assert (ASplit ≫  C = true) as H_ASplitGtC. {
       * rewrite seqBLengthFromNorm with (A:=B) in *.
         rewrite H_isInsertB in *.
         solve_nat.
-}
+Qed.
 
-set (s2:=(↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]]).
-replace s2 with (↩ASplit[≫ᵦC]). 2: {
-  give_up.
+Lemma swapCombineWithSplitOfA: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (A≫B) = true ∧ (isInsert B) = false ∧ (isInsert A && isRemove B) = false → ↩( A[≺ᵦB] ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]] ⊕ ↩B[≫ᵦC] ⊖ splitOpA.
+intros A B C splitOpA [H_AGtC [H_BGtC [H_AGtB [H_isInsertB H_isInsertRemove]]]].
+
+set (ASplit:=A[≺ᵦB]).
+
+assert (⌈ASplit⌉ₐ = ⌈B⌉ᵦ). {
+  unfold ASplit.
+  destruct (isRemove A) eqn:H_isRemoveA.
+  - apply AGtB_lenAGelenB in H_AGtB as H_AGeB.
+    rewrite seqALengthFromNorm in *; rewrite splitOpLeftRemainsRemove; rewrite H_isRemoveA in *.
+    solve_nat.
+  - rewrite seqALengthFromNorm in *; rewrite splitOpLeftRemainsRemove; rewrite H_isRemoveA in *.
+    rewrite splitOperationLengthR1; auto. apply AGtB_lenAGelenB in H_AGtB. rewrite seqALengthFromNorm in H_AGtB; rewrite H_isRemoveA in *; solve_nat.
 }
+apply AGtB_AlenGtBNorm in H_BGtC as H_BGtCNorm.
+assert (ASplit ≫ C = true) as H_ASplitGtC. apply SplitOpRemainsLarger; auto.
+apply AGtB_AlenGtBNorm in H_ASplitGtC as H_ASplitGtCNorm.
+assert (⌊ASplit⌋ᵦ = ⌊B⌋ᵦ). apply SplitOpPreservesSide; auto.
+rewrite swapRightLeftSplitSeqB; auto.
 rewrite swapCombineWithSplit; auto.
-repeat split; auto.
+unfold ASplit at 4.
+rewrite splitOpLeftRemainsInsert.
+auto.
+Qed.
 
-set (lenC:=⌈C⌉ᵦ).
-set (sideC:=⌊C⌋ᵦ).
-destruct A eqn:H_A; destruct B eqn:H_B.
-cbn -[computeResultingOperation].
-unfold SplitHelper.
-destruct (amount0 <? amount) eqn:H_amount0Ltamount.
+Lemma swapCombineWithSplitOfB: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (B≫A) = true ∧ (isRemove A) = false ∧ (isInsert B) = false → ↩(A ⊕ B[≺ₐA] ⊖ splitOpA)[≫ᵦC] = ↩A[≫ᵦC] ⊕ (↩B[≫ᵦC])[≺ₐ↩A[≫ᵦC]] ⊖ splitOpA.
+intros A B C splitOpA [H_AGtC [H_BGtC [H_BGtA [H_isRemoveA H_isInsertB]]]].
 
-Admitted.
+set (BSplit:=B[≺ₐA]).
 
-Lemma swapCombineWithSplitOfB: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true → ↩(A ⊕ B[≺ₐA] ⊖ splitOpA)[≫ᵦC] = ↩A[≫ᵦC] ⊕ (↩B[≫ᵦC])[≺ₐ↩A[≫ᵦC]] ⊖ splitOpA.
-Admitted.
+unfold opAGtB in H_BGtA.
+apply AGtB_lenAGelenB in H_BGtA as H_BGeA.
+
+  
+
+(*assert (‖ASplit‖ = ⌈B⌉ᵦ). unfold ASplit. rewrite splitOperationLengthR1; auto. apply AGtB_lenAGelenB in H_AGtB. rewrite seqALengthFromNorm in H_AGtB.  destruct (isRemove A) eqn:H_isRemoveA; solve_nat.*)
+(*assert (‖A‖ = ⌈BSplit⌉ᵦ). {
+  unfold BSplit. rewrite seqBLengthEqNorm. rewrite splitOperationLengthR1; auto. rewrite seqALengthEqNorm; auto.
+  specialize normGeSeqALength with (A:=B) as H_BNGeBa.
+  assert (⌈A⌉ₐ ≤ ⌈A⌉ᵦ). { rewrite seqBLengthFromNorm. }
+  lia.
+  all: rewrite seqALengthFromNorm in H_BGeA. rewrite seqALengthEqNorm; auto.  destruct (isRemove B) eqn:H_isRemoveB; solve_nat.
+  rewrite splitOpLeftRemainsInsert; auto.
+}*)
+(*assert (BSplit ≫ C = true). apply SplitOpRemainsLarger; auto.
+assert (⌊BSplit⌋ᵦ = ⌊A⌋ᵦ). apply SplitOpPreservesSide; auto.*)
+rewrite swapRightLeftSplitSeqA; auto.
+rewrite swapCombineWithSplit; auto.
+Qed.
 
 
 Section SplitOpByLarger.
