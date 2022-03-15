@@ -314,7 +314,7 @@ Program Definition SquashIterationDefinition :=
        (* In this case, we have to use seq2, insert always has length 0 in seqB, so if we have both insert, it will also be length 0 in seqA and thus the entry from B is correct*)
        | Insert seq1 s, Insert seq2 s2 => Insert seq2 s2 
        (* insert and remove cancel out, we represent this by returning a skip 0, which is just a NOP*)
-       | Insert seq1 s, Remove seq2 s2 => Skip 0 s
+       | Insert seq1 s, Remove seq2 s2 => Skip 0 left
        | Remove seq1 s, Skip l2 s2 => Remove seq1 s
        (* This case is the most complex one, both insert and remove have length 0, but one of the two has actually been truncated the other not, we descide based on the splitOpA flag *)
        | Remove seq1 s, Insert seq s2 =>  if splitOpA then Insert seq s2 else Remove seq1 s
@@ -929,7 +929,7 @@ Hint Rewrite normGeSeqBLength : changeset.
 
 Local Ltac autorewrite_changesets := autorewrite * with changeset in *.
 
-Lemma combineEqualSides: ∀(A B:Operation) (splitA:bool), ⌊A⌋ₐ = ⌊B⌋ₐ → (⌊A ⊕ B ⊖ splitA⌋ₐ) = ⌊A⌋ₐ.
+Lemma combineEqualSides: ∀(A B:Operation) (splitA:bool), ((isInsert A) && (isRemove B)) = false  ∧ ⌊A⌋ₐ = ⌊B⌋ₐ → (⌊A ⊕ B ⊖ splitA⌋ₐ) = ⌊A⌋ₐ.
 intros.
 unfold computeResultingOperation.
 unfold SquashIterationDefinition at 2.
@@ -1205,9 +1205,8 @@ Admitted.
 
 Lemma swapCombineWithSplit: ∀(A B:Operation) (splitOpA:bool) (x :nat) (s: side), (‖ (‖A‖) ; 《A》‖ ≫ ‖ x ; s ‖ = true) ∧ 
                                                                                  (‖ (‖B‖) ; 《B》‖ ≫ ‖ x ; s ‖ = true) ∧
-                                                                                 (⌈A⌉ₐ = ⌈B⌉ᵦ) ∧ 
-                                                                                 ((isInsert A) && (isRemove B)) = false → ↩( A ⊕ B ⊖ splitOpA)[≫≫x; s] = (↩A[≫≫x; s]) ⊕ (↩B[≫≫x; s]) ⊖ splitOpA.
-intros A B splitOpA x s [H_AGtXs [H_BGtXs [H_ALenAEqBLenB H_notInsertRemove]]].
+                                                                                 (⌈A⌉ₐ = ⌈B⌉ᵦ) → ↩( A ⊕ B ⊖ splitOpA)[≫≫x; s] = (↩A[≫≫x; s]) ⊕ (↩B[≫≫x; s]) ⊖ splitOpA.
+intros A B splitOpA x s [H_AGtXs [H_BGtXs H_ALenAEqBLenB]].
 destruct A eqn:H_A; destruct B eqn:H_B; cbn -[Nat.eqb Nat.ltb]; unfold SplitHelper.
 all: try destruct entries; try destruct entries0.
 
@@ -1223,12 +1222,13 @@ simpl;
 auto;
 simpl in H_ALenAEqBLenB; try rewrite H_ALenAEqBLenB; auto;
 unfold opLenAGtB in H_AGtXs; simpl in H_AGtXs; unfold opLenAGtB in H_BGtXs; simpl in H_BGtXs; try destruct (x =? amount) eqn:H_XEqAmount; try destruct (x =? (length entries) ) eqn:H_XEqEntries; try destruct (x =? (length entries0) ) eqn:H_XEqEntries0; try (easy + solve_nat).
+
 all: simpl in H_notInsertRemove; discriminate.
 Qed.
 
 Lemma swapCombineWithSplitSeqB: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ 
-                                                                    (⌈A⌉ₐ = ⌈B⌉ᵦ) ∧ ((isInsert A) && (isRemove B)) = false → ↩( A ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC]) ⊕ (↩B[≫ᵦC]) ⊖ splitOpA.
-intros A B C splitOpA [H_AGtC [H_BGtC [H_AaeqBb H_notInsertRemove]]].
+                                                                    (⌈A⌉ₐ = ⌈B⌉ᵦ) → ↩( A ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC]) ⊕ (↩B[≫ᵦC]) ⊖ splitOpA.
+intros A B C splitOpA [H_AGtC [H_BGtC H_AaeqBb]].
 apply AGtB_AlenGtBNorm in H_AGtC.
 apply AGtB_AlenGtBNorm in H_BGtC.
 
@@ -1317,8 +1317,8 @@ Lemma SplitOpRemainsLarger: ∀(A B C:Operation), (A ≫  C) = true ∧ (B ≫  
         solve_nat.
 Qed.
 
-Lemma swapCombineWithSplitOfA: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (A≫B) = true ∧ (isInsert B) = false ∧ (isInsert A && isRemove B) = false → ↩( A[≺ᵦB] ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]] ⊕ ↩B[≫ᵦC] ⊖ splitOpA.
-intros A B C splitOpA [H_AGtC [H_BGtC [H_AGtB [H_isInsertB H_isInsertRemove]]]].
+Lemma swapCombineWithSplitOfA: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (A≫B) = true ∧ (isInsert B) = false → ↩( A[≺ᵦB] ⊕ B ⊖ splitOpA)[≫ᵦC] = (↩A[≫ᵦC])[≺ᵦ↩B[≫ᵦC]] ⊕ ↩B[≫ᵦC] ⊖ splitOpA.
+intros A B C splitOpA [H_AGtC [H_BGtC [H_AGtB H_isInsertB]]].
 
 set (ASplit:=A[≺ᵦB]).
 
@@ -1337,9 +1337,6 @@ apply AGtB_AlenGtBNorm in H_ASplitGtC as H_ASplitGtCNorm.
 assert (⌊ASplit⌋ᵦ = ⌊B⌋ᵦ). apply SplitOpPreservesSide; auto.
 rewrite swapRightLeftSplitSeqB; auto.
 rewrite swapCombineWithSplit; auto.
-unfold ASplit at 4.
-rewrite splitOpLeftRemainsInsert.
-auto.
 Qed.
 
 Lemma swapCombineWithSplitOfB: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (B≫A) = true ∧ (isRemove A) = false ∧ (isInsert B) = false → ↩(A ⊕ B[≺ₐA] ⊖ splitOpA)[≫ᵦC] = ↩A[≫ᵦC] ⊕ (↩B[≫ᵦC])[≺ₐ↩A[≫ᵦC]] ⊖ splitOpA.
@@ -1365,12 +1362,38 @@ apply AGtB_lenAGelenB in H_BGtA as H_BGeA.
 assert (⌊BSplit⌋ᵦ = ⌊A⌋ᵦ). apply SplitOpPreservesSide; auto.*)
 rewrite swapRightLeftSplitSeqA; auto.
 rewrite swapCombineWithSplit; auto.
+Admitted.
+
+Lemma combineInsertRemoveIsEmptySkip: ∀ (A B: Operation) (splitA:bool), (isInsert A) = true ∧ (isRemove B) = true → (A ⊕ B ⊖ splitA) = (Skip< 0).
+intros A B splitA [H_isInsertA H_isRemoveB].
+destruct A; destruct B; try discriminate.
+destruct entries; destruct entries0.
+now cbv.
 Qed.
 
 
 Section SplitOpByLarger.
   Variable A B C : Operation.
   Let combinedOp := (fst (fst (getNextOperation SquashIterationDefinition A B))).
+
+  Lemma insertRemoveCombinedOpIsEmptySkip: (isInsert A) = true ∧ (isRemove B) = true → combinedOp = (Skip< 0).
+  intros.
+  cbn -[isRemove isInsert computeResultingOperation opAGtB splitOperation getLengthInSequenceA getLengthInSequenceB].
+  destruct (A ≫ B).
+  all: rewrite combineInsertRemoveIsEmptySkip; auto.
+  now rewrite splitOpLeftRemainsInsert.
+  now rewrite splitOpLeftRemainsRemove.
+  Qed.
+
+  Lemma combinedOpGtCImpliesNotInsertRemove: (combinedOp ≫ C) = true → ((isInsert A) && (isRemove B)) = false.
+  intros.
+  destruct (isInsert A && isRemove B) eqn:isInsertRemove; auto.
+  rewrite insertRemoveCombinedOpIsEmptySkip in H; auto with bool.
+  unfold opAGtB in H.
+  destruct (⌈C⌉ᵦ =? ⌈Skip< 0⌉ₐ).
+  cbv in H; discriminate.
+  rewrite seqALengthFromNorm in H. unfold isRemove in H. unfold opLength in H; solve_nat.
+  Qed.
 
   Lemma removeBImpliesCombinedOpAEq0: (isRemove B) = true ∧  (isInsert A) = false → (⌈combinedOp⌉ₐ) = 0.
   intros [H_isRemoveB H_isInsertA].
@@ -1699,6 +1722,8 @@ Section SplitOpByLarger.
 
           rewrite <-sidesEqual in H_combinedOpRight.
           rewrite combineEqualSides in H_combinedOpRight.
+          2: split; apply combinedOpGtCImpliesNotInsertRemove in H_combinedGtC; try rewrite splitOpLeftRemainsInsert; auto.
+
           rewrite splitOperationSide in H_combinedOpRight.
           rewrite seqBLengthFromNorm in H_combinedOpRight.
           rewrite H_isInsertB in H_combinedOpRight.
@@ -1756,6 +1781,7 @@ Section SplitOpByLarger.
               only 1: (symmetry; rewrite Nat.eqb_neq; rewrite Nat.ltb_lt in H_BltA; lia).
 
           rewrite combineEqualSides in H_combinedOpRight.
+          2: split; apply combinedOpGtCImpliesNotInsertRemove in H_combinedGtC; try rewrite splitOpLeftRemainsRemove; auto.
           2: {
             rewrite splitOperationSide.
             rewrite seqALengthFromNorm.
@@ -1847,7 +1873,6 @@ Section SplitOpByLarger.
                     repeat rewrite skipn_all in H_combinedGtC.
                     destruct side0; destruct side1; cbn -[getLengthInSequenceB] in H_combinedGtC; 
                     try rewrite Tauto.if_same in H_combinedGtC; try discriminate.
-                    now destruct (⌈C⌉ᵦ =? 0); destruct (⌊C⌋ᵦ).
                   - rewrite Nat.eqb_neq in H_E0eqE.
                     rewrite Nat.ltb_nlt in H_AGtB.
                     rewrite Nat.ltb_nlt in H_e0LtE.
@@ -1857,9 +1882,6 @@ Section SplitOpByLarger.
                 all: simpl in combinedOp.
                 all: unfold combinedOp in H_combinedGtC; cbn [getLengthInSequenceA SquashIterationDefinition fst snd] in H_combinedGtC.
                 all: destruct (⌈C⌉ᵦ =? 0) eqn:H_CBeq0; try discriminate.
-                now destruct side1; destruct (⌊C⌋ᵦ); simpl.
-                destruct side0; destruct (⌊C⌋ᵦ); try discriminate H_combinedGtC.
-                now destruct side1.
             ++ rewrite removeBImpliesCombinedOpAEq0 in H_combinedGtC; only 2: auto.
                destruct (⌈C⌉ᵦ) eqn:H_CB; try discriminate H_combinedGtC.
                rewrite <-sidesEqual in H_BisNonEmptyLeftRemove.
@@ -2585,6 +2607,7 @@ set (splitOpA := opAGtB SquashIterationDefinition AHead BHead).
   rewrite <-H_spOAREMeqspOA. rewrite H_SplitOpARemTrue.
   simpl.
 
+  assert (AHead ≫ BHead = true). { fold splitOpA. rewrite <-H_spOAREMeqspOA. auto. }
   apply swapCombineWithSplitOfA; auto.
   apply swapSplitRemainderWithShorterSplitBLen; auto.
 
