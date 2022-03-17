@@ -899,6 +899,22 @@ destruct (isRemove A).
 - auto.
 Qed.
 
+
+Lemma ANGtB_BlenNGtBNorm: ∀(A B: Operation), (A≫B) = false → ‖ (‖A‖) ; (《A》)  ‖ ≫ ‖ ⌈B⌉ᵦ ; ⌊B⌋ᵦ ‖ = false.
+intros.
+unfold opAGtB in H. 
+unfold opLenAGtB.
+rewrite seqALengthFromNorm in *.
+rewrite sideAeqOpSide in H.
+destruct (isRemove A).
+- destruct (⌈B⌉ᵦ =? 0) eqn:H_Bbeq0.
+  + destruct (⌈B⌉ᵦ =? ‖A‖) eqn:H_BbeqNa.
+    * auto.
+    * solve_nat.
+  + discriminate.
+- auto.
+Qed.
+
 Lemma destructAGreaterBEq: ∀(A B:Operation), (A≫B) = true ∧ (⌈ B⌉ᵦ =? ⌈ A ⌉ₐ) = true→ 
                           ((⌈B⌉ᵦ =? ⌈A⌉ₐ) = true ∧ ⌊A⌋ₐ = right ∧ ⌊B⌋ᵦ = left).
 intros A B [H_AGtB H_NAeqNB].
@@ -1339,15 +1355,27 @@ rewrite swapRightLeftSplitSeqB; auto.
 rewrite swapCombineWithSplit; auto.
 Qed.
 
-Lemma swapCombineWithSplitOfB: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (B≫A) = true ∧ (isRemove A) = false ∧ (isInsert B) = false → ↩(A ⊕ B[≺ₐA] ⊖ splitOpA)[≫ᵦC] = ↩A[≫ᵦC] ⊕ (↩B[≫ᵦC])[≺ₐ↩A[≫ᵦC]] ⊖ splitOpA.
-intros A B C splitOpA [H_AGtC [H_BGtC [H_BGtA [H_isRemoveA H_isInsertB]]]].
+Lemma swapCombineWithSplitOfB: ∀(A B C:Operation) (splitOpA:bool), (A≫C) = true ∧ (B≫C) = true ∧ (A≫B) = false ∧ (isInsert B) = false → ↩(A ⊕ B[≺ₐA] ⊖ splitOpA)[≫ᵦC] = ↩A[≫ᵦC] ⊕ (↩B[≫ᵦC])[≺ₐ↩A[≫ᵦC]] ⊖ splitOpA.
+intros A B C splitOpA [H_AGtC [H_BGtC [H_BGtA H_isInsertB]]].
 
 set (BSplit:=B[≺ₐA]).
 
-unfold opAGtB in H_BGtA.
-apply AGtB_lenAGelenB in H_BGtA as H_BGeA.
+apply ASplit_lenALelenB in H_BGtA as H_BGeA.
 
-  
+assert (⌈A⌉ₐ = ⌈BSplit⌉ᵦ). {
+  unfold BSplit.
+  destruct (isRemove A) eqn:H_isRemoveA.
+  - rewrite seqALengthFromNorm in *; rewrite H_isRemoveA in *.
+    rewrite splitOperationWith0Empty.
+    destruct B; try destruct entries; simpl; cbn [length]; try solve_nat.
+  - rewrite seqALengthFromNorm in *; rewrite H_isRemoveA in *.
+    rewrite seqBLengthFromNorm in *; rewrite splitOpLeftRemainsInsert; rewrite H_isInsertB in *.
+    rewrite splitOperationLengthR1; auto. 
+}
+
+apply AGtB_AlenGtBNorm in H_BGtC as H_BGtCNorm.
+assert (BSplit ≫ C = true) as H_ASplitGtC. unfold BSplit. apply SplitOpRemainsLarger; auto.
+apply AGtB_AlenGtBNorm in H_ASplitGtC as H_ASplitGtCNorm.
 
 (*assert (‖ASplit‖ = ⌈B⌉ᵦ). unfold ASplit. rewrite splitOperationLengthR1; auto. apply AGtB_lenAGelenB in H_AGtB. rewrite seqALengthFromNorm in H_AGtB.  destruct (isRemove A) eqn:H_isRemoveA; solve_nat.*)
 (*assert (‖A‖ = ⌈BSplit⌉ᵦ). {
@@ -2633,6 +2661,7 @@ set (splitOpA := opAGtB SquashIterationDefinition AHead BHead).
   fold splitOpA. rewrite <-H_spOAREMeqspOA. rewrite H_SplitOpARemTrue.
   simpl.
 
+  assert (AHead ≫ BHead = false). { fold splitOpA. rewrite <-H_spOAREMeqspOA. auto. }
   rewrite swapCombineWithSplitOfB; auto.
   fold splitOpA. rewrite <-H_spOAREMeqspOA. rewrite H_SplitOpARemTrue. auto.
 
