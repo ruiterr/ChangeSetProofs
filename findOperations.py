@@ -4,28 +4,50 @@ import numpy as np
 allOperations = {}
 
 class Op:
-    def __init__(self, name, inverse, param1 = None, param2 = None):
-        if param1 != None:
-            name = name + '_' + param1
-        if param2 != None:
-            name = name + '_' + param1
+    def __init__(self, name, inverse, paramNames, paramValues = None):
+        
+        self.paramNames = paramNames
+        self.paramValues = paramValues if paramValues != None else [0 for x in paramNames]
+        
 
-        if param1 != None:
-            inverse = inverse + '_' + param1
-        if param2 != None:
-            inverse = inverse + '_' + param1
-            
         self.name = name 
         self.inverse = inverse
-        self.param1 = param1
-        self.param2 = param2
-        allOperations[name] = self
+
+        allOperations[self.getRegistrationName(self.name, self.paramNames, self.paramValues)] = self
         
     def inv(self):
-        return allOperations[self.inverse]
+        inverseName = self.getRegistrationName(self.inverse, self.paramNames, self.paramValues)
+        if inverseName in allOperations:
+            return allOperations[inverseName]
+        
+        inverseOp = Op(self.inverse, self.name, self.paramNames, self.paramValues)
+        return inverseOp
     
     def __str__(self):
-        return self.name
+        return self.getRegistrationName(self.name, self.paramNames, self.paramValues)
+    
+    def getRegistrationName(self, base, paramNames, paramValues):
+        registrationName = base
+        
+        for name, value in zip(paramNames, paramValues):
+            if value > 0:
+                registrationName += '_' + name + '+' + str(value)
+            if value < 0:
+                registrationName += '_' + name  + str(value)
+        
+        return registrationName
+    
+    def modifyParam(self, name, delta):
+        newParamValues = list(self.paramValues)
+        paramIndex = self.paramNames.index(name)
+        newParamValues[paramIndex] += delta
+        
+        newOpName = self.getRegistrationName(self.name, self.paramNames, newParamValues)
+        if newOpName in allOperations:
+            return allOperations[newOpName]
+        
+        newOp = Op(self.name, self.inverse, self.paramNames, newParamValues)
+        return newOp
 
 def findOpFromBandC(grid, B, C):
     if B == None:
@@ -236,7 +258,7 @@ def gridToArray(grid):
             if value == None:
                 arr[i].append("")
             else:
-                arr[i].append(value.name)
+                arr[i].append(str(value))
     
     return np.array(arr)
 
@@ -299,18 +321,18 @@ def backtrackingSearch(operations, extraOps, knownEntries, rules, solutionsToFin
     
 #%% Define Operations
 class O:
-    I = Op('I', 'R')
-    R = Op('R', 'I')
-    I_1 = Op('I', 'R', '+1')
-    R_1 = Op('R', 'I', '+1')
-    CR = Op('CR', 'CI')
-    CI = Op('CI', 'CR')
-    CR_1 = Op('CR', 'CI', '+1')
-    CI_1 = Op('CI', 'CR', '+1')
-    SI = Op('SI', 'SR')
-    SR = Op('SR', 'SI')
-    SI_1 = Op('SI', 'SR', '+1')
-    SR_1 = Op('SR', 'SI', '+1')
+    I = Op('I', 'R', ['p', 's'])
+    R = I.inv()
+    I_1 = I.modifyParam('p', 1)
+    R_1 = I_1.inv()
+    CR = Op('CR', 'CI', ['p', 's'])
+    CI = CR.inv()
+    CR_1 = CR.modifyParam('s', 1)
+    CI_1 = CR_1.inv()
+    SI = I.modifyParam('s', 1)
+    SR = SI.inv()
+    SI_1 = SI.modifyParam('s', 1)
+    SR_1 = SI_1.inv()
     
 
 #%% Test for the full system
