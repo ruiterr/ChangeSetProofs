@@ -48,6 +48,10 @@ class Op:
         
         newOp = Op(self.name, self.inverse, self.paramNames, newParamValues)
         return newOp
+    
+    def getParam(self, name):
+        paramIndex = self.paramNames.index(name)
+        return self.paramValues[paramIndex]
 
 def findOpFromBandC(grid, B, C):
     if B == None:
@@ -80,7 +84,8 @@ def createRule(grid, RuleConstructor, A, B, C):
     if A == None or B == None or C==None:
         return None
     
-    if (not A in grid) or (not B in grid) or (not C in grid):
+    if (not A in grid) or (not B in grid):
+        print("Failed %s %s" % (A, B))
         return None
     
     return RuleConstructor(A, B, C)
@@ -95,6 +100,7 @@ def getOpListFromGrid(grid):
     OpList = grid.keys()
     
     return [(i, j, grid[i][j]) for i in OpList for j in OpList if grid[i][j] != None]
+
 class Rule:
     def __init__(self, A, B, C):
         self.A = A
@@ -111,7 +117,7 @@ class Rule:
         return None
     
     def str(self):
-        return ""
+        return self.__class__.__name__ + ' ' + str(self.A) + ' ' + str(self.B) + ' ' + str(self.C)
 
 class Rule1(Rule):
     @staticmethod 
@@ -199,9 +205,55 @@ class Rule6(Rule):
                 
         return createRule(grid, Rule6, V, U, inv(U))
 
-rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6]
-#rules = [Rule1, Rule3]
+class InsertRule(Rule):
 
+    @staticmethod 
+    def getNumInputs():
+        return 2
+    
+    @staticmethod 
+    def apply(grid, operations):
+        A,B = operations
+        
+        if B.name != 'I':
+            return None
+        
+        p_A = A.getParam('p')
+        s_A = A.getParam('s')
+        p_B = B.getParam('p')
+        s_B = B.getParam('s')
+        
+        if A.name == 'R' and p_A == 0 and p_B == 1:
+            return None
+
+        if A.name == 'R' and s_A == 1:
+            return None
+        
+        if s_A > 0 and s_B > 0:
+            return None
+
+        if p_A > p_B:
+            return createRule(grid, InsertRule, A, B, A.modifyParam('p', 1))
+        elif p_A == p_B:
+            
+            if A.name != 'CR':
+                if s_A == 0:
+                    r = createRule(grid, InsertRule, A, B, A.modifyParam('p', 1))
+                    if r != None:
+                        print('createdRule ' + r.str())
+                    return r
+                else:
+                    r = createRule(grid, InsertRule, A, B, A.modifyParam('s', -1))
+                    if r != None:
+                        print('createdRule ' + r.str())
+                    return r
+        else:
+            return createRule(grid, InsertRule, A, B, A)
+
+        return None
+
+rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule]
+#rules = [Rule1, Rule3]
 def findOperations(operations, knownEntries, rules):
     grid = {}
     for op in operations:
@@ -229,6 +281,7 @@ def findOperations(operations, knownEntries, rules):
                 result = r.apply(grid, ops)
                 
                 if result != None:
+                    print("Rule %s" %(result))
                     currentEntry = grid[result.A][result.B]
                     
                     if currentEntry == result.C:
@@ -238,11 +291,12 @@ def findOperations(operations, knownEntries, rules):
                             grid[result.A][result.B] = result.C
                             newEntryFound = True
                             appliedRules.append(result)
-                            #print("New Entry Found")
+                        else:
+                            print("Entry Not Found")
                         continue
                     if currentEntry != result.C:
                         #print(len(ops))
-                        print("Collision found for rule %s (input %s) operations: %s %s. Existing entry %s new Entry %s" % (r, ",".join([X.name for X in ops]), result.A.name, result.B.name, currentEntry.name, result.C.name))
+                        print("Collision found for rule %s (input %s) operations: %s %s. Existing entry %s new Entry %s" % (r, ",".join([str(X) for X in ops]), result.A, result.B, currentEntry, result.C))
                         return None
                     
     return (grid, appliedRules)
@@ -250,15 +304,21 @@ def findOperations(operations, knownEntries, rules):
 def gridToArray(grid):
     gridKeys = list(grid.keys())
     arr = []
+    
+    arr.append([""])
+    for i in range(len(gridKeys)):
+        arr[0].append('*' + str(gridKeys[i]) + '*')
+        
     for i in range(len(gridKeys)):
         arr.append([])
+        arr[i+1].append('*' + str(gridKeys[i]) + '*')
         for j in range(len(gridKeys)):
             value = grid[gridKeys[j]][gridKeys[i]]
             
             if value == None:
-                arr[i].append("")
+                arr[i+1].append("")
             else:
-                arr[i].append(str(value))
+                arr[i+1].append(str(value))
     
     return np.array(arr)
 
@@ -360,9 +420,9 @@ fullGridRun = findOperations(
       (O.SI, O.I, O.I),
       
       (O.SI, O.R, O.SI_1),
-      (O.SR, O.SI, O.SR_1),
-      (O.SR, O.SR, O.CR_1),
-
+      #(O.SR, O.SI, O.SR_1),
+      #(O.SR, O.SR, O.CR_1),
+      
       (O.I_1, O.R, O.I),
       (O.R_1, O.R, O.R),
 
@@ -404,6 +464,9 @@ fullGridRun = findOperations(
 
 ops = gridToArray(fullGridRun[0])
 
+# Questions: What happens if SR is rebased with respect to I?
+#            What happens if a Scaffolded operation is rebased with respect to another scaffolded op?
+raise Error()
 #%% Test for the syste where Z = CI
 bestFoundGrid = None
 entriesInBestGrid = 0
