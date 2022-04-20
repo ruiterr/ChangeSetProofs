@@ -229,7 +229,7 @@ class InsertRule(Rule):
         if A.name == 'R' and s_A == 1:
             return None
         
-        if s_A > 0 and s_B > 0:
+        if s_B > 0:
             return None
 
         if p_A > p_B:
@@ -239,20 +239,55 @@ class InsertRule(Rule):
             if A.name != 'CR':
                 if s_A == 0:
                     r = createRule(grid, InsertRule, A, B, A.modifyParam('p', 1))
-                    if r != None:
-                        print('createdRule ' + r.str())
+                    #if r != None:
+                    #    print('createdRule ' + r.str())
                     return r
                 else:
                     r = createRule(grid, InsertRule, A, B, A.modifyParam('s', -1))
-                    if r != None:
-                        print('createdRule ' + r.str())
+                    #if r != None:
+                    #    print('createdRule ' + r.str())
                     return r
         else:
             return createRule(grid, InsertRule, A, B, A)
 
         return None
 
-rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule]
+class RemoveRule(Rule):
+
+    @staticmethod 
+    def getNumInputs():
+        return 2
+    
+    @staticmethod 
+    def apply(grid, operations):
+        A,B = operations
+        
+        if B.name != 'R':
+            return None
+        
+        p_A = A.getParam('p')
+        s_A = A.getParam('s')
+        p_B = B.getParam('p')
+        s_B = B.getParam('s')
+        
+        if A.name == 'R' and s_A == 0:
+            return None
+
+        if s_B > 0:
+            return None
+
+        if p_A > p_B:
+            return createRule(grid, RemoveRule, A, B, A.modifyParam('p', -1))
+        elif p_A == p_B:
+            r = createRule(grid, RemoveRule, A, B, A.modifyParam('s', 1))
+            if r != None:
+                print('createdRule ' + r.str())
+            return r
+        else:
+            return createRule(grid, InsertRule, A, B, A)
+
+        return None
+rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
 #rules = [Rule1, Rule3]
 def findOperations(operations, knownEntries, rules):
     grid = {}
