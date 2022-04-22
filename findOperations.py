@@ -224,6 +224,9 @@ class InsertRule(Rule):
         p_B = B.getParam('p')
         s_B = B.getParam('s')
         
+        if A.name == 'I' and p_A == 0 and p_B == 0:
+            return None
+
         if A.name == 'R' and p_A == 0 and p_B == 1:
             return None
 
@@ -234,10 +237,10 @@ class InsertRule(Rule):
             return None
 
         if p_A > p_B:
-            return createRule(grid, InsertRule, A, B, A.modifyParam('p', 1))
+            return createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
         elif p_A == p_B:
-            
-            if A.name != 'CR':
+            pass
+            if A.name != 'CI' and A.name != 'CR' and A.name != 'I' and A.name != 'R':
                 if s_A == 0:
                     r = createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
                     #if r != None:
@@ -281,12 +284,15 @@ class RemoveRule(Rule):
             return None
 
         if p_A > p_B:
+            # Why do we have a contradiction here???
+            return None
             return createRule(grid, RemoveRule, A, B, A.modifyParam('p', -1), operations)
         elif p_A == p_B:
-            r = createRule(grid, RemoveRule, A, B, A.modifyParam('s', 1), operations)
-            if r != None:
-                print('createdRule ' + r.str())
-            return r
+            if A.name != 'CI':
+                r = createRule(grid, RemoveRule, A, B, A.modifyParam('s', 1), operations)
+                if r != None:
+                    print('createdRule ' + r.str())
+                    return r
         else:
             return createRule(grid, RemoveRule, A, B, A, operations)
 
@@ -307,7 +313,7 @@ class ShiftRightRule(Rule):
         if C != None:
             return createRule(grid, ShiftRightRule, A.modifyParam('p', 1), B.modifyParam('p', 1), C.modifyParam('p', 1), operations)
 
-rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6]
+rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule, ShiftRightRule]
 #rules = [Rule1, Rule3]
 def findOperations(operations, knownEntries, rules):
     grid = {}
@@ -436,12 +442,14 @@ def backtrackingSearch(operations, extraOps, knownEntries, rules, solutionsToFin
     
 #%% Define Operations
 class O:
-    I = Op('I', 'R', ['p', 's'])
+    I = Op('I', 'R', ['i', 'p', 's'])
     R = I.inv()
     I_1 = I.modifyParam('p', 1)
     R_1 = I_1.inv()
-    CR = Op('CR', 'CI', ['p', 's'])
+    CR = Op('CR', 'CI', ['i', 'p', 's', 'c'])
     CI = CR.inv()
+    CI_C2 = CI.modifyParam('c', 1)
+    CR_C2 = CI_C2.inv()
     SCR = CR.modifyParam('s', 1)
     SCI = SCR.inv()
     SI = I.modifyParam('s', 1)
@@ -464,14 +472,20 @@ fullGridRun = findOperations(
      O.I_1, O.R_1,
      O.SCI,O.SCR,
      O.SI_1,O.SR_1,
-     O.SI_P_1, O.SR_P_1
+     O.SI_P_1, O.SR_P_1,
+     O.CI_C2, O.CR_C2
     ],
     [
-      #(O.I, O.I, O.I_1),
-      (O.I, O.R, O.SI),
+      (O.I, O.I, O.CI),
       (O.R, O.R, O.CR),
+      (O.CR, O.I, O.R),
+      (O.I, O.CR, O.CI),
+      
+      (O.CI, O.I, O.CI_C2),
+      (O.CI_C2, O.R, O.CI),
+      (O.CI, O.R, O.I),
       #(O.R, O.I, O.R_1),
-      (O.R, O.CR, O.R),
+      #(O.R, O.CR, O.R),
 
       #(O.CR, O.R, O.SCR),
       #(O.CI, O.CR, O.SCI),
@@ -491,10 +505,10 @@ fullGridRun = findOperations(
       #(O.R, O.R_1, O.SR.modifyParam('p', 1)),
       
       # Experiments I I
-      (O.I, O.I, O.SI_P_1),
-      (O.R, O.I, O.SR_P_1),
-      (O.SI_P_1, O.R, O.I),
-      (O.R, O.SI, O.SR_P_1),
+      #(O.I, O.I, O.SI_P_1),
+      #(O.R, O.I, O.SR_P_1),
+      #(O.SI_P_1, O.R, O.I),
+      #(O.R, O.SI, O.SR_P_1),
 
       
       #(O.I, O.SR, O.SI),
