@@ -80,7 +80,7 @@ def rebase(grid, A, B):
     
     return grid[A][B]
 
-def createRule(grid, RuleConstructor, A, B, C):
+def createRule(grid, RuleConstructor, A, B, C, inputs):
     if A == None or B == None or C==None:
         return None
     
@@ -88,7 +88,7 @@ def createRule(grid, RuleConstructor, A, B, C):
         print("Failed %s %s" % (A, B))
         return None
     
-    return RuleConstructor(A, B, C)
+    return RuleConstructor(A, B, C, inputs)
 
 def inv(A):
     if A == None:
@@ -102,10 +102,11 @@ def getOpListFromGrid(grid):
     return [(i, j, grid[i][j]) for i in OpList for j in OpList if grid[i][j] != None]
 
 class Rule:
-    def __init__(self, A, B, C):
+    def __init__(self, A, B, C, inputs):
         self.A = A
         self.B = B
         self.C = C
+        self.inputs = inputs
     
 
     @staticmethod 
@@ -117,7 +118,7 @@ class Rule:
         return None
     
     def str(self):
-        return self.__class__.__name__ + ' ' + str(self.A) + ' ' + str(self.B) + ' ' + str(self.C)
+        return self.__class__.__name__ + ' ' + str(self.A) + ' ↷ ' + str(self.B) + ' = ' + str(self.C) + '(' + ",".join([str(X) for X in self.inputs]) + ')'
 
 class Rule1(Rule):
     @staticmethod 
@@ -130,7 +131,7 @@ class Rule1(Rule):
         U = rebase(grid, A, B)
         
         
-        return createRule(grid, Rule1, U, inv(B), A)
+        return createRule(grid, Rule1, U, inv(B), A, operations)
 
 class Rule2(Rule):
 
@@ -144,7 +145,7 @@ class Rule2(Rule):
         Z = rebase(grid, A, A)
         
         
-        return createRule(grid, Rule2, inv(A), Z, inv(Z))
+        return createRule(grid, Rule2, inv(A), Z, inv(Z), operations)
 
 class Rule3(Rule):
 
@@ -159,7 +160,7 @@ class Rule3(Rule):
         V = rebase(grid, U, B)
         W = rebase(grid, A, B)
         
-        return createRule(grid, Rule3, V, W, inv(W))
+        return createRule(grid, Rule3, V, W, inv(W), operations)
 
 class Rule4(Rule):
 
@@ -174,7 +175,7 @@ class Rule4(Rule):
         V = rebase(grid, inv(A), inv(A))
         W = findOpFromBandC(grid, U, inv(U))
         
-        return createRule(grid, Rule4, V, B, W)
+        return createRule(grid, Rule4, V, B, W, operations)
 
 class Rule5(Rule):
 
@@ -187,7 +188,7 @@ class Rule5(Rule):
         A,B = operations
         X = findOpFromBandC(grid, B, A)
         
-        return createRule(grid, Rule5, A, inv(B), X)
+        return createRule(grid, Rule5, A, inv(B), X, operations)
 
 class Rule6(Rule):
 
@@ -203,7 +204,7 @@ class Rule6(Rule):
         U = rebase(grid, T, B)
         V = rebase(grid, inv(A), B)
                 
-        return createRule(grid, Rule6, V, U, inv(U))
+        return createRule(grid, Rule6, V, U, inv(U), operations)
 
 class InsertRule(Rule):
 
@@ -229,7 +230,7 @@ class InsertRule(Rule):
         if A.name == 'R' and s_A == 1:
             return None
         
-        if s_B > 0:
+        if p_A == p_B and s_B > 0:
             return None
 
         if p_A > p_B:
@@ -238,17 +239,17 @@ class InsertRule(Rule):
             
             if A.name != 'CR':
                 if s_A == 0:
-                    r = createRule(grid, InsertRule, A, B, A.modifyParam('p', 1))
+                    r = createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
                     #if r != None:
                     #    print('createdRule ' + r.str())
                     return r
                 else:
-                    r = createRule(grid, InsertRule, A, B, A.modifyParam('s', -1))
+                    r = createRule(grid, InsertRule, A, B, A.modifyParam('s', -1), operations)
                     #if r != None:
                     #    print('createdRule ' + r.str())
                     return r
         else:
-            return createRule(grid, InsertRule, A, B, A)
+            return createRule(grid, InsertRule, A, B, A, operations)
 
         return None
 
@@ -272,22 +273,41 @@ class RemoveRule(Rule):
         
         if A.name == 'R' and s_A == 0:
             return None
+        
+        #if A.name == 'I' and s_A + 1 == s_B:
+        #    return None
 
-        if s_B > 0:
+        if p_A == p_B and s_B > 0:
             return None
 
         if p_A > p_B:
-            return createRule(grid, RemoveRule, A, B, A.modifyParam('p', -1))
+            return createRule(grid, RemoveRule, A, B, A.modifyParam('p', -1), operations)
         elif p_A == p_B:
-            r = createRule(grid, RemoveRule, A, B, A.modifyParam('s', 1))
+            r = createRule(grid, RemoveRule, A, B, A.modifyParam('s', 1), operations)
             if r != None:
                 print('createdRule ' + r.str())
             return r
         else:
-            return createRule(grid, InsertRule, A, B, A)
+            return createRule(grid, RemoveRule, A, B, A, operations)
 
         return None
-rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
+
+class ShiftRightRule(Rule):
+
+    @staticmethod 
+    def getNumInputs():
+        return 2
+    
+    @staticmethod 
+    def apply(grid, operations):
+        A,B = operations
+        
+        C = rebase(grid, A, B)
+        
+        if C != None:
+            return createRule(grid, ShiftRightRule, A.modifyParam('p', 1), B.modifyParam('p', 1), C.modifyParam('p', 1), operations)
+
+rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6]
 #rules = [Rule1, Rule3]
 def findOperations(operations, knownEntries, rules):
     grid = {}
@@ -422,12 +442,14 @@ class O:
     R_1 = I_1.inv()
     CR = Op('CR', 'CI', ['p', 's'])
     CI = CR.inv()
-    CR_1 = CR.modifyParam('s', 1)
-    CI_1 = CR_1.inv()
+    SCR = CR.modifyParam('s', 1)
+    SCI = SCR.inv()
     SI = I.modifyParam('s', 1)
     SR = SI.inv()
     SI_1 = SI.modifyParam('s', 1)
     SR_1 = SI_1.inv()
+    SI_P_1 = SI.modifyParam('p', 1)
+    SR_P_1 = SI_P_1.inv()
     
 
 #%% Test for the full system
@@ -437,29 +459,51 @@ entriesInBestGrid = 0
 fullGridRun = findOperations(
     [
      O.I, O.R,
-     O.CR,O.CI,
-     O.SR,O.SI,
+     O.CI,O.CR,
+     O.SI,O.SR,
      O.I_1, O.R_1,
-     O.CR_1,O.CI_1,
-     O.SR_1,O.SI_1,
+     O.SCI,O.SCR,
+     O.SI_1,O.SR_1,
+     O.SI_P_1, O.SR_P_1
     ],
     [
-      (O.I, O.I, O.I_1),
+      #(O.I, O.I, O.I_1),
       (O.I, O.R, O.SI),
       (O.R, O.R, O.CR),
-      (O.R, O.I, O.R_1),
+      #(O.R, O.I, O.R_1),
       (O.R, O.CR, O.R),
 
-      (O.CR, O.R, O.CR_1),
-      (O.CI, O.CR, O.CI_1),
-      (O.SI, O.I, O.I),
+      #(O.CR, O.R, O.SCR),
+      #(O.CI, O.CR, O.SCI),
+      #(O.SI, O.I, O.I),
       
-      (O.SI, O.R, O.SI_1),
+      #(O.SI, O.R, O.SI_1),
       #(O.SR, O.SI, O.SR_1),
       #(O.SR, O.SR, O.CR_1),
       
-      (O.I_1, O.R, O.I),
-      (O.R_1, O.R, O.R),
+      # Follows from I * R -> R = (I -> R) * (R -> R -> R -> (I->R) ) = SI^-1 = SCR -> SI
+      #(O.SCR, O.SI, O.SR),
+      
+      #(O.I_1, O.R, O.I),
+      #(O.R_1, O.R, O.R),
+      #(O.R, O.R_1, O.R),
+
+      #(O.R, O.R_1, O.SR.modifyParam('p', 1)),
+      
+      # Experiments I I
+      (O.I, O.I, O.SI_P_1),
+      (O.R, O.I, O.SR_P_1),
+      (O.SI_P_1, O.R, O.I),
+      (O.R, O.SI, O.SR_P_1),
+
+      
+      #(O.I, O.SR, O.SI),
+      #(O.I_1, O.SR, O.I),
+      #(O.SI, O.SR, O.SI_1),
+      #(O.R, O.SR, O.CR),
+      #(O.SI, O.SR, O.I),
+      #(O.I, O.SI, O.I_1),
+
 
 # Theories:
 #      (O.SI, O.CR, O.SI_1),
