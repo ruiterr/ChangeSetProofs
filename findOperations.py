@@ -313,7 +313,8 @@ class ShiftRightRule(Rule):
         if C != None:
             return createRule(grid, ShiftRightRule, A.modifyParam('p', 1), B.modifyParam('p', 1), C.modifyParam('p', 1), operations)
 
-rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule, ShiftRightRule]
+#rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule, ShiftRightRule]
+rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, ShiftRightRule]
 #rules = [Rule1, Rule3]
 def findOperations(operations, knownEntries, rules):
     grid = {}
@@ -477,13 +478,13 @@ fullGridRun = findOperations(
     ],
     [
       (O.I, O.I, O.CI),
-      (O.R, O.R, O.CR),
-      (O.CR, O.I, O.R),
-      (O.I, O.CR, O.CI),
+      #(O.R, O.R, O.CR),
+      #(O.CR, O.I, O.R),
+      #(O.I, O.CR, O.CI),
       
-      (O.CI, O.I, O.CI_C2),
-      (O.CI_C2, O.R, O.CI),
-      (O.CI, O.R, O.I),
+      #(O.CI, O.I, O.CI_C2),
+      #(O.CI_C2, O.R, O.CI),
+      #(O.CI, O.R, O.I),
       #(O.R, O.I, O.R_1),
       #(O.R, O.CR, O.R),
 
