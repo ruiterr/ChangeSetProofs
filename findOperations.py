@@ -30,29 +30,49 @@ class Op:
         registrationName = base
         
         for name, value in zip(paramNames, paramValues):
-            if value > 0:
-                registrationName += '_' + name + '+' + str(value)
-            if value < 0:
-                registrationName += '_' + name  + str(value)
+            if type(value) == int:
+                if value > 0:
+                    registrationName += '_' + name + '+' + str(value)
+                if value < 0:
+                    registrationName += '_' + name  + str(value)
+            if type(value) == str:
+                registrationName += '_' + str(value)
+            if type(value) == list:
+                if (len(value) > 0):
+                    registrationName += '_s=' + "".join(value)
         
         return registrationName
     
-    def modifyParam(self, name, delta):
+    def modifyParam(self, name, delta, op="push"):
         newParamValues = list(self.paramValues)
         paramIndex = self.paramNames.index(name)
-        newParamValues[paramIndex] += delta
         
+        if type(newParamValues[paramIndex]) == int:
+            newParamValues[paramIndex] += delta
+        elif type(newParamValues[paramIndex]) == str:
+            newParamValues[paramIndex] = delta
+        elif type(newParamValues[paramIndex]) == list:
+            newParamValues[paramIndex] = list(newParamValues[paramIndex])
+            if op == "push":
+                newParamValues[paramIndex].append(delta)
+            if op == "pop":
+                newParamValues[paramIndex].pop()
+        
+        return self.getFromParams(newParamValues)
+    
+    def getParam(self, name):
+        paramIndex = self.paramNames.index(name)
+        return self.paramValues[paramIndex]
+    
+    def getFromParams(self, newParamValues):
         newOpName = self.getRegistrationName(self.name, self.paramNames, newParamValues)
+        
         if newOpName in allOperations:
             return allOperations[newOpName]
         
         newOp = Op(self.name, self.inverse, self.paramNames, newParamValues)
         return newOp
     
-    def getParam(self, name):
-        paramIndex = self.paramNames.index(name)
-        return self.paramValues[paramIndex]
-
 def findOpFromBandC(grid, B, C):
     if B == None:
         return None
@@ -443,25 +463,32 @@ def backtrackingSearch(operations, extraOps, knownEntries, rules, solutionsToFin
     
 #%% Define Operations
 class O:
-    I = Op('I', 'R', ['i', 'p', 's'])
+    I = Op('I', 'R', ['i', 'p', 's', 'c'], ["i", 0, [], 0])
     R = I.inv()
-    I_1 = I.modifyParam('p', 1)
-    R_1 = I_1.inv()
-    CR = Op('CR', 'CR^-1', ['i', 'p', 's'])
-    CRInv = CR.inv()
-    CI = Op('CI', 'CI^-1', ['i', 'p', 's', 'ci','cci'])
-    CIInv = CI.inv()
-    CI_1 = CI.modifyParam('cci', 1)
-    CIInv_1 = CI_1.inv()
-    SCR = CR.modifyParam('s', 1)
-    SCI = SCR.inv()
-    SI = I.modifyParam('s', 1)
-    SR = SI.inv()
-    SI_1 = SI.modifyParam('s', 1)
-    SR_1 = SI_1.inv()
-    SI_P_1 = SI.modifyParam('p', 1)
-    SR_P_1 = SI_P_1.inv()
-    
+
+
+for i in ["i", "j"]:
+    I1 = O.I.modifyParam('i', i)
+    R1 = O.R.modifyParam('i', i)
+    for p in [-1, 0, 1]:
+        I2 = I1.modifyParam('p', p)
+        R2 = R1.modifyParam('p', p)
+        for s in [[], ["i"], ["i","j"]]:
+            I3 = I2
+            R3 = R2
+            for value in s:
+                I3 = I3.modifyParam('s', value, "push")
+                R3 = R3.modifyParam('s', value, "push")
+
+            for c in [-1, 0, 1]:
+                I4 = I3.modifyParam('c', c)
+                R4 = R3.modifyParam('c', c)
+                
+                print(I4)
+                setattr(O, str(I4), I4)
+                setattr(O, str(R4), R4)
+                
+    OpArray = O.__dict__.values()
 
 #%% Test for the full system
 bestFoundGrid = None
