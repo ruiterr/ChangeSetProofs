@@ -43,20 +43,22 @@ class Op:
         
         return registrationName
     
-    def modifyParam(self, name, delta, op="push"):
+    def modifyParam(self, name, value, op="push"):
         newParamValues = list(self.paramValues)
         paramIndex = self.paramNames.index(name)
         
         if type(newParamValues[paramIndex]) == int:
-            newParamValues[paramIndex] += delta
+            newParamValues[paramIndex] += value
         elif type(newParamValues[paramIndex]) == str:
-            newParamValues[paramIndex] = delta
+            newParamValues[paramIndex] = value
         elif type(newParamValues[paramIndex]) == list:
             newParamValues[paramIndex] = list(newParamValues[paramIndex])
             if op == "push":
-                newParamValues[paramIndex].append(delta)
+                newParamValues[paramIndex].append(value)
             if op == "pop":
                 newParamValues[paramIndex].pop()
+            if op == "remove":
+                newParamValues[paramIndex].remove(value)
         
         return self.getFromParams(newParamValues)
     
@@ -239,40 +241,44 @@ class InsertRule(Rule):
         if B.name != 'I':
             return None
         
+        i_A = A.getParam('i')
         p_A = A.getParam('p')
         s_A = A.getParam('s')
+        c_A = A.getParam('c')
+        i_B = B.getParam('i')
         p_B = B.getParam('p')
         s_B = B.getParam('s')
+        c_B = A.getParam('c')
         
-        if A.name == 'I' and p_A == 0 and p_B == 0:
-            return None
-
-        if A.name == 'R' and p_A == 0 and p_B == 1:
-            return None
-
-        if A.name == 'R' and s_A == 1:
-            return None
-        
-        if p_A == p_B and s_B > 0:
-            return None
-
         if p_A > p_B:
-            return createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
-        elif p_A == p_B:
-            pass
-            if A.name != 'CI' and A.name != 'CR' and A.name != 'I' and A.name != 'R':
-                if s_A == 0:
-                    r = createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
-                    #if r != None:
-                    #    print('createdRule ' + r.str())
-                    return r
-                else:
-                    r = createRule(grid, InsertRule, A, B, A.modifyParam('s', -1), operations)
-                    #if r != None:
-                    #    print('createdRule ' + r.str())
-                    return r
-        else:
+            #  Is this a canceled operation?
+            if c_B == 0:
+                # Canceled operations don't affect the scaffolding
+                return createRule(grid, InsertRule, A, B, A, operations)
+            else:
+                # All operations at a higher position are just shifted
+                return createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
+        elif p_A < p_B:
+            # Operations at a lower position remain unchanged
             return createRule(grid, InsertRule, A, B, A, operations)
+        else:
+            # If operations are at the same position, we have to distinguish
+            # whether they are the same operation (based on their ID)
+            if i_A == i_B:
+                # If this is the same operation, we have to increase the cancelation counter
+                return createRule(grid, InsertRule, A, B, A.modifyParam('c', 1), operations)
+            else:    
+                # These are different operations. Is this a canceled operation?
+                if c_B == 0:
+                    # Canceled operations don't affect the scaffolding
+                    return createRule(grid, InsertRule, A, B, A, operations)
+                else:
+                    if i_B in s_A:
+                        # Remove the scaffolding entry, but keep position
+                        return createRule(grid, InsertRule, A, B, A.modifyParam('s', i_B, 'remove'), operations)
+                    else:
+                        # No scaffolding, so we shift position by one
+                        return createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
 
         return None
 
@@ -289,34 +295,40 @@ class RemoveRule(Rule):
         if B.name != 'R':
             return None
         
+        i_A = A.getParam('i')
         p_A = A.getParam('p')
         s_A = A.getParam('s')
+        c_A = A.getParam('c')
+        i_B = B.getParam('i')
         p_B = B.getParam('p')
         s_B = B.getParam('s')
+        c_B = A.getParam('c')
         
-        if A.name == 'R' and s_A == 0:
-            return None
-        
-        #if A.name == 'I' and s_A + 1 == s_B:
-        #    return None
-
-        if p_A == p_B and s_B > 0:
-            return None
-
         if p_A > p_B:
-            # Why do we have a contradiction here???
-            return None
-            return createRule(grid, RemoveRule, A, B, A.modifyParam('p', -1), operations)
-        elif p_A == p_B:
-            if A.name != 'CI':
-                r = createRule(grid, RemoveRule, A, B, A.modifyParam('s', 1), operations)
-                if r != None:
-                    print('createdRule ' + r.str())
-                    return r
+            #  Is this a canceled operation?
+            if c_B == 0:
+                # Canceled operations don't affect the scaffolding
+                return createRule(grid, InsertRule, A, B, A, operations)
+            else:
+                # All operations at a higher position are just shifted
+                return createRule(grid, InsertRule, A, B, A.modifyParam('p', -1), operations)
+        elif p_A < p_B:
+            # Operations at a lower position remain unchanged
+            return createRule(grid, InsertRule, A, B, A, operations)
         else:
-            return createRule(grid, RemoveRule, A, B, A, operations)
-
-        return None
+            # If operations are at the same position, we have to distinguish
+            # whether they are the same operation (based on their ID)
+            if i_A == i_B:
+                # If this is the same operation, we have to decrease the cancelation counter
+                return createRule(grid, InsertRule, A, B, A.modifyParam('c', -1), operations)
+            else:    
+                # These are different operations. Is this a canceled operation?
+                if c_B == 0:
+                    # Canceled operations don't affect the scaffolding
+                    return createRule(grid, InsertRule, A, B, A, operations)
+                else:
+                    # We add the ID to the scaffolding
+                    return createRule(grid, InsertRule, A, B, A.modifyParam('s', i_B, 'push'), operations)
 
 class ShiftRightRule(Rule):
 
@@ -333,7 +345,8 @@ class ShiftRightRule(Rule):
         if C != None:
             return createRule(grid, ShiftRightRule, A.modifyParam('p', 1), B.modifyParam('p', 1), C.modifyParam('p', 1), operations)
 
-rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule, ShiftRightRule]
+#rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
+rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
 #rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, ShiftRightRule]
 #rules = [Rule1, Rule3]
 def findOperations(operations, knownEntries, rules):
@@ -484,12 +497,27 @@ for i in ["i", "j"]:
                 I4 = I3.modifyParam('c', c)
                 R4 = R3.modifyParam('c', c)
                 
-                print(I4)
                 setattr(O, str(I4), I4)
                 setattr(O, str(R4), R4)
                 
-    OpArray = O.__dict__.values()
+    OpArray = [x for x in O.__dict__.values() if type(x) == Op]
 
+#%% Test for the full system
+bestFoundGrid = None
+entriesInBestGrid = 0
+
+fullGridRun = findOperations(
+    OpArray,
+    [],
+    rules
+)
+
+ops = gridToArray(fullGridRun[0])
+
+# Questions: What happens if SR is rebased with respect to I?
+#            What happens if a Scaffolded operation is rebased with respect to another scaffolded op?
+raise Error()
+    
 #%% Test for the full system
 bestFoundGrid = None
 entriesInBestGrid = 0
