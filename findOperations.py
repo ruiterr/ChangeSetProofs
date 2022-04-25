@@ -313,8 +313,8 @@ class ShiftRightRule(Rule):
         if C != None:
             return createRule(grid, ShiftRightRule, A.modifyParam('p', 1), B.modifyParam('p', 1), C.modifyParam('p', 1), operations)
 
-#rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule, ShiftRightRule]
-rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, ShiftRightRule]
+rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule, ShiftRightRule]
+#rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, ShiftRightRule]
 #rules = [Rule1, Rule3]
 def findOperations(operations, knownEntries, rules):
     grid = {}
@@ -447,10 +447,12 @@ class O:
     R = I.inv()
     I_1 = I.modifyParam('p', 1)
     R_1 = I_1.inv()
-    CR = Op('CR', 'CI', ['i', 'p', 's', 'c'])
-    CI = CR.inv()
-    CI_C2 = CI.modifyParam('c', 1)
-    CR_C2 = CI_C2.inv()
+    CR = Op('CR', 'CR^-1', ['i', 'p', 's'])
+    CRInv = CR.inv()
+    CI = Op('CI', 'CI^-1', ['i', 'p', 's', 'ci','cci'])
+    CIInv = CI.inv()
+    CI_1 = CI.modifyParam('cci', 1)
+    CIInv_1 = CI_1.inv()
     SCR = CR.modifyParam('s', 1)
     SCI = SCR.inv()
     SI = I.modifyParam('s', 1)
@@ -468,28 +470,31 @@ entriesInBestGrid = 0
 fullGridRun = findOperations(
     [
      O.I, O.R,
-     O.CI,O.CR,
+     O.CI,O.CIInv,
+     O.CI_1, O.CIInv_1,
+
+     O.CR,O.CRInv,
      O.SI,O.SR,
      O.I_1, O.R_1,
      O.SCI,O.SCR,
      O.SI_1,O.SR_1,
-     O.SI_P_1, O.SR_P_1,
-     O.CI_C2, O.CR_C2
+     O.SI_P_1, O.SR_P_1
     ],
     [
       (O.I, O.I, O.CI),
-      #(O.R, O.R, O.CR),
-      #(O.CR, O.I, O.R),
-      #(O.I, O.CR, O.CI),
+      (O.CI, O.CI, O.CI_1),
+      (O.R, O.R, O.CR),
+      (O.CR, O.I, O.R),
+      #(O.I, O.CR, O.CRInv),
       
-      #(O.CI, O.I, O.CI_C2),
-      #(O.CI_C2, O.R, O.CI),
-      #(O.CI, O.R, O.I),
+      #(O.CRInv, O.I, O.CI_C2),
+      #(O.CI_C2, O.R, O.CRInv),
+      #(O.CRInv, O.R, O.I),
       #(O.R, O.I, O.R_1),
       #(O.R, O.CR, O.R),
 
       #(O.CR, O.R, O.SCR),
-      #(O.CI, O.CR, O.SCI),
+      #(O.CRInv, O.CR, O.SCI),
       #(O.SI, O.I, O.I),
       
       #(O.SI, O.R, O.SI_1),
