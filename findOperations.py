@@ -107,7 +107,7 @@ def createRule(grid, RuleConstructor, A, B, C, inputs):
         return None
     
     if (not A in grid) or (not B in grid):
-        print("Failed %s %s" % (A, B))
+        #print("Failed %s %s" % (A, B))
         return None
     
     return RuleConstructor(A, B, C, inputs)
@@ -248,11 +248,28 @@ class InsertRule(Rule):
         i_B = B.getParam('i')
         p_B = B.getParam('p')
         s_B = B.getParam('s')
-        c_B = A.getParam('c')
+        c_B = B.getParam('c')
         
+        #if i_A == i_B and (len(s_A) != 0 or len(s_B) != 0):
+        #    return None
+        #if i_A == i_B and (c_A != 0 or c_B != 0):
+        #    return None
+        #if c_A != 0 or c_B != 0:
+        #    return None
+        #if len(s_B) != 0:
+        #if len(s_B) != 0:
+        #    return None
+        #if i_B in s_A and p_A == p_B+1:
+            # Keep unchanged
+            #return createRule(grid, InsertRule, A, B, A, operations)
+            #return createRule(grid, InsertRule, A, B, A.modifyParam('s', i_B, 'remove'), operations)
+        #    return None
+        #if p_A != p_B:
+        #    return None
+
         if p_A > p_B:
             #  Is this a canceled operation?
-            if c_B == 0:
+            if c_B != 0:
                 # Canceled operations don't affect the scaffolding
                 return createRule(grid, InsertRule, A, B, A, operations)
             else:
@@ -269,7 +286,7 @@ class InsertRule(Rule):
                 return createRule(grid, InsertRule, A, B, A.modifyParam('c', 1), operations)
             else:    
                 # These are different operations. Is this a canceled operation?
-                if c_B == 0:
+                if c_B != 0:
                     # Canceled operations don't affect the scaffolding
                     return createRule(grid, InsertRule, A, B, A, operations)
                 else:
@@ -302,33 +319,51 @@ class RemoveRule(Rule):
         i_B = B.getParam('i')
         p_B = B.getParam('p')
         s_B = B.getParam('s')
-        c_B = A.getParam('c')
+        c_B = B.getParam('c')
         
+        #if i_A == i_B and (len(s_A) != 0 or len(s_B) != 0):
+        #    return None
+       # if i_A == i_B and (c_A != 0 or c_B != 0):
+       #     return None
+        if i_A == i_B and (p_A == p_B+1):
+            return None
+        #if c_A != 0 or c_B != 0:
+        #    return None
+        #if len(s_B) != 0:
+        #    return None
+        if i_B in s_A and p_A == p_B+1:
+            # Keep unchanged
+            #return createRule(grid, InsertRule, A, B, A, operations)
+            #return createRule(grid, RemoveRule, A, B, A.modifyParam('s', i_B, 'push'), operations)
+            return None
+        #if p_A != p_B:
+        #    return None
+
         if p_A > p_B:
             #  Is this a canceled operation?
-            if c_B == 0:
+            if c_B != 0:
                 # Canceled operations don't affect the scaffolding
-                return createRule(grid, InsertRule, A, B, A, operations)
+                return createRule(grid, RemoveRule, A, B, A, operations)
             else:
                 # All operations at a higher position are just shifted
-                return createRule(grid, InsertRule, A, B, A.modifyParam('p', -1), operations)
+                return createRule(grid, RemoveRule, A, B, A.modifyParam('p', -1), operations)
         elif p_A < p_B:
             # Operations at a lower position remain unchanged
-            return createRule(grid, InsertRule, A, B, A, operations)
+            return createRule(grid, RemoveRule, A, B, A, operations)
         else:
             # If operations are at the same position, we have to distinguish
             # whether they are the same operation (based on their ID)
             if i_A == i_B:
                 # If this is the same operation, we have to decrease the cancelation counter
-                return createRule(grid, InsertRule, A, B, A.modifyParam('c', -1), operations)
+                return createRule(grid, RemoveRule, A, B, A.modifyParam('c', -1), operations)
             else:    
                 # These are different operations. Is this a canceled operation?
-                if c_B == 0:
+                if c_B != 0:
                     # Canceled operations don't affect the scaffolding
-                    return createRule(grid, InsertRule, A, B, A, operations)
+                    return createRule(grid, RemoveRule, A, B, A, operations)
                 else:
                     # We add the ID to the scaffolding
-                    return createRule(grid, InsertRule, A, B, A.modifyParam('s', i_B, 'push'), operations)
+                    return createRule(grid, RemoveRule, A, B, A.modifyParam('s', i_B, 'push'), operations)
 
 class ShiftRightRule(Rule):
 
@@ -345,8 +380,10 @@ class ShiftRightRule(Rule):
         if C != None:
             return createRule(grid, ShiftRightRule, A.modifyParam('p', 1), B.modifyParam('p', 1), C.modifyParam('p', 1), operations)
 
-#rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
 rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
+# rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
+#rules = [Rule1, InsertRule, RemoveRule]
+#rules = [InsertRule, RemoveRule]
 #rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, ShiftRightRule]
 #rules = [Rule1, Rule3]
 def findOperations(operations, knownEntries, rules):
@@ -376,7 +413,7 @@ def findOperations(operations, knownEntries, rules):
                 result = r.apply(grid, ops)
                 
                 if result != None:
-                    print("Rule %s" %(result))
+                    #print("Rule %s" %(result))
                     currentEntry = grid[result.A][result.B]
                     
                     if currentEntry == result.C:
@@ -392,7 +429,7 @@ def findOperations(operations, knownEntries, rules):
                     if currentEntry != result.C:
                         #print(len(ops))
                         print("Collision found for rule %s (input %s) operations: %s %s. Existing entry %s new Entry %s" % (r, ",".join([str(X) for X in ops]), result.A, result.B, currentEntry, result.C))
-                        return None
+                        #return None
                     
     return (grid, appliedRules)
 
