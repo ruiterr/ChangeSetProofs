@@ -266,56 +266,128 @@ Lemma rebaseOperatrionLeftDistibutivity: ∀(A B: Operation), ((((Some A) ↷ₒ
                                           (((Some A) ↷ₒ (Some B)) ↷ₒ (Some (B⁻¹ᵒ))) = None).
 intros.
 destruct B eqn:H_B.
-all: unfold invertOperation.
-destruct A eqn:H_A.
+all: (
+  unfold invertOperation;
+  destruct A eqn:H_A;
 
-destruct (p ?= p0) eqn:H_pCmpP0.
-try apply nat_compare_eq in H_pCmpP0 as H_pRelP0.
-try apply nat_compare_Lt_lt in H_pCmpP0 as H_pRelP0.
-try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0.
-first [
-  (assert (p =? p0 = false) as H_peqP0; only 1: solve_nat)|
-  (assert (p =? p0 = true) as H_peqP0; only 1: solve_nat)
-].
-first [
-  (assert (p0 =? p = false) as H_p0eqP; only 1: solve_nat)|
-  (assert (p0 =? p = true) as H_p0eqP; only 1: solve_nat)
-].
-first [
-  (assert (p <? p0 = false) as H_pltP0; only 1: solve_nat)|
-  (assert (p <? p0 = true) as H_pltP0; only 1: solve_nat)
-].
-first [
-  (assert (p0 <? p = false) as H_p0ltP; only 1: solve_nat)|
-  (assert (p0 <? p = true) as H_p0ltP; only 1: solve_nat)
-].
-
-destruct (c ?= c0)%Z eqn:H_cCmpC0.
-try apply Z.compare_eq in H_cCmpC0 as H_cRelC0.
-try apply Z.compare_lt_iff in H_cCmpC0 as H_cRelC0.
-try apply Z.compare_gt_iff in H_cCmpC0 as H_cRelC0.
-first [
-  (assert ((c =? c0) = false)%Z; only 1: solve_nat)|
-  (assert ((c =? c0) = true)%Z; only 1: solve_nat)
-].
-first [
-  (assert (c <? c0 = false)%Z; only 1: solve_nat)|
-  (assert (c <? c0 = true)%Z; only 1: solve_nat)
-].
-destruct (i0 =? i) eqn:H_iCmpi0.
+  destruct (p ?= p0) eqn:H_pCmpP0;
+  try apply nat_compare_eq in H_pCmpP0 as H_pRelP0;
+  try apply nat_compare_Lt_lt in H_pCmpP0 as H_pRelP0;
+  try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0;
+  first [
+    (assert (p =? p0 = false) as H_peqP0; only 1: solve_nat)|
+    (assert (p =? p0 = true) as H_peqP0; only 1: solve_nat)
+  ];
+  first [
+    (assert (p0 =? p = false) as H_p0eqP; only 1: solve_nat)|
+    (assert (p0 =? p = true) as H_p0eqP; only 1: solve_nat)
+  ];
+  first [
+    (assert (p <? p0 = false) as H_pltP0; only 1: solve_nat)|
+    (assert (p <? p0 = true) as H_pltP0; only 1: solve_nat)
+  ];
+  first [
+    (assert (p0 <? p = false) as H_p0ltP; only 1: solve_nat)|
+    (assert (p0 <? p = true) as H_p0ltP; only 1: solve_nat)
+  ]
+).
 
 
-unfold rebaseOperation.
-unfold getOpI.
-unfold getOpP.
-unfold getOpC.
-unfold getOpS.
+all: (
+  destruct (c ?= c0)%Z eqn:H_cCmpC0;
+  try apply Z.compare_eq in H_cCmpC0 as H_cRelC0;
+  try apply Z.compare_lt_iff in H_cCmpC0 as H_cRelC0;
+  try apply Z.compare_gt_iff in H_cCmpC0 as H_cRelC0;
+  try rewrite Z.compare_gt_iff in H_cCmpC0;
+  try rewrite Z.compare_lt_iff in H_cRelC0
+).
 
-autorewrite with solve_rebase.
+all: (
+  first [
+    (assert ((c =? c0) = false)%Z; only 1: solve_nat)|
+    (assert ((c =? c0) = true)%Z; only 1: solve_nat)
+  ];
+  first [
+    (assert (c <? c0 = false)%Z; only 1: solve_nat)|
+    (assert (c <? c0 = true)%Z; only 1: solve_nat)
+  ];
+  destruct (i0 =? i) eqn:H_iCmpi0
+).
 
+all: (
+  unfold rebaseOperation;
+  unfold getOpI;
+  unfold getOpP;
+  unfold getOpC;
+  unfold getOpS
+).
+
+all: repeat (
+  autorewrite with solve_rebase;
+  try rewrite H_pltP0;
+  try rewrite H_p0ltP;
+  try rewrite H_iCmpi0;
+  try rewrite H_p0ltP;
+  try rewrite H_p0eqP;
+  try rewrite H_pltP0;
+  try rewrite H_iCmpi0;
+  try unfold negb;
+  try simpl;
+  auto
+).
+
+all: destruct (c =? 0)%Z eqn:H_cEqC0.
+
+all: repeat (
+  autorewrite with solve_rebase;
+  try rewrite H_pltP0;
+  try rewrite H_p0ltP;
+  try rewrite H_iCmpi0;
+  try rewrite H_p0ltP;
+  try rewrite H_p0eqP;
+  try rewrite H_pltP0;
+  try rewrite H_iCmpi0;
+  try unfold negb;
+  try simpl;
+  auto
+).
+
+all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
+all: repeat (
+  autorewrite with solve_rebase;
+  try rewrite H_pltP0;
+  try rewrite H_p0ltP;
+  try rewrite H_iCmpi0;
+  try rewrite H_p0ltP;
+  try rewrite H_p0eqP;
+  try rewrite H_pltP0;
+  try rewrite H_iCmpi0;
+  try rewrite H_iInS0;
+  try unfold negb;
+  try simpl;
+  auto
+).
+all: destruct ((p0 + 1) =? p) eqn:H_p0Plus1Eqp.
+all: destruct (p <? p0+1) eqn:H_pLtpPlus1Eqp.
+
+all: repeat (
+  autorewrite with solve_rebase;
+  try rewrite H_pltP0;
+  try rewrite H_p0ltP;
+  try rewrite H_iCmpi0;
+  try rewrite H_p0ltP;
+  try rewrite H_p0eqP;
+  try rewrite H_pltP0;
+  try rewrite H_iCmpi0;
+  try rewrite H_iInS0;
+  try unfold negb;
+  try simpl;
+  auto
+).
+
+(* try rewrite Nat.eqb_refl.
 try rewrite Nat.eqb_refl.
-try rewrite Nat.eqb_refl.
-try rewrite Nat.ltb_irrefl.
+try rewrite Nat.ltb_irrefl.*)
 unfold negb.
 simpl.
 rewrite H_pltP0.
