@@ -153,8 +153,7 @@ Fixpoint squashOpList (opsA opsB: list Operation) {struct opsB} :=
           (opsA ++ opsB)
 end.
 
-Definition squash (a b : ChangeSet) :=
-  match a, b with 
+Definition squash (a b : ChangeSet) := match a, b with 
     | CSet opsA, CSet opsB => (CSet (squashOpList opsA opsB))
     | _, _ => InvalidCSet
 end.
@@ -289,6 +288,34 @@ Definition rebaseOperation (oA oB : option Operation) :=
 end.
 
 Infix "↷" := rebaseOperation (at level 57, left associativity) : OptionOperation.
+
+Definition rebaseOperationWithChangeSet (a:Operation) (b : ChangeSet) := match b with
+  | CSet ops => match (fold_left rebaseOperation ((map (λ x:Operation, Some x)) ops) (Some a)) with
+                  | Some result => (CSet [result])
+                  | None => InvalidCSet
+                end
+  | InvalidCSet => InvalidCSet
+end.
+
+Fixpoint rebaseChangeSetOps (a : list Operation) (b : ChangeSet) {struct a}:= 
+    match a with
+      | [] => (CSet [])
+      | [opA] => (rebaseOperationWithChangeSet opA b)
+      | opA::Atail => 
+           let csA := (CSet [opA]) in 
+           let csA' := (CSet Atail) in 
+           let R1 := (rebaseOperationWithChangeSet opA b) in 
+           let R2 := (rebaseChangeSetOps Atail (csA⁻¹ ○ b ○ R1)%CS ) in 
+           (R1 ○ R2)%CS
+  end.
+
+Definition rebaseChangeSet (a b : ChangeSet) := match a with 
+    | CSet opsA => (rebaseChangeSetOps opsA b) 
+    | _ => InvalidCSet
+end.
+
+Infix "↷" := rebaseChangeSet (at level 57, left associativity) : ChangeSet.
+
 
 Lemma removeInsert: ∀(i:nat) (s: list nat), (i :: (removeFirst i s)) = s.
 give_up.
