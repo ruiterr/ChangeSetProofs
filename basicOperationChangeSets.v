@@ -173,6 +173,15 @@ Eval compute in (testInsertCS ○ testInsertCS⁻¹).
 
 Eval compute in (applyChangeSet "test" (CSet [(Insert 0 1 "-" 0 []); (Remove 0 2 "e" 0 [])])).
 
+Fixpoint removeFirst (n : nat) (l:list nat) := 
+  match l with
+    | [] => []
+    | x :: t => if (x =? n) then
+        t
+      else
+        x::(removeFirst n t)
+  end.
+
 (* Rebase logic for a single operation *)
 
 Open Scope nat.
@@ -193,11 +202,11 @@ Definition rebaseOperation (oA oB : option Operation) :=
             if p_B <? p_A then
                 (*  Is this a canceled operation? *)
                 if (c_B =? 0)%Z  then
-                    (* Canceled operations don't affect the scaffolding *)
-                    (Some A)
-                else
                     (* All operations at a higher position are just shifted *)
                     (Some (createOperation opTypeA i_A (p_A + 1) e_A c_A s_A))
+                else
+                    (* Canceled operations don't affect the position *)
+                    (Some A)
             else if p_A <? p_B then
                 (* Operations at a lower position remain unchanged *)
                 (Some A)
@@ -210,15 +219,15 @@ Definition rebaseOperation (oA oB : option Operation) :=
                 else
                     (* These are different operations. Is this a canceled operation? *)
                     if (c_B =? 0)%Z then
-                        (* Canceled operations don't affect the scaffolding *)
-                        (Some A)
-                    else 
                         if (existsb (fun x:nat => x =? i_B) s_A) then
                             (* Remove the scaffolding entry, but keep position *)
-                            (Some (createOperation opTypeA i_A p_A e_A c_A (remove Nat.eq_dec i_B s_A) ))
+                            (Some (createOperation opTypeA i_A p_A e_A c_A (removeFirst i_B s_A) ))
                         else
                             (* No scaffolding, so we shift position by one *)
                             (Some (createOperation opTypeA i_A (p_A + 1) e_A c_A s_A))
+                    else 
+                        (* Canceled operations don't affect the scaffolding *)
+                        (Some A)
         | Remove i_B p_B e_B c_B s_B =>
             if (negb (p_A =? p_B)) && ((i_A =? i_B) || (existsb (fun x:nat => x =? i_B) s_A)) then
               None
@@ -229,7 +238,7 @@ Definition rebaseOperation (oA oB : option Operation) :=
                       (* All operations at a higher position are just shifted *)
                       (Some (createOperation opTypeA i_A (p_A - 1) e_A c_A s_A))
                   else
-                      (* Canceled operations don't affect the scaffolding *)
+                      (* Canceled operations don't affect the position *)
                       (Some A)
               else if p_A <? p_B then
                   (* Operations at a lower position remain unchanged *)
@@ -256,7 +265,15 @@ end.
 
 Infix "↷ₒ" := rebaseOperation (at level 57, no associativity).
 
-Lemma removeInsert: ∀(i:nat) (s: list nat), (i :: (remove Nat.eq_dec i s)) = s.
+Eval compute in (((Some (Insert 0 1 "a" 0 [1])) ↷ₒ (Some (Remove 1 1 "a" 0 []))) ↷ₒ (Some (Insert 1 1 "a" 0 [])) ).
+Eval compute in (((Some (Insert 0 1 "a" 0 [1])) ↷ₒ (Some (Remove 1 1 "a" 0 [])))).
+Eval compute in ((Some (Insert 0 1 "a" 0 [1; 1])) ↷ₒ (Some (Insert 1 1 "a" 0 [])) ).
+
+Eval compute in (remove Nat.eq_dec 1 [1;1]).
+Eval compute in (((Some (Insert 0 3 "a" 0 [])) ↷ₒ (Some (Insert 1 1 "a" 0 []))) ↷ₒ (Some (Remove 1 1 "a" 0 [])) ).
+
+
+Lemma removeInsert: ∀(i:nat) (s: list nat), (i :: (removeFirst i s)) = s.
 give_up.
 Admitted.
 
@@ -297,9 +314,9 @@ Ltac try_solve := repeat (
           let X_n := fresh in
           let Y_n := fresh in
           assert_bool X X_n;
-          assert_bool Y Y_n;
+          try assert_bool Y Y_n;
           rewrite X_n;
-          rewrite Y_n;
+          try rewrite Y_n;
           unfold negb
   end; 
   simpl;
@@ -368,7 +385,6 @@ all: try match goal with
     try try_solve
 end.
 
-Print Nat.eq_dec.
 all: try match goal with 
   | [ |- context[(?X =? 0)%Z]] => 
     destruct (X =? 0)%Z;
@@ -382,6 +398,21 @@ all: try match goal with
     destruct (existsb (λ x : nat, x =? Y) (remove Nat.eq_dec Y X));
     try try_solve
 end.
+
+all: destruct (p <? p0 -1) eqn:H_pGtp0; rewrite Nat.sub_add; try lia; auto.
+Qed.
+
+
+
+Eval compute in (((Some (Insert 0 3 "a" 0 [])) ↷ₒ (Some (Insert 1 1 "a" 0 [])))).
+
+Eval compute in (((Some (Insert 0 3 "a" 0 [])) ↷ₒ (Some (Insert 1 1 "a" 0 []))) ↷ₒ (Some (Remove 1 1 "a" 0 [])) ).
+
+Eval compute in (negb (p0 =? p)).
+Eval compute in (((Some (Insert 0 1 "a" 0 [1])) ↷ₒ (Some (Remove 1 1 "a" 0 []))) ↷ₒ (Some (Insert 1 1 "a" 0 [])) ).
+Eval compute in (((Some (Insert 0 1 "a" 0 [1])) ↷ₒ (Some (Remove 1 1 "a" 0 [])))).
+
+Eval compute in (remove Nat.eq_dec 1 [1;1]).
 
 assert ( (if (Nat.eq_dec i i) then A else B) = A).
 Check (Nat.eq_dec i i).
