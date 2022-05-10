@@ -226,11 +226,11 @@ Definition rebaseOperation (oA oB : option Operation) :=
               if p_B <? p_A then
                   (*  Is this a canceled operation? *)
                   if (c_B =? 0)%Z  then
-                      (* Canceled operations don't affect the scaffolding *)
-                      (Some A)
-                  else
                       (* All operations at a higher position are just shifted *)
                       (Some (createOperation opTypeA i_A (p_A - 1) e_A c_A s_A))
+                  else
+                      (* Canceled operations don't affect the scaffolding *)
+                      (Some A)
               else if p_A <? p_B then
                   (* Operations at a lower position remain unchanged *)
                   (Some A)
@@ -243,11 +243,11 @@ Definition rebaseOperation (oA oB : option Operation) :=
                   else
                       (* These are different operations. Is this a canceled operation? *)
                       if (c_B =? 0)%Z then
-                          (* Canceled operations don't affect the scaffolding *)
-                          (Some A)
-                      else 
                           (* We add the ID to the scaffolding *)
                           (Some (createOperation opTypeA i_A p_A e_A c_A (i_B::s_A)))
+                      else 
+                          (* Canceled operations don't affect the scaffolding *)
+                          (Some A)
     end
     | None => None
     end
@@ -256,11 +256,58 @@ end.
 
 Infix "↷ₒ" := rebaseOperation (at level 57, no associativity).
 
+Lemma removeInsert: ∀(i:nat) (s: list nat), (i :: (remove Nat.eq_dec i s)) = s.
+give_up.
+Admitted.
+
 Create HintDb solve_rebase.
 Hint Rewrite Nat.eqb_refl : solve_rebase.
 Hint Rewrite Nat.ltb_irrefl : solve_rebase.
 Hint Rewrite Z.add_simpl_r : solve_rebase.
+Hint Rewrite andb_true_r : solve_rebase.
+Hint Rewrite orb_false_r : solve_rebase.
+Hint Rewrite removeInsert : solve_rebase.
+Hint Rewrite Nat.add_sub : solve_rebase.
+Hint Rewrite Z.sub_add : solve_rebase.
 
+
+Check Nat.eq_dec.
+Print nat_rec.
+
+Eval compute in (Nat.eq_dec 1 1).
+
+Ltac assert_bool exp name := 
+  first [
+    (assert (exp = false) as name; only 1: solve_nat)|
+    (assert (exp = true) as name; only 1: solve_nat)
+  ].
+
+Ltac try_solve := repeat (
+  try multimatch goal with
+      | [ |- context[if ?X then _ else _] ] => 
+          let Y := fresh in
+          assert_bool X Y;
+          rewrite Y
+      | [ |- context[if (negb ?X) then _ else _] ] => 
+          let Y := fresh in
+          assert_bool X Y;
+          rewrite Y;
+          unfold negb
+      | [ |- context[if (negb ?X) && ?Y then _ else _] ] => 
+          let X_n := fresh in
+          let Y_n := fresh in
+          assert_bool X X_n;
+          assert_bool Y Y_n;
+          rewrite X_n;
+          rewrite Y_n;
+          unfold negb
+  end; 
+  simpl;
+  try autorewrite with solve_rebase;
+  auto
+).
+
+Tactic Notation "assert_bool" constr(exp) ident(name) := assert_bool exp name.
 
 Lemma rebaseOperatrionLeftDistibutivity: ∀(A B: Operation), ((((Some A) ↷ₒ (Some B)) ↷ₒ (Some (B⁻¹ᵒ))) = (Some A) ∨
                                           (((Some A) ↷ₒ (Some B)) ↷ₒ (Some (B⁻¹ᵒ))) = None).
@@ -273,23 +320,7 @@ all: (
   destruct (p ?= p0) eqn:H_pCmpP0;
   try apply nat_compare_eq in H_pCmpP0 as H_pRelP0;
   try apply nat_compare_Lt_lt in H_pCmpP0 as H_pRelP0;
-  try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0;
-  first [
-    (assert (p =? p0 = false) as H_peqP0; only 1: solve_nat)|
-    (assert (p =? p0 = true) as H_peqP0; only 1: solve_nat)
-  ];
-  first [
-    (assert (p0 =? p = false) as H_p0eqP; only 1: solve_nat)|
-    (assert (p0 =? p = true) as H_p0eqP; only 1: solve_nat)
-  ];
-  first [
-    (assert (p <? p0 = false) as H_pltP0; only 1: solve_nat)|
-    (assert (p <? p0 = true) as H_pltP0; only 1: solve_nat)
-  ];
-  first [
-    (assert (p0 <? p = false) as H_p0ltP; only 1: solve_nat)|
-    (assert (p0 <? p = true) as H_p0ltP; only 1: solve_nat)
-  ]
+  try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0
 ).
 
 
@@ -302,17 +333,6 @@ all: (
   try rewrite Z.compare_lt_iff in H_cRelC0
 ).
 
-all: (
-  first [
-    (assert ((c =? c0) = false)%Z; only 1: solve_nat)|
-    (assert ((c =? c0) = true)%Z; only 1: solve_nat)
-  ];
-  first [
-    (assert (c <? c0 = false)%Z; only 1: solve_nat)|
-    (assert (c <? c0 = true)%Z; only 1: solve_nat)
-  ];
-  destruct (i0 =? i) eqn:H_iCmpi0
-).
 
 all: (
   unfold rebaseOperation;
@@ -321,6 +341,56 @@ all: (
   unfold getOpC;
   unfold getOpS
 ).
+
+all: destruct (i0 =? i) eqn:H_i0Eqi.
+
+
+all: try_solve.
+
+all: destruct (c0 =? 0)%Z eqn:H_cEq0.
+all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
+all: try rewrite H_iInS0.
+
+all: try_solve.
+all: try rewrite H_iInS0.
+all: try_solve.
+
+all: try match goal with 
+  | [ |- context[existsb (λ x : nat, x =? ?Y) (remove Nat.eq_dec ?Y ?X)]] => 
+    destruct (existsb (λ x : nat, x =? Y) (remove Nat.eq_dec Y X))
+end.
+
+all: try_solve.
+
+all: try match goal with 
+  | [ |- context[?X + 1 =? ?Y]] => 
+    destruct (X + 1 =? Y) eqn:H_eqP1;
+    try try_solve
+end.
+
+Print Nat.eq_dec.
+all: try match goal with 
+  | [ |- context[(?X =? 0)%Z]] => 
+    destruct (X =? 0)%Z;
+    try try_solve
+end.
+all: try rewrite H_iInS0.
+all: try_solve.
+
+all: try match goal with 
+  | [ |- context[existsb (λ x : nat, x =? ?Y) (remove Nat.eq_dec ?Y ?X)]] => 
+    destruct (existsb (λ x : nat, x =? Y) (remove Nat.eq_dec Y X));
+    try try_solve
+end.
+
+assert ( (if (Nat.eq_dec i i) then A else B) = A).
+Check (Nat.eq_dec i i).
+autorewrite with solve_rebase.
+
+try match goal with 
+  | [ |- context[?X + 1 =? ?Y]] => 
+    idtac X
+end.
 
 all: repeat (
   autorewrite with solve_rebase;
