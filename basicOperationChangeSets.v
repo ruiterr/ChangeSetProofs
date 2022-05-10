@@ -299,7 +299,10 @@ end.
 
 Fixpoint rebaseChangeSetOps (a : list Operation) (b : ChangeSet) {struct a}:= 
     match a with
-      | [] => (CSet [])
+      | [] => match b with 
+        | CSet _ => (CSet [])
+        | InvalidCSet => InvalidCSet
+        end
       | [opA] => (rebaseOperationWithChangeSet opA b)
       | opA::Atail => 
            let csA := (CSet [opA]) in 
@@ -509,6 +512,118 @@ Section distributivityProofs.
 
   Close Scope OO.
 End distributivityProofs.
+
+Section distributivityProofsChangeSet.
+  Variable A: ChangeSet.
+  Variable B: ChangeSet.
+  Variable C: ChangeSet.
+
+  Notation "⊘" := (CSet []).
+  Notation "⦻" := InvalidCSet.
+
+  Open Scope CS.
+  Lemma rebaseWithInvalid1: (A ↷ ⦻) = ⦻.
+    intros.
+    unfold rebaseChangeSet.
+    destruct A; auto.
+    unfold rebaseChangeSetOps.
+    induction ops.
+    - auto.
+    - destruct ops.
+      + unfold rebaseOperationWithChangeSet; auto.
+      + unfold rebaseOperationWithChangeSet. unfold squash. auto.
+  Qed.
+
+  Lemma rebaseWithInvalid2: (⦻ ↷ A) = ⦻.
+    intros.
+    now unfold rebaseChangeSet.
+  Qed.
+
+  Lemma squashEmptyLeft: ⊘ ○ A  = A.
+  intros.
+  unfold squash.
+  destruct A; auto.
+  unfold squashOpList.
+  f_equal.
+  induction ops; auto.
+  Qed.
+
+  Lemma squashEmptyRight:A ○ ⊘  = A.
+  intros.
+  unfold squash.
+  destruct A; auto.
+  unfold squashOpList.
+  f_equal.
+  induction ops; auto.
+  Qed.
+
+  Lemma squashInverseLeft: A ≠ ⦻ → A ○ A⁻¹  = ⊘.
+  intros.
+  unfold squash.
+  destruct A; try contradiction.
+  simpl.
+  f_equal.
+  unfold squashOpList.
+  assert (ops = rev (rev ops)) as H_ops. now rewrite rev_involutive.
+  assert (ops ≠ [] → (rev ops) = (last ops (Insert 0 0 "a" 0 [])) :: (rev (removelast ops))) as H_revOps. {
+    intros.
+    rewrite <-rev_unit.
+    now rewrite <-app_removelast_last.
+  }
+  induction (rev ops).
+  - unfold map. 
+    unfold rev in H_ops. 
+    now rewrite H_ops.
+  - unfold map.
+    destruct ops.
+    + (*unfold rev in H_ops.*)
+      assert (length ([] : list nat) = length (rev (a :: l))). { rewrite <-H_ops. reflexivity. }
+         
+  cbv iota.
+  unfold rev.
+  simpl app.
+  destruct (a::ops) eqn:H_ops.
+  - now cbv.
+  - rewrite <- H_ops.
+  Qed.
+  Lemma rebaseEmptyLeft: A ≠ ⦻ → ⊘ ↷ A  = ⊘.
+  intros.
+  cbn.
+  destruct A; auto.
+  contradiction.
+  Qed.
+
+  Lemma rebaseEmptyRight: A ≠ ⦻ → A ↷ ⊘  = A.
+  intros.
+  unfold rebaseChangeSet.
+  destruct A; auto.
+  unfold rebaseChangeSetOps.
+  induction ops; auto.
+  destruct ops.
+  - unfold rebaseOperationWithChangeSet. 
+    unfold fold_left. cbn. auto.
+  - replace (CSet [o]⁻¹ ○ ((CSet [a]⁻¹ ○ ⊘) ○ rebaseOperationWithChangeSet a ⊘)) with ⊘.
+    
+
+  Lemma rebaseLeftDistibutivity: A ↷ (B ○ C)  = A ↷ B ↷ C.
+    destruct A eqn:H_A.
+    destruct B eqn:H_B.
+    destruct C eqn:H_C.
+
+    (* solve cases with invalid changesets *)
+    2-4: now (
+       try unfold squash;
+       repeat first [
+         rewrite rebaseWithInvalid1 |
+         rewrite rebaseWithInvalid2
+       ]
+     ).
+    induction ops.
+
+
+
+  Lemma rebaseRightDistibutivity: (A ○ B) ↷ C  = sA ∨
+                                          sA ↷ sB ↷ sB⁻¹ = None.
 
 
 Check rebaseOperatrionRightDistibutivity.
