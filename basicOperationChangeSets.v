@@ -76,7 +76,25 @@ Definition invertOperation (op: Operation) := match op with
   | Remove i p e c s => Insert i p e c s
 end.
 
-Notation "a ⁻¹ᵒ" := (invertOperation a) (at level 55, no associativity, format "a '⁻¹ᵒ'").
+Definition invertOperationOption (op: option Operation) := 
+match op with
+  | Some o =>
+    match o with
+      | Insert i p e c s => Some (Remove i p e c s)
+      | Remove i p e c s => Some (Insert i p e c s)
+    end
+  | None => None
+end.
+
+Declare Scope Operation.
+Declare Scope OptionOperation.
+Declare Scope ChangeSet.
+Delimit Scope Operation with O.
+Delimit Scope OptionOperation with OO.
+Delimit Scope ChangeSet with CS.
+
+Notation "a ⁻¹" := (invertOperation a) (at level 55, no associativity, format "a '⁻¹'") : Operation.
+Notation "a ⁻¹" := (invertOperationOption a) (at level 55, no associativity, format "a '⁻¹'") : OptionOperation.
 
 
 Scheme Equality for OperationType.
@@ -143,7 +161,7 @@ Definition invert (a: ChangeSet) :=
   let (opsA) := a in
   (CSet (map invertOperation (rev opsA))).
 
-Notation "a ⁻¹" := (invert a) (at level 55, no associativity, format "a '⁻¹'").
+Notation "a ⁻¹" := (invert a) (at level 55, no associativity, format "a '⁻¹'") : ChangeSet.
 
 (* Helper function to create ChangeSets for ranges *)
 Definition InsertRange (i: nat) (p: nat) (t: string) := 
@@ -168,7 +186,7 @@ Eval compute in (squash (InsertRange 0 6 "cruel ") (RemoveRange 0 6 6 "Hello cru
 Eval compute in (applyChangeSet "Hello World" ( (InsertRange 0 6 "cruel ") ○ (RemoveRange 0 6 6 "Hello cruel World"))).
 
 Definition testInsertCS := (InsertRange 0 6 "cruel ").
-Eval compute in (testInsertCS ○ testInsertCS⁻¹).
+Eval compute in (testInsertCS ○ testInsertCS⁻¹)%CS.
 
 
 Eval compute in (applyChangeSet "test" (CSet [(Insert 0 1 "-" 0 []); (Remove 0 2 "e" 0 [])])).
@@ -263,15 +281,7 @@ Definition rebaseOperation (oA oB : option Operation) :=
   |None => None
 end.
 
-Infix "↷ₒ" := rebaseOperation (at level 57, no associativity).
-
-Eval compute in (((Some (Insert 0 1 "a" 0 [1])) ↷ₒ (Some (Remove 1 1 "a" 0 []))) ↷ₒ (Some (Insert 1 1 "a" 0 [])) ).
-Eval compute in (((Some (Insert 0 1 "a" 0 [1])) ↷ₒ (Some (Remove 1 1 "a" 0 [])))).
-Eval compute in ((Some (Insert 0 1 "a" 0 [1; 1])) ↷ₒ (Some (Insert 1 1 "a" 0 [])) ).
-
-Eval compute in (remove Nat.eq_dec 1 [1;1]).
-Eval compute in (((Some (Insert 0 3 "a" 0 [])) ↷ₒ (Some (Insert 1 1 "a" 0 []))) ↷ₒ (Some (Remove 1 1 "a" 0 [])) ).
-
+Infix "↷" := rebaseOperation (at level 57, left associativity) : OptionOperation.
 
 Lemma removeInsert: ∀(i:nat) (s: list nat), (i :: (removeFirst i s)) = s.
 give_up.
@@ -326,7 +336,80 @@ Ltac try_solve := repeat (
 
 Tactic Notation "assert_bool" constr(exp) ident(name) := assert_bool exp name.
 
-Lemma rebaseOperatrionLeftDistibutivity: ∀(A B: Operation), ((((Some A) ↷ₒ (Some B)) ↷ₒ (Some (B⁻¹ᵒ))) = (Some A) ∨
+Section distributivityProofs.
+  Variable A:Operation.
+  Variable B:Operation.
+  Let sA := Some A.
+  Let sB := Some B.
+
+  Open Scope OO.
+
+  Lemma rebaseOperatrionLeftDistibutivity: (sA ↷ sB)⁻¹  = sA⁻¹ ↷ sA⁻¹ ↷ sB ↷ (sA ↷ sB) ∨
+                                           (sA ↷ sB)⁻¹ = None.
+intros.
+destruct B eqn:H_B.
+all: (
+  unfold invertOperation;
+  destruct A eqn:H_A;
+
+  destruct (p ?= p0) eqn:H_pCmpP0;
+  try apply nat_compare_eq in H_pCmpP0 as H_pRelP0;
+  try apply nat_compare_Lt_lt in H_pCmpP0 as H_pRelP0;
+  try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0
+).
+
+
+all: (
+  destruct (c ?= c0)%Z eqn:H_cCmpC0;
+  try apply Z.compare_eq in H_cCmpC0 as H_cRelC0;
+  try apply Z.compare_lt_iff in H_cCmpC0 as H_cRelC0;
+  try apply Z.compare_gt_iff in H_cCmpC0 as H_cRelC0;
+  try rewrite Z.compare_gt_iff in H_cCmpC0;
+  try rewrite Z.compare_lt_iff in H_cRelC0
+).
+
+
+all: (
+  unfold rebaseOperation;
+  unfold getOpI;
+  unfold getOpP;
+  unfold getOpC;
+  unfold getOpS
+).
+
+all: destruct (i0 =? i) eqn:H_i0Eqi.
+
+
+all: try_solve.
+
+all: destruct (c0 =? 0)%Z eqn:H_cEq0.
+all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
+all: try rewrite H_iInS0.
+
+all: try_solve.
+all: try rewrite H_iInS0.
+all: try_solve.
+
+all: try_solve.
+
+all: try match goal with 
+  | [ |- context[?X + 1 =? ?Y]] => 
+    destruct (X + 1 =? Y) eqn:H_eqP1;
+    try try_solve
+end.
+
+all: try match goal with 
+  | [ |- context[(?X =? 0)%Z]] => 
+    destruct (X =? 0)%Z;
+    try try_solve
+end.
+all: try rewrite H_iInS0.
+all: try_solve.
+
+all: destruct (p <? p0 -1) eqn:H_pGtp0; rewrite Nat.sub_add; try lia; auto.
+Qed.
+
+Lemma rebaseOperatrionRightDistibutivity: ∀(A B: Operation), ((((Some A) ↷ₒ (Some B)) ↷ₒ (Some (B⁻¹ᵒ))) = (Some A) ∨
                                           (((Some A) ↷ₒ (Some B)) ↷ₒ (Some (B⁻¹ᵒ))) = None).
 intros.
 destruct B eqn:H_B.
@@ -372,11 +455,6 @@ all: try_solve.
 all: try rewrite H_iInS0.
 all: try_solve.
 
-all: try match goal with 
-  | [ |- context[existsb (λ x : nat, x =? ?Y) (remove Nat.eq_dec ?Y ?X)]] => 
-    destruct (existsb (λ x : nat, x =? Y) (remove Nat.eq_dec Y X))
-end.
-
 all: try_solve.
 
 all: try match goal with 
@@ -393,128 +471,11 @@ end.
 all: try rewrite H_iInS0.
 all: try_solve.
 
-all: try match goal with 
-  | [ |- context[existsb (λ x : nat, x =? ?Y) (remove Nat.eq_dec ?Y ?X)]] => 
-    destruct (existsb (λ x : nat, x =? Y) (remove Nat.eq_dec Y X));
-    try try_solve
-end.
-
 all: destruct (p <? p0 -1) eqn:H_pGtp0; rewrite Nat.sub_add; try lia; auto.
 Qed.
 
 
 
-Eval compute in (((Some (Insert 0 3 "a" 0 [])) ↷ₒ (Some (Insert 1 1 "a" 0 [])))).
-
-Eval compute in (((Some (Insert 0 3 "a" 0 [])) ↷ₒ (Some (Insert 1 1 "a" 0 []))) ↷ₒ (Some (Remove 1 1 "a" 0 [])) ).
-
-Eval compute in (negb (p0 =? p)).
-Eval compute in (((Some (Insert 0 1 "a" 0 [1])) ↷ₒ (Some (Remove 1 1 "a" 0 []))) ↷ₒ (Some (Insert 1 1 "a" 0 [])) ).
-Eval compute in (((Some (Insert 0 1 "a" 0 [1])) ↷ₒ (Some (Remove 1 1 "a" 0 [])))).
-
-Eval compute in (remove Nat.eq_dec 1 [1;1]).
-
-assert ( (if (Nat.eq_dec i i) then A else B) = A).
-Check (Nat.eq_dec i i).
-autorewrite with solve_rebase.
-
-try match goal with 
-  | [ |- context[?X + 1 =? ?Y]] => 
-    idtac X
-end.
-
-all: repeat (
-  autorewrite with solve_rebase;
-  try rewrite H_pltP0;
-  try rewrite H_p0ltP;
-  try rewrite H_iCmpi0;
-  try rewrite H_p0ltP;
-  try rewrite H_p0eqP;
-  try rewrite H_pltP0;
-  try rewrite H_iCmpi0;
-  try unfold negb;
-  try simpl;
-  auto
-).
-
-all: destruct (c =? 0)%Z eqn:H_cEqC0.
-
-all: repeat (
-  autorewrite with solve_rebase;
-  try rewrite H_pltP0;
-  try rewrite H_p0ltP;
-  try rewrite H_iCmpi0;
-  try rewrite H_p0ltP;
-  try rewrite H_p0eqP;
-  try rewrite H_pltP0;
-  try rewrite H_iCmpi0;
-  try unfold negb;
-  try simpl;
-  auto
-).
-
-all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
-all: repeat (
-  autorewrite with solve_rebase;
-  try rewrite H_pltP0;
-  try rewrite H_p0ltP;
-  try rewrite H_iCmpi0;
-  try rewrite H_p0ltP;
-  try rewrite H_p0eqP;
-  try rewrite H_pltP0;
-  try rewrite H_iCmpi0;
-  try rewrite H_iInS0;
-  try unfold negb;
-  try simpl;
-  auto
-).
-all: destruct ((p0 + 1) =? p) eqn:H_p0Plus1Eqp.
-all: destruct (p <? p0+1) eqn:H_pLtpPlus1Eqp.
-
-all: repeat (
-  autorewrite with solve_rebase;
-  try rewrite H_pltP0;
-  try rewrite H_p0ltP;
-  try rewrite H_iCmpi0;
-  try rewrite H_p0ltP;
-  try rewrite H_p0eqP;
-  try rewrite H_pltP0;
-  try rewrite H_iCmpi0;
-  try rewrite H_iInS0;
-  try unfold negb;
-  try simpl;
-  auto
-).
-
-(* try rewrite Nat.eqb_refl.
-try rewrite Nat.eqb_refl.
-try rewrite Nat.ltb_irrefl.*)
-unfold negb.
-simpl.
-rewrite H_pltP0.
-rewrite H_p0ltP.
-rewrite H_iCmpi0.
-rewrite H_p0ltP.
-rewrite H_p0eqP.
-simpl.
-rewrite H_pltP0.
-rewrite H_iCmpi0.
-rewrite Z.add_simpl_r.
-auto.
-crush.
-
-all: destruct ( (Nat.eqb p p) ) eqn:H_pEqp.
-all: destruct ( (Nat.eqb i i) ) eqn:H_iEqi.
-assert ( (Nat.eqb p p) = true). auto with solve_nat.
-assert ( (Nat.eqb i i) = true). auto with solve_nat.
-assert ( (Nat.ltb p p) = false). auto with solve_nat.
-simpl.
-rewrite ->H1.
-destruct B.
-destruct ( (p0<?p)).
-destruct ( (c0 =? 0)%Z).
-- auto.
-destrcut 
 
 Close Scope nat.
 
