@@ -522,10 +522,10 @@ Section distributivityProofsChangeSet.
   Notation "⦻" := InvalidCSet.
 
   Open Scope CS.
-  Lemma rebaseWithInvalid1: (A ↷ ⦻) = ⦻.
+  Lemma rebaseWithInvalid1: ∀X, (X ↷ ⦻) = ⦻.
     intros.
     unfold rebaseChangeSet.
-    destruct A; auto.
+    destruct X; auto.
     unfold rebaseChangeSetOps.
     induction ops.
     - auto.
@@ -534,76 +534,168 @@ Section distributivityProofsChangeSet.
       + unfold rebaseOperationWithChangeSet. unfold squash. auto.
   Qed.
 
-  Lemma rebaseWithInvalid2: (⦻ ↷ A) = ⦻.
+  Lemma rebaseWithInvalid2: ∀X, (⦻ ↷ X) = ⦻.
     intros.
     now unfold rebaseChangeSet.
   Qed.
 
-  Lemma squashEmptyLeft: ⊘ ○ A  = A.
+  Lemma squashEmptyLeft:  ∀X, ⊘ ○ X  = X.
   intros.
   unfold squash.
-  destruct A; auto.
+  destruct X; auto.
   unfold squashOpList.
   f_equal.
   induction ops; auto.
   Qed.
 
-  Lemma squashEmptyRight:A ○ ⊘  = A.
+  Lemma squashEmptyRight: ∀X, X ○ ⊘  = X.
   intros.
   unfold squash.
-  destruct A; auto.
+  destruct X; auto.
   unfold squashOpList.
   f_equal.
   induction ops; auto.
   Qed.
 
-  Lemma squashInverseLeft: A ≠ ⦻ → A ○ A⁻¹  = ⊘.
+  Lemma opInvertInvolution: ∀ op:Operation, ((op⁻¹)⁻¹) % O = op.
+  intros.
+  destruct op.
+  all: now cbv.
+  Qed.
+
+  Lemma cons_to_app: ∀(X:Type) (a : X) (l:list X), a::l = [a] ++ l.
+  intros.
+  now unfold app.
+  Qed.
+
+  Lemma list_neq_beq_refl: ∀(l: list nat), (list_beq nat Nat.eqb l l) = true.
+  intros.
+  unfold list_beq.
+  induction l; auto.
+  rewrite IHl.
+  now rewrite Nat.eqb_refl.
+  Qed.
+
+  Lemma Op_eqb_refl: ∀ op, Op_eqb op op = true.
+  intros.
+  unfold Op_eqb.
+  destruct op.
+  all: (
+    cbn;
+    repeat rewrite Nat.eqb_refl;
+    repeat rewrite Z.eqb_refl;
+    repeat rewrite Ascii.eqb_refl;
+    now repeat rewrite list_neq_beq_refl
+  ).
+  Qed.
+
+  Lemma squashInverseLeft: ∀X, X ≠ ⦻ → X ○ X⁻¹  = ⊘.
   intros.
   unfold squash.
-  destruct A; try contradiction.
+  destruct X; try contradiction.
   simpl.
   f_equal.
   unfold squashOpList.
-  assert (ops = rev (rev ops)) as H_ops. now rewrite rev_involutive.
-  assert (ops ≠ [] → (rev ops) = (last ops (Insert 0 0 "a" 0 [])) :: (rev (removelast ops))) as H_revOps. {
-    intros.
-    rewrite <-rev_unit.
-    now rewrite <-app_removelast_last.
-  }
-  induction (rev ops).
-  - unfold map. 
-    unfold rev in H_ops. 
-    now rewrite H_ops.
-  - unfold map.
-    destruct ops.
-    + (*unfold rev in H_ops.*)
-      assert (length ([] : list nat) = length (rev (a :: l))). { rewrite <-H_ops. reflexivity. }
-         
-  cbv iota.
-  unfold rev.
-  simpl app.
-  destruct (a::ops) eqn:H_ops.
-  - now cbv.
-  - rewrite <- H_ops.
+  rewrite <-rev_involutive with (l:=ops).
+  set (t:=(rev ops)) in *.
+  induction t.
+  - rewrite rev_involutive.
+    unfold map. 
+    now unfold rev at 1.
+  - rewrite rev_involutive.
+    rewrite map_cons.
+    destruct (rev (a :: t)) eqn:H_ops.
+    + contradict H_ops.
+      rewrite cons_to_app.
+      rewrite rev_app_distr.
+      unfold rev at 2.
+      rewrite app_nil_l.
+      auto with datatypes.
+    + rewrite opInvertInvolution.
+      rewrite <-H_ops.
+      rewrite cons_to_app at 1.
+      rewrite rev_app_distr.
+      unfold rev at 2.
+      rewrite app_nil_l.
+      rewrite last_last.
+      rewrite Op_eqb_refl.
+      rewrite cons_to_app.
+      rewrite rev_app_distr.
+      unfold rev at 2.
+      rewrite app_nil_l. 
+      rewrite removelast_last.
+      rewrite rev_involutive in IHt.
+      rewrite IHt; auto.
   Qed.
-  Lemma rebaseEmptyLeft: A ≠ ⦻ → ⊘ ↷ A  = ⊘.
+
+  Lemma changeSetInvertInvolution: ∀ X:ChangeSet, (X⁻¹)⁻¹ = X.
+  intros.
+  unfold invert.
+  destruct X; auto.
+  rewrite <-map_rev.
+  rewrite rev_involutive.
+  f_equal.
+  induction ops.
+  - now cbv.
+  - do 2 rewrite map_cons.
+    rewrite opInvertInvolution.
+    now rewrite IHops.
+  Qed.
+
+  Lemma squashInverseRight: ∀X:ChangeSet, X ≠ ⦻ → X⁻¹ ○ X  = ⊘.
+  intros.
+  rewrite <-changeSetInvertInvolution with (X:=X) at 2.
+  rewrite squashInverseLeft; auto.
+  unfold invert.
+  destruct X.
+  - discriminate.
+  - contradiction.
+  Qed.
+
+  Lemma rebaseEmptyLeft: ∀X, X ≠ ⦻ → ⊘ ↷ X  = ⊘.
   intros.
   cbn.
-  destruct A; auto.
+  destruct X; auto.
   contradiction.
   Qed.
 
-  Lemma rebaseEmptyRight: A ≠ ⦻ → A ↷ ⊘  = A.
+  Lemma rebaseOperationEmpty: ∀op:Operation, (rebaseOperationWithChangeSet op ⊘) = (CSet [op]).
+  intros.
+  unfold rebaseOperationWithChangeSet.  
+  unfold fold_left. 
+  now simpl.
+  Qed.
+  
+  Create HintDb changeset_simplificaton.
+  Hint Rewrite squashEmptyLeft : changeset_simplificaton.
+  Hint Rewrite squashEmptyRight : changeset_simplificaton.
+  Hint Rewrite squashInverseLeft : changeset_simplificaton.
+  Hint Rewrite squashInverseRight : changeset_simplificaton.
+  Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
+  Hint Rewrite rebaseEmptyLeft : changeset_simplificaton.
+  Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
+
+  Lemma rebaseEmptyRight: ∀X, X ≠ ⦻ → X ↷ ⊘  = X.
   intros.
   unfold rebaseChangeSet.
-  destruct A; auto.
+  destruct X; auto.
   unfold rebaseChangeSetOps.
   induction ops; auto.
   destruct ops.
   - unfold rebaseOperationWithChangeSet. 
     unfold fold_left. cbn. auto.
-  - replace (CSet [o]⁻¹ ○ ((CSet [a]⁻¹ ○ ⊘) ○ rebaseOperationWithChangeSet a ⊘)) with ⊘.
-    
+  - 
+    autorewrite with changeset_simplificaton in *.
+    rewrite IHops.
+    all: try discriminate.
+    unfold squash.
+    unfold squashOpList.
+    unfold last.
+    (* TODO: Within a changeset there are no adjacent inverse operations in the list *)
+    assert (Op_eqb a (o⁻¹)%O = false). give_up.
+    rewrite H0.
+    auto with *.
+  Admitted.
 
   Lemma rebaseLeftDistibutivity: A ↷ (B ○ C)  = A ↷ B ↷ C.
     destruct A eqn:H_A.
