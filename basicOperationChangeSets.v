@@ -130,11 +130,15 @@ Eval compute in (applyOperation "test" (Insert 0 1 "-" 0 [])).
 
 (* ChangeSets *)
 Inductive ChangeSet :=
-  | CSet (ops: list Operation).
+  | CSet (ops: list Operation)
+  | InvalidCSet.
 
-Definition applyChangeSet (str:string) (cs: ChangeSet) := 
-  let (ops) := cs in 
-  (fold_left applyOperation ops str).
+Definition applyChangeSet (str:string) (cs: ChangeSet) := match cs with 
+  | CSet ops =>
+    (fold_left applyOperation ops str)
+  | InvalidCSet =>
+    str
+end.
 
 (* Squash Operation *)
 Fixpoint squashOpList (opsA opsB: list Operation) {struct opsB} := 
@@ -150,16 +154,19 @@ Fixpoint squashOpList (opsA opsB: list Operation) {struct opsB} :=
 end.
 
 Definition squash (a b : ChangeSet) :=
-  let (opsA) := a in 
-  let (opsB) := b in 
-  (CSet (squashOpList opsA opsB)).
+  match a, b with 
+    | CSet opsA, CSet opsB => (CSet (squashOpList opsA opsB))
+    | _, _ => InvalidCSet
+end.
+
 
 Infix "○" := squash (at level 60).
 
 (* Invert operation *)
-Definition invert (a: ChangeSet) := 
-  let (opsA) := a in
-  (CSet (map invertOperation (rev opsA))).
+Definition invert (a: ChangeSet) := match a with 
+    | CSet opsA => (CSet (map invertOperation (rev opsA)))
+    | _ => InvalidCSet
+end.
 
 Notation "a ⁻¹" := (invert a) (at level 55, no associativity, format "a '⁻¹'") : ChangeSet.
 
@@ -346,136 +353,136 @@ Section distributivityProofs.
 
   Lemma rebaseOperatrionLeftDistibutivity: (sA ↷ sB)⁻¹  = sA⁻¹ ↷ sA⁻¹ ↷ sB ↷ (sA ↷ sB) ∨
                                            (sA ↷ sB)⁻¹ = None.
-intros.
-destruct B eqn:H_B.
-all: (
-  unfold invertOperation;
-  destruct A eqn:H_A;
+  intros.
+  destruct B eqn:H_B.
+  all: (
+    unfold invertOperation;
+    destruct A eqn:H_A;
 
-  destruct (p ?= p0) eqn:H_pCmpP0;
-  try apply nat_compare_eq in H_pCmpP0 as H_pRelP0;
-  try apply nat_compare_Lt_lt in H_pCmpP0 as H_pRelP0;
-  try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0
-).
-
-
-all: (
-  destruct (c ?= c0)%Z eqn:H_cCmpC0;
-  try apply Z.compare_eq in H_cCmpC0 as H_cRelC0;
-  try apply Z.compare_lt_iff in H_cCmpC0 as H_cRelC0;
-  try apply Z.compare_gt_iff in H_cCmpC0 as H_cRelC0;
-  try rewrite Z.compare_gt_iff in H_cCmpC0;
-  try rewrite Z.compare_lt_iff in H_cRelC0
-).
+    destruct (p ?= p0) eqn:H_pCmpP0;
+    try apply nat_compare_eq in H_pCmpP0 as H_pRelP0;
+    try apply nat_compare_Lt_lt in H_pCmpP0 as H_pRelP0;
+    try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0
+  ).
 
 
-all: (
-  unfold rebaseOperation;
-  unfold getOpI;
-  unfold getOpP;
-  unfold getOpC;
-  unfold getOpS
-).
-
-all: destruct (i0 =? i) eqn:H_i0Eqi.
-
-
-all: try_solve.
-
-all: destruct (c0 =? 0)%Z eqn:H_cEq0.
-all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
-all: try rewrite H_iInS0.
-
-all: try_solve.
-all: try rewrite H_iInS0.
-all: try_solve.
-
-all: try_solve.
-
-all: try match goal with 
-  | [ |- context[?X + 1 =? ?Y]] => 
-    destruct (X + 1 =? Y) eqn:H_eqP1;
-    try try_solve
-end.
-
-all: try match goal with 
-  | [ |- context[(?X =? 0)%Z]] => 
-    destruct (X =? 0)%Z;
-    try try_solve
-end.
-all: try rewrite H_iInS0.
-all: try_solve.
-
-all: destruct (p <? p0 -1) eqn:H_pGtp0; rewrite Nat.sub_add; try lia; auto.
-Qed.
-
-Lemma rebaseOperatrionRightDistibutivity: ∀(A B: Operation), ((((Some A) ↷ₒ (Some B)) ↷ₒ (Some (B⁻¹ᵒ))) = (Some A) ∨
-                                          (((Some A) ↷ₒ (Some B)) ↷ₒ (Some (B⁻¹ᵒ))) = None).
-intros.
-destruct B eqn:H_B.
-all: (
-  unfold invertOperation;
-  destruct A eqn:H_A;
-
-  destruct (p ?= p0) eqn:H_pCmpP0;
-  try apply nat_compare_eq in H_pCmpP0 as H_pRelP0;
-  try apply nat_compare_Lt_lt in H_pCmpP0 as H_pRelP0;
-  try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0
-).
+  all: (
+    destruct (c ?= c0)%Z eqn:H_cCmpC0;
+    try apply Z.compare_eq in H_cCmpC0 as H_cRelC0;
+    try apply Z.compare_lt_iff in H_cCmpC0 as H_cRelC0;
+    try apply Z.compare_gt_iff in H_cCmpC0 as H_cRelC0;
+    try rewrite Z.compare_gt_iff in H_cCmpC0;
+    try rewrite Z.compare_lt_iff in H_cRelC0
+  ).
 
 
-all: (
-  destruct (c ?= c0)%Z eqn:H_cCmpC0;
-  try apply Z.compare_eq in H_cCmpC0 as H_cRelC0;
-  try apply Z.compare_lt_iff in H_cCmpC0 as H_cRelC0;
-  try apply Z.compare_gt_iff in H_cCmpC0 as H_cRelC0;
-  try rewrite Z.compare_gt_iff in H_cCmpC0;
-  try rewrite Z.compare_lt_iff in H_cRelC0
-).
+  all: (
+    unfold rebaseOperation;
+    unfold getOpI;
+    unfold getOpP;
+    unfold getOpC;
+    unfold getOpS
+  ).
+
+  all: destruct (i0 =? i) eqn:H_i0Eqi.
 
 
-all: (
-  unfold rebaseOperation;
-  unfold getOpI;
-  unfold getOpP;
-  unfold getOpC;
-  unfold getOpS
-).
+  all: try_solve.
 
-all: destruct (i0 =? i) eqn:H_i0Eqi.
+  all: destruct (c0 =? 0)%Z eqn:H_cEq0.
+  all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
+  all: try rewrite H_iInS0.
+
+  all: try_solve.
+  all: try rewrite H_iInS0.
+  all: try_solve.
+
+  all: try_solve.
+
+  all: try match goal with 
+    | [ |- context[?X + 1 =? ?Y]] => 
+      destruct (X + 1 =? Y) eqn:H_eqP1;
+      try try_solve
+  end.
+
+  all: try match goal with 
+    | [ |- context[(?X =? 0)%Z]] => 
+      destruct (X =? 0)%Z;
+      try try_solve
+  end.
+  all: try rewrite H_iInS0.
+  all: try_solve.
+
+  Qed.
+
+  Lemma rebaseOperatrionRightDistibutivity: sA ↷ sB ↷ sB⁻¹ = sA ∨
+                                            sA ↷ sB ↷ sB⁻¹ = None.
+  intros.
+  destruct B eqn:H_B.
+  all: (
+    unfold invertOperation;
+    destruct A eqn:H_A;
+
+    destruct (p ?= p0) eqn:H_pCmpP0;
+    try apply nat_compare_eq in H_pCmpP0 as H_pRelP0;
+    try apply nat_compare_Lt_lt in H_pCmpP0 as H_pRelP0;
+    try apply nat_compare_Gt_gt in H_pCmpP0 as H_pRelP0
+  ).
 
 
-all: try_solve.
-
-all: destruct (c0 =? 0)%Z eqn:H_cEq0.
-all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
-all: try rewrite H_iInS0.
-
-all: try_solve.
-all: try rewrite H_iInS0.
-all: try_solve.
-
-all: try_solve.
-
-all: try match goal with 
-  | [ |- context[?X + 1 =? ?Y]] => 
-    destruct (X + 1 =? Y) eqn:H_eqP1;
-    try try_solve
-end.
-
-all: try match goal with 
-  | [ |- context[(?X =? 0)%Z]] => 
-    destruct (X =? 0)%Z;
-    try try_solve
-end.
-all: try rewrite H_iInS0.
-all: try_solve.
-
-all: destruct (p <? p0 -1) eqn:H_pGtp0; rewrite Nat.sub_add; try lia; auto.
-Qed.
+  all: (
+    destruct (c ?= c0)%Z eqn:H_cCmpC0;
+    try apply Z.compare_eq in H_cCmpC0 as H_cRelC0;
+    try apply Z.compare_lt_iff in H_cCmpC0 as H_cRelC0;
+    try apply Z.compare_gt_iff in H_cCmpC0 as H_cRelC0;
+    try rewrite Z.compare_gt_iff in H_cCmpC0;
+    try rewrite Z.compare_lt_iff in H_cRelC0
+  ).
 
 
+  all: (
+    unfold rebaseOperation;
+    unfold getOpI;
+    unfold getOpP;
+    unfold getOpC;
+    unfold getOpS
+  ).
+
+  all: destruct (i0 =? i) eqn:H_i0Eqi.
 
 
+  all: try_solve.
+
+  all: destruct (c0 =? 0)%Z eqn:H_cEq0.
+  all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
+  all: try rewrite H_iInS0.
+
+  all: try_solve.
+  all: try rewrite H_iInS0.
+  all: try_solve.
+
+  all: try_solve.
+
+  all: try match goal with 
+    | [ |- context[?X + 1 =? ?Y]] => 
+      destruct (X + 1 =? Y) eqn:H_eqP1;
+      try try_solve
+  end.
+
+  all: try match goal with 
+    | [ |- context[(?X =? 0)%Z]] => 
+      destruct (X =? 0)%Z;
+      try try_solve
+  end.
+  all: try rewrite H_iInS0.
+  all: try_solve.
+
+  all: destruct (p <? p0 -1) eqn:H_pGtp0; rewrite Nat.sub_add; try lia; auto.
+  Qed.
+
+  Close Scope OO.
+End distributivityProofs.
+
+
+Check rebaseOperatrionRightDistibutivity.
 Close Scope nat.
-
