@@ -737,6 +737,40 @@ Section distributivityProofsChangeSet.
     2: now cbv.
     now rewrite IHops.
   Qed.
+  
+  Lemma decomposCSetLeft: ∀ op l, (CSet (op::l) ) = (CSet [op]) ○ (CSet l).
+  intros.
+  unfold squash.
+  unfold squashOpList. 
+  destruct l;auto.
+  destruct (Op_eqb (last [op] (Insert 0 0 "a" 0 [])) (o⁻¹)%O).
+  - give_up. (* we need to proof that this does not happen *)
+  - auto.
+  Admitted.
+
+  Lemma decomposCSetRight: ∀ op l, (CSet (l ++ [op]) ) = (CSet l) ○ (CSet [op]).
+  intros.
+  unfold squash.
+  unfold squashOpList. 
+  destruct l;auto.
+  destruct (Op_eqb (last (o :: l) (Insert 0 0 "a" 0 [])) (op⁻¹)%O).
+  - give_up. (* we need to proof that this does not happen *)
+  - auto.
+  Admitted.
+
+  Lemma revEmpty: ∀ A, (rev ([] : list A)) = [].
+  intros.
+  unfold rev.
+  auto.
+  Qed.
+
+  Lemma revSingle: ∀A x, (rev ([x] : list A)) = [x].
+  intros.
+  unfold rev.
+  auto.
+  Qed.
+
+  Hint Rewrite revEmpty : changeset_simplificaton.
 
   Lemma rebaseLeftDistibutivity: (A ○ B) ↷ C  = (A ↷ C) ○ (B ↷ (A⁻¹ ○ C ○ (A ↷ C))).
   intros.
@@ -745,9 +779,75 @@ Section distributivityProofsChangeSet.
   destruct C.
   
   all: autorewrite with changeset_simplificaton; auto.
+
+  remember ((length ops) + (length ops0)) as len.
+  assert ( (length ops) + (length ops0) ≤ len) as H_LeLenOps. lia.
+  revert H_LeLenOps.
+  clear Heqlen.
+  revert ops.
+  revert ops0.
+  revert ops1.
+  revert len.
+  induction (len).
+  - intros.
+    assert_nat (Datatypes.length ops = 0) as H_ops.
+    assert_nat (Datatypes.length ops0 = 0) as H_ops0.
+    apply length_zero_iff_nil in H_ops.
+    apply length_zero_iff_nil in H_ops0.
+    rewrite H_ops.
+    rewrite H_ops0.
+    autorewrite with changeset_simplificaton; auto.
+  - intros.
+    rewrite <-rev_involutive with (l:=ops).
+    set (invOps := (rev ops)).
+    destruct invOps.
+    autorewrite with changeset_simplificaton; auto.
+    destruct ops0.
+    autorewrite with changeset_simplificaton; auto.
+    set (t:=((CSet (rev (o :: invOps))⁻¹ ○ CSet ops1) ○ CSet (rev (o :: invOps)) ↷ CSet ops1)).
+    destruct t eqn:H_t.
+    + autorewrite with changeset_simplificaton; auto.
+    + unfold t in H_t.
+      apply invalid_squash_implies_invalid_input in H_t.
+      destruct H_t.
+      * apply invalid_squash_implies_invalid_input in H.
+        destruct H; discriminate.
+      * autorewrite with changeset_simplificaton; auto.
+   + rewrite cons_to_app.
+     rewrite rev_app_distr.
+     rewrite revSingle.
+     destruct (Op_eqb o (o0⁻¹)%O) eqn:H_abInverse.
+     * rewrite decomposCSetLeft.
+       rewrite decomposCSetRight.
+       clear A B C.
+       set (A' := (CSet (rev invOps))).
+       set (B' := (CSet ops0)).
+       set (C := (CSet ops1)).
+       set (a := (CSet [o])).
+       set (b := (CSet [o0])).
+
   rewrite <-rev_involutive with (l:=ops).
   set (invOps:=rev ops).
-  set (t := 
+  unfold squash at 1.
+  set (t := (squashOpList (rev invOps) ops0)).
+  set (lenAplusB := (length (rev invOps)) + (length ops0) ).
+  assert (length (rev invOps) + (length ops0) = lenAplusB) as H_lenAPlusB. auto.
+  induction (lenAplusB).
+  - assert_nat (Datatypes.length (rev invOps) = 0) as H_invOps.
+    assert_nat (Datatypes.length ops0 = 0) as H_ops0.
+    apply length_zero_iff_nil in H_invOps.
+    apply length_zero_iff_nil in H_ops0.
+    unfold t.
+    rewrite H_invOps.
+    rewrite H_ops0.
+    unfold squashOpList.
+    autorewrite with changeset_simplificaton; auto.
+  - specialize IHn with (invOps := []).
+apply length_zero_iff_nil in H_lenT.
+    rewrite H_lenT.
+    assert ( (CSet (rev invOps)) = (CSet ops0)⁻¹) as H_inv. give_up.
+    rewrite H_inv.
+    autorewrite with changeset_simplificaton; auto.
 
 
   induction invOps.
