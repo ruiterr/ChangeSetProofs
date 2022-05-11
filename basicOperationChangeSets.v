@@ -539,6 +539,17 @@ Section distributivityProofsChangeSet.
     now unfold rebaseChangeSet.
   Qed.
 
+  Lemma squashWithInvalid1: ∀X, (X ○ ⦻) = ⦻.
+    intros.
+    unfold squash.
+    destruct X; auto.
+  Qed.
+
+  Lemma squashWithInvalid2: ∀X, (⦻ ○ X) = ⦻.
+    intros.
+    now unfold squash.
+  Qed.
+
   Lemma squashEmptyLeft:  ∀X, ⊘ ○ X  = X.
   intros.
   unfold squash.
@@ -667,12 +678,16 @@ Section distributivityProofsChangeSet.
   Qed.
   
   Create HintDb changeset_simplificaton.
+  Hint Rewrite rebaseWithInvalid1 : changeset_simplificaton.
+  Hint Rewrite rebaseWithInvalid2 : changeset_simplificaton.
+  Hint Rewrite squashWithInvalid1 : changeset_simplificaton.
+  Hint Rewrite squashWithInvalid2 : changeset_simplificaton.
   Hint Rewrite squashEmptyLeft : changeset_simplificaton.
   Hint Rewrite squashEmptyRight : changeset_simplificaton.
-  Hint Rewrite squashInverseLeft : changeset_simplificaton.
-  Hint Rewrite squashInverseRight : changeset_simplificaton.
+  Hint Rewrite squashInverseLeft using (easy): changeset_simplificaton.
+  Hint Rewrite squashInverseRight using (easy) : changeset_simplificaton.
   Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
-  Hint Rewrite rebaseEmptyLeft : changeset_simplificaton.
+  Hint Rewrite rebaseEmptyLeft using (easy) : changeset_simplificaton.
   Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
 
   Lemma rebaseEmptyRight: ∀X, X ≠ ⦻ → X ↷ ⊘  = X.
@@ -697,10 +712,20 @@ Section distributivityProofsChangeSet.
     auto with *.
   Admitted.
 
+  Hint Rewrite rebaseEmptyRight using (easy) : changeset_simplificaton.
+
   Lemma fold_left_rebaseOperation_squashOpList: ∀ (a:Operation) (ops0 ops1: list Operation),
     fold_left rebaseOperation (map (λ x : Operation, (Some x)) (squashOpList ops0 ops1)) (Some a) = 
     fold_left rebaseOperation ((map (λ x : Operation, (Some x)) ops0) ++ (map (λ x : Operation, (Some x)) ops1)) (Some a).
   Admitted.
+
+  Lemma invalid_squash_implies_invalid_input: ∀X Y, (X ○ Y) = ⦻ → X = ⦻ ∨ Y = ⦻.
+  intros.
+  unfold squash in H.
+  destruct X.
+  all: destruct Y; auto.
+  discriminate.
+  Qed.
 
   Lemma fold_left_rebaseOperation_With_None: ∀ (ops: list Operation), fold_left rebaseOperation (map (λ x : Operation, (Some x)) ops) None = None.
   intros.
@@ -713,7 +738,64 @@ Section distributivityProofsChangeSet.
     now rewrite IHops.
   Qed.
 
-  Lemma rebaseLeftDistibutivity: A ↷ (B ○ C)  = A ↷ B ↷ C.
+  Lemma rebaseLeftDistibutivity: (A ○ B) ↷ C  = (A ↷ C) ○ (B ↷ (A⁻¹ ○ C ○ (A ↷ C))).
+  intros.
+  destruct A.
+  destruct B.
+  destruct C.
+  
+  all: autorewrite with changeset_simplificaton; auto.
+  rewrite <-rev_involutive with (l:=ops).
+  set (invOps:=rev ops).
+  set (t := 
+
+
+  induction invOps.
+  - all: autorewrite with changeset_simplificaton; auto.
+    (*unfold t in H_t. 
+    apply invalid_squash_implies_invalid_input in H_t.
+    destruct H_t.
+    + apply invalid_squash_implies_invalid_input in H.
+      destruct H; discriminate.
+    + assumption.*)
+  - induction ops0. 
+    +  autorewrite with changeset_simplificaton; auto.
+       set (t:=((((CSet (rev (a :: invOps)))⁻¹) ○ (CSet ops1)) ○ ((CSet (rev (a :: invOps))) ↷ (CSet ops1)))).
+       destruct t eqn:H_t.
+       all: autorewrite with changeset_simplificaton; auto.
+       unfold t in H_t.
+       apply invalid_squash_implies_invalid_input in H_t.
+       destruct H_t.
+       * apply invalid_squash_implies_invalid_input in H.
+         destruct H; discriminate.
+       * assumption.
+    + unfold squash at 1.
+      unfold squashOpList.
+      set (t:=rev (a :: invOps)).
+      case_eq t.
+      * intros. 
+        unfold t in H.
+        rewrite cons_to_app in H.
+        rewrite rev_app_distr in H.
+        unfold rev at 2 in H.
+        rewrite app_nil_l in H.
+        apply app_eq_nil in H.
+        destruct H.
+        discriminate.
+      * intros.
+        destruct (Op_eqb (last (o :: l) (Insert 0 0 "a" 0 [])) (a0⁻¹)%O) eqn:H_opEqual.
+        -- fold squashOpList.
+         
+    destruct t eqn:H_t.
+    2: { 
+      unfold t in H_t. 
+      apply invalid_squash_implies_invalid_input in H_t. 
+      destruct H_t; 
+      discriminate. 
+    }
+    unfold squash in t.
+
+  Lemma rebaseRightDistibutivity: A ↷ (B ○ C)  = A ↷ B ↷ C.
     destruct A eqn:H_A.
     destruct B eqn:H_B.
     destruct C eqn:H_C.
@@ -753,8 +835,7 @@ Section distributivityProofsChangeSet.
         cbn -[rebaseChangeSetOps rebaseOperationWithChangeSet squash].
           
            
-  Lemma rebaseRightDistibutivity: (A ○ B) ↷ C  = sA ∨
-                                          sA ↷ sB ↷ sB⁻¹ = None.
+  
 
 
 Check rebaseOperatrionRightDistibutivity.
