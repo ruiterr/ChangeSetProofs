@@ -697,6 +697,22 @@ Section distributivityProofsChangeSet.
     auto with *.
   Admitted.
 
+  Lemma fold_left_rebaseOperation_squashOpList: ∀ (a:Operation) (ops0 ops1: list Operation),
+    fold_left rebaseOperation (map (λ x : Operation, (Some x)) (squashOpList ops0 ops1)) (Some a) = 
+    fold_left rebaseOperation ((map (λ x : Operation, (Some x)) ops0) ++ (map (λ x : Operation, (Some x)) ops1)) (Some a).
+  Admitted.
+
+  Lemma fold_left_rebaseOperation_With_None: ∀ (ops: list Operation), fold_left rebaseOperation (map (λ x : Operation, (Some x)) ops) None = None.
+  intros.
+  induction ops.
+  - now simpl.
+  - rewrite map_cons.
+    unfold fold_left in *.
+    replace (None ↷ (Some a))%OO with (None : (option Operation)).
+    2: now cbv.
+    now rewrite IHops.
+  Qed.
+
   Lemma rebaseLeftDistibutivity: A ↷ (B ○ C)  = A ↷ B ↷ C.
     destruct A eqn:H_A.
     destruct B eqn:H_B.
@@ -712,8 +728,31 @@ Section distributivityProofsChangeSet.
      ).
     induction ops.
 
-
-
+    - autorewrite with changeset_simplificaton in *; try discriminate; auto.
+    - (*unfold rebaseChangeSet.
+      unfold rebaseChangeSetOps.*)
+      destruct ops eqn:H_ops.
+      + unfold rebaseChangeSet.
+        unfold rebaseChangeSetOps.
+        unfold rebaseOperationWithChangeSet.
+        unfold squash.
+        destruct (fold_left rebaseOperation (map (λ x : Operation, (Some x)) ops0) (Some a)) eqn:H_left_rebase.
+        * rewrite <-H_left_rebase.
+          rewrite <-fold_left_app.
+          now rewrite fold_left_rebaseOperation_squashOpList.
+        * rewrite fold_left_rebaseOperation_squashOpList.
+          rewrite fold_left_app.
+          rewrite H_left_rebase.
+          now rewrite fold_left_rebaseOperation_With_None.
+      + unfold rebaseChangeSet at 1.
+        cbv delta [rebaseChangeSetOps].
+        set (v := o::l).
+        cbn -[rebaseChangeSetOps rebaseOperationWithChangeSet squash v].
+        destruct (a :: (o :: l)) eqn:H_a_o_l; try discriminate.
+        
+        cbn -[rebaseChangeSetOps rebaseOperationWithChangeSet squash].
+          
+           
   Lemma rebaseRightDistibutivity: (A ○ B) ↷ C  = sA ∨
                                           sA ↷ sB ↷ sB⁻¹ = None.
 
