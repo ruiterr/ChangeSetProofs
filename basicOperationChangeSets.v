@@ -129,19 +129,59 @@ Close Scope string.
 Eval compute in (applyOperation "test" (Insert 0 1 "-" 0 [])).
 
 (* ChangeSets *)
+Definition opList := list Operation.
+
+Inductive non_reduced: opList -> Prop :=
+  | non_reducedOpList: forall (S T: opList) (a: Operation),
+    non_reduced (S ++ (a⁻¹)%O :: a :: T).
+
+Definition reduced (S: opList) : Prop :=
+  ¬(non_reduced S).
+
+Record reducedOpList : Set := mkReducedOpList {
+  operations: opList
+  ; operations_reduced: reduced(operations)
+}.
+
+Lemma singleOpListIsReduced: ∀op:Operation, reduced [op].
+Admitted.
+
+Lemma emptyOpListIsReduced: reduced [].
+Admitted.
+
+Lemma tailIsReduced: ∀ (l: opList), reduced(l) → reduced(tl l).
+Admitted.
+
+Lemma tailIsReduced2: ∀ (l l': opList) (op:Operation), l=op::l' \-> reduced(l) → reduced(tl l).
+Admitted.
+
 Inductive ChangeSet :=
-  | CSet (ops: list Operation)
+  | CSet (ops: reducedOpList)
   | InvalidCSet.
+
+Definition emptyChangeSet := (CSet {| 
+         operations := [];
+         operations_reduced := emptyOpListIsReduced
+     |}).
+
+Notation "⊘" := emptyChangeSet.
+Notation "⦻" := InvalidCSet.
+
+Definition opToCs (op:Operation) := 
+  (CSet {| 
+         operations := [op];
+         operations_reduced := singleOpListIsReduced op
+      |}).
 
 Definition applyChangeSet (str:string) (cs: ChangeSet) := match cs with 
   | CSet ops =>
-    (fold_left applyOperation ops str)
+    (fold_left applyOperation ops.(operations) str)
   | InvalidCSet =>
     str
 end.
 
 (* Squash Operation *)
-Fixpoint squashOpList (opsA opsB: list Operation) {struct opsB} := 
+Fixpoint squashOpList (opsA opsB: opList) {struct opsB} := 
   match opsA, opsB with
     | [], _ => opsB
     | _, [] => opsA
@@ -153,17 +193,39 @@ Fixpoint squashOpList (opsA opsB: list Operation) {struct opsB} :=
           (opsA ++ opsB)
 end.
 
-Definition squash (a b : ChangeSet) := match a, b with 
-    | CSet opsA, CSet opsB => (CSet (squashOpList opsA opsB))
+Lemma squashIsReduced: ∀(A B: opList), reduced(A) -> reduced(B) → reduced(squashOpList A B).
+Admitted.
+
+Program Definition squash (a b : ChangeSet) := match a, b with 
+    | CSet opsA, CSet opsB => 
+      (CSet ({| 
+         operations := (squashOpList opsA.(operations) opsB.(operations));
+         operations_reduced := (squashIsReduced opsA.(operations) opsB.(operations) opsA.(operations_reduced) opsB.(operations_reduced) )
+      |}))
     | _, _ => InvalidCSet
 end.
 
+Definition changeset_eqb (A B : ChangeSet) : bool :=
+  match A,B with
+    | CSet opsA, CSet opsB => list_beq Operation Op_eqb opsA.(operations) opsB.(operations)
+    | CSet _, InvalidCSet => false
+    | InvalidCSet, CSet _ => false
+    | InvalidCSet, InvalidCSet => true
+end.
+
+Axiom ProofIrrelevanceForChangeSets: ∀ A B : ChangeSet, is_true (changeset_eqb A B) <-> A = B. 
 
 Infix "○" := squash (at level 60).
 
 (* Invert operation *)
+Lemma invertIsReduced: ∀(opsA: opList), reduced(opsA) -> reduced(map invertOperation (rev opsA)).
+Admitted.
+
 Definition invert (a: ChangeSet) := match a with 
-    | CSet opsA => (CSet (map invertOperation (rev opsA)))
+    | CSet opsA => (CSet {| 
+         operations := (map invertOperation (rev opsA.(operations)));
+         operations_reduced := (invertIsReduced opsA.(operations) opsA.(operations_reduced))
+      |})
     | _ => InvalidCSet
 end.
 
@@ -171,16 +233,17 @@ Notation "a ⁻¹" := (invert a) (at level 55, no associativity, format "a '⁻�
 
 (* Helper function to create ChangeSets for ranges *)
 Definition InsertRange (i: nat) (p: nat) (t: string) := 
-  (CSet (fst (fold_left (fun (x : ((list Operation) * nat)) (y : ascii) => (
-      (fst x) ++ [ (Insert (i + (snd x)) (p + (snd x)) y 0 []) ], 
+  (fst (fold_left (fun x y => (
+      (fst x) ○ (opToCs (Insert (i + (snd x)) (p + (snd x)) y 0 []) ), 
       (snd x) + 1 )
-    ) (list_ascii_of_string t) ([], 0)))).
+    ) (list_ascii_of_string t) (⊘, 0))).
+
 
 Definition RemoveRange (i:nat) (p:nat) (l:nat) (str: string) :=
-  (CSet (fst (fold_left (fun (x : ((list Operation) * nat)) (y : ascii) => (
-      (fst x) ++ [ (Remove (i + (snd x)) p y 0 []) ], 
+  (fst (fold_left (fun x y => (
+      (fst x) ○ (opToCs (Remove (i + (snd x)) p y 0 []) ), 
       (snd x) + 1 )
-    ) (list_ascii_of_string (substring p l str)) ([], 0)))).
+    ) (list_ascii_of_string (substring p l str)) (⊘, 0))).
 
 Eval compute in (InsertRange 0 5 "test").
 Eval compute in (RemoveRange 0 2 2 "test").
@@ -195,7 +258,7 @@ Definition testInsertCS := (InsertRange 0 6 "cruel ").
 Eval compute in (testInsertCS ○ testInsertCS⁻¹)%CS.
 
 
-Eval compute in (applyChangeSet "test" (CSet [(Insert 0 1 "-" 0 []); (Remove 0 2 "e" 0 [])])).
+Eval compute in (applyChangeSet "test" ((opToCs (Insert 0 1 "-" 0 [])) ○ (opToCs (Remove 0 2 "e" 0 [])))).
 
 Fixpoint removeFirst (n : nat) (l:list nat) := 
   match l with
@@ -290,27 +353,51 @@ end.
 Infix "↷" := rebaseOperation (at level 57, left associativity) : OptionOperation.
 
 Definition rebaseOperationWithChangeSet (a:Operation) (b : ChangeSet) := match b with
-  | CSet ops => match (fold_left rebaseOperation ((map (λ x:Operation, Some x)) ops) (Some a)) with
-                  | Some result => (CSet [result])
+  | CSet ops => match (fold_left rebaseOperation ((map (λ x:Operation, Some x)) ops.(operations)) (Some a)) with
+                  | Some result => (opToCs result)
                   | None => InvalidCSet
                 end
   | InvalidCSet => InvalidCSet
 end.
 
-Fixpoint rebaseChangeSetOps (a : list Operation) (b : ChangeSet) {struct a}:= 
+Check eq_refl.
+(*Fixpoint rebaseChangeSetOps (a : list Operation) (a_reduced : reduced(a)) (b : ChangeSet) {struct a}:= 
     match a with
       | [] => match b with 
-        | CSet _ => (CSet [])
+        | CSet _ => ⊘
         | InvalidCSet => InvalidCSet
         end
       | [opA] => (rebaseOperationWithChangeSet opA b)
       | opA::Atail => 
-           let csA := (CSet [opA]) in 
-           let csA' := (CSet Atail) in 
+           let ATailIsReduced := (tailIsReduced a a_reduced) in
+           let csA := (opToCs opA) in 
+           let csA' := (CSet {|
+              operations := (tl a);
+              operations_reduced := ATailIsReduced
+            |}) in 
            let R1 := (rebaseOperationWithChangeSet opA b) in 
-           let R2 := (rebaseChangeSetOps Atail (csA⁻¹ ○ b ○ R1)%CS ) in 
+           let R2 := (rebaseChangeSetOps Atail ATailIsReduced (csA⁻¹ ○ b ○ R1)%CS ) in 
            (R1 ○ R2)%CS
-  end.
+  end eq_refl.*)
+
+Fixpoint rebaseChangeSetOps (a : list Operation) (a_reduced : reduced(a)) (b : ChangeSet) {struct a}:= 
+    match a as a' return (a' = a → ChangeSet) with
+      | [] => match b with 
+        | CSet _ => (fun x => ⊘)
+        | InvalidCSet => (fun x => InvalidCSet)
+        end
+      | [opA] => (fun x =>(rebaseOperationWithChangeSet opA b))
+      | opA::Atail => fun x => (
+           let ATailIsReduced := (tailIsReduced a opA Atail a_reduced x) in
+           let csA := (opToCs opA) in 
+           let csA' := (CSet {|
+              operations := Atail;
+              operations_reduced := ATailIsReduced
+            |}) in 
+           let R1 := (rebaseOperationWithChangeSet opA b) in 
+           let R2 := (rebaseChangeSetOps Atail ATailIsReduced (csA⁻¹ ○ b ○ R1)%CS ) in 
+           (R1 ○ R2)%CS)
+  end eq_refl.
 
 Definition rebaseChangeSet (a b : ChangeSet) := match a with 
     | CSet opsA => (rebaseChangeSetOps opsA b) 
@@ -517,9 +604,6 @@ Section distributivityProofsChangeSet.
   Variable A: ChangeSet.
   Variable B: ChangeSet.
   Variable C: ChangeSet.
-
-  Notation "⊘" := (CSet []).
-  Notation "⦻" := InvalidCSet.
 
   Open Scope CS.
   Lemma rebaseWithInvalid1: ∀X, (X ↷ ⦻) = ⦻.
