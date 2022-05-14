@@ -128,15 +128,23 @@ Notation "a ⁻¹" := (invertOperationOption a) (at level 55, no associativity, 
 
 Scheme Equality for OperationType.
 
-Definition Op_eqb (a : Operation) (b: Operation) := 
+Definition Op_eqb  (a : Operation) (b: Operation) := 
+  if (operation_eq_dec a b) then true else false.
+(*Definition Op_eqb (a : Operation) (b: Operation) := 
   (eqOpType (getOperationType a) (getOperationType b)) &&
   (Nat.eqb (getOpI a) (getOpI b)) &&
   (Nat.eqb (getOpP a) (getOpP b)) &&
   (Ascii.eqb (getOpE a) (getOpE b)) &&
   (Z.eqb (getOpC a) (getOpC b)) &&
-  (list_beq nat Nat.eqb (getOpS a) (getOpS b)).
+  (list_beq nat Nat.eqb (getOpS a) (getOpS b)).*)
 
-
+Lemma Op_eqb_refl: ∀ op, Op_eqb op op = true.
+  intros.
+  unfold Op_eqb.
+  destruct operation_eq_dec.
+  - auto.
+  - contradiction. 
+Qed.
 
 Eval compute in (Op_eqb (Insert 0 0 "a" 0 []) (Remove 0 0 "a" 0 [])).
 
@@ -160,29 +168,40 @@ Eval compute in (applyOperation "test" (Insert 0 1 "-" 0 [])).
 (* ChangeSets *)
 Definition opList := list Operation.
 
-Inductive non_reduced: opList -> Prop :=
+Definition non_reduced := OperationGroup.non_reduced. (*opList -> Prop :=
   | non_reducedOpList: forall (S T: opList) (a: Operation),
-    non_reduced (S ++ (a⁻¹)%O :: a :: T).
+    non_reduced (S ++ (a⁻¹)%O :: a :: T).*)
 
-Definition reduced (S: opList) : Prop :=
-  ¬(non_reduced S).
+Definition reduced := OperationGroup.reduced.
 
 Record reducedOpList : Set := mkReducedOpList {
   operations: opList
   ; operations_reduced: reduced(operations)
 }.
 
-Lemma singleOpListIsReduced: ∀op:Operation, reduced [op].
-Admitted.
+Definition singleOpListIsReduced := OperationGroup.single_letter_reduced.
 
-Lemma emptyOpListIsReduced: reduced [].
-Admitted.
+Definition emptyOpListIsReduced := OperationGroup.empty_str_reduced.
 
 Lemma tailIsReduced: ∀ (op:Operation) (l: opList), reduced(op::l) → reduced(l).
-Admitted.
+  intros.
+  unfold reduced.
+  unfold OperationGroup.reduced.
+  intuition.
+  unfold reduced in H.
+  unfold OperationGroup.reduced in H.
+  inversion H0.
+  rewrite <-H1 in H.
+  rewrite app_comm_cons in H.
+  contradict H.
+  apply OperationGroup.intro_letter_inverse.
+Qed.
 
 Lemma tailIsReduced2: ∀ (l l': opList) (op:Operation), op::l'=l → reduced(l) → reduced(l').
-Admitted.
+intros.
+apply tailIsReduced with (op:=op).
+now rewrite H.
+Qed.
 
 
 Inductive ChangeSet :=
@@ -211,20 +230,14 @@ Definition applyChangeSet (str:string) (cs: ChangeSet) := match cs with
 end.
 
 (* Squash Operation *)
-Fixpoint squashOpList (opsA opsB: opList) {struct opsB} := 
-  match opsA, opsB with
-    | [], _ => opsB
-    | _, [] => opsA
-    | _, hdB :: tailB => 
-        let lastA := (last opsA (Insert 0 0 "a" 0 [])) in 
-        if (Op_eqb lastA (invertOperation(hdB))) then
-          (squashOpList (removelast opsA) tailB)
-        else
-          (opsA ++ opsB)
-end.
+Definition squashOpList := OperationGroup.reduced_string_product.
 
 Lemma squashIsReduced: ∀(A B: opList), reduced(A) -> reduced(B) → reduced(squashOpList A B).
-Admitted.
+intros.
+unfold squashOpList.
+unfold OperationGroup.reduced_string_product.
+apply OperationGroup.reduction_is_reduced.
+Qed.
 
 Program Definition squash (a b : ChangeSet) := match a, b with 
     | CSet opsA, CSet opsB => 
@@ -234,6 +247,7 @@ Program Definition squash (a b : ChangeSet) := match a, b with
       |}))
     | _, _ => InvalidCSet
 end.
+
 
 Definition changeset_eqb (A B : ChangeSet) : bool :=
   match A,B with
@@ -246,6 +260,91 @@ end.
 Axiom ProofIrrelevanceForChangeSets: ∀ A B : ChangeSet, is_true (changeset_eqb A B) <-> A = B. 
 
 Infix "○" := squash (at level 60).
+
+Lemma squashWithInvalid1: ∀X, (X ○ ⦻) = ⦻.
+  intros.
+  unfold squash.
+  destruct X; auto.
+Qed.
+
+Lemma squashWithInvalid2: ∀X, (⦻ ○ X) = ⦻.
+  intros.
+  now unfold squash.
+Qed.
+
+Lemma list_neq_beq_refl: ∀(l: list nat), (list_beq nat Nat.eqb l l) = true.
+intros.
+unfold list_beq.
+induction l; auto.
+rewrite IHl.
+now rewrite Nat.eqb_refl.
+Qed.
+
+Lemma list_op_beq_refl: ∀(l: opList), (list_beq Operation Op_eqb l l) = true.
+intros.
+unfold list_beq.
+induction l; auto.
+rewrite IHl.
+now rewrite Op_eqb_refl.
+Qed.
+
+Lemma cons_to_app: ∀(X:Type) (a : X) (l:list X), a::l = [a] ++ l.
+intros.
+now unfold app.
+Qed.
+
+Lemma squashEmptyLeft:  ∀X, ⊘ ○ X  = X.
+intros.
+unfold squash.
+destruct X; auto.
+unfold squashOpList.
+f_equal.
+destruct ops.
+induction operations0.
+all: apply ProofIrrelevanceForChangeSets; auto.
+simpl.
+unfold OperationGroup.reduced_string_product.
+rewrite app_nil_l.
+rewrite OperationGroup.reduction_fixes_reduced; auto.
+now rewrite list_op_beq_refl.
+Qed.
+
+Lemma squashEmptyRight: ∀X, X ○ ⊘  = X.
+intros.
+unfold squash.
+destruct X; auto.
+unfold squashOpList.
+f_equal.
+destruct ops.
+induction operations0.
+all: apply ProofIrrelevanceForChangeSets; auto.
+simpl.
+unfold OperationGroup.reduced_string_product.
+rewrite app_nil_r.
+rewrite OperationGroup.reduction_fixes_reduced; auto.
+now rewrite list_op_beq_refl.
+Qed.
+
+Create HintDb changeset_simplificaton.
+Hint Rewrite squashWithInvalid1 : changeset_simplificaton.
+Hint Rewrite squashWithInvalid2 : changeset_simplificaton.
+Hint Rewrite squashEmptyLeft : changeset_simplificaton.
+Hint Rewrite squashEmptyRight : changeset_simplificaton.
+
+Lemma squashAssociative: ∀X Y Z, (X ○ Y) ○ Z = X ○ (Y ○ Z).
+intros.
+destruct X.
+destruct Y.
+destruct Z.
+all: autorewrite with changeset_simplificaton; auto.
+
+unfold squash.
+apply ProofIrrelevanceForChangeSets; auto.
+simpl.
+unfold squashOpList.
+rewrite <-OperationGroup.reduced_string_product_assoc.
+now rewrite list_op_beq_refl.
+Qed.
 
 (* Invert operation *)
 Lemma invertIsReduced: ∀(opsA: opList), reduced(opsA) -> reduced(map invertOperation (rev opsA)).
@@ -635,79 +734,6 @@ Section distributivityProofsChangeSet.
   Lemma rebaseWithInvalid2: ∀X, (⦻ ↷ X) = ⦻.
     intros.
     now unfold rebaseChangeSet.
-  Qed.
-
-  Lemma squashWithInvalid1: ∀X, (X ○ ⦻) = ⦻.
-    intros.
-    unfold squash.
-    destruct X; auto.
-  Qed.
-
-  Lemma squashWithInvalid2: ∀X, (⦻ ○ X) = ⦻.
-    intros.
-    now unfold squash.
-  Qed.
-
-  Lemma list_neq_beq_refl: ∀(l: list nat), (list_beq nat Nat.eqb l l) = true.
-  intros.
-  unfold list_beq.
-  induction l; auto.
-  rewrite IHl.
-  now rewrite Nat.eqb_refl.
-  Qed.
-
-  Lemma Op_eqb_refl: ∀ op, Op_eqb op op = true.
-  intros.
-  unfold Op_eqb.
-  destruct op.
-  all: (
-    cbn;
-    repeat rewrite Nat.eqb_refl;
-    repeat rewrite Z.eqb_refl;
-    repeat rewrite Ascii.eqb_refl;
-    now repeat rewrite list_neq_beq_refl
-  ).
-  Qed.
-
-  Lemma list_op_beq_refl: ∀(l: opList), (list_beq Operation Op_eqb l l) = true.
-  intros.
-  unfold list_beq.
-  induction l; auto.
-  rewrite IHl.
-  now rewrite Op_eqb_refl.
-  Qed.
-
-  Lemma squashEmptyLeft:  ∀X, ⊘ ○ X  = X.
-  intros.
-  unfold squash.
-  destruct X; auto.
-  unfold squashOpList.
-  f_equal.
-  destruct ops.
-  induction operations0.
-  all: apply ProofIrrelevanceForChangeSets; auto.
-  simpl.
-  rewrite Op_eqb_refl.
-  now rewrite list_op_beq_refl.
-  Qed.
-
-  Lemma squashEmptyRight: ∀X, X ○ ⊘  = X.
-  intros.
-  unfold squash.
-  destruct X; auto.
-  unfold squashOpList.
-  f_equal.
-  destruct ops.
-  induction operations0.
-  all: apply ProofIrrelevanceForChangeSets; auto.
-  simpl.
-  rewrite Op_eqb_refl.
-  now rewrite list_op_beq_refl.
-  Qed.
-
-  Lemma cons_to_app: ∀(X:Type) (a : X) (l:list X), a::l = [a] ++ l.
-  intros.
-  now unfold app.
   Qed.
 
   (*Lemma squashInverseLeft: ∀X, X ≠ ⦻ → X ○ X⁻¹  = ⊘.
