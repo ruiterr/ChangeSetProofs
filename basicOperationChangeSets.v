@@ -146,6 +146,9 @@ Lemma Op_eqb_refl: ∀ op, Op_eqb op op = true.
   - contradiction. 
 Qed.
 
+Create HintDb HelperLemmas.
+Hint Resolve Op_eqb_refl : HelperLemmas.
+
 Eval compute in (Op_eqb (Insert 0 0 "a" 0 []) (Remove 0 0 "a" 0 [])).
 
 Open Scope string.
@@ -258,6 +261,7 @@ Definition changeset_eqb (A B : ChangeSet) : bool :=
 end.
 
 Axiom ProofIrrelevanceForChangeSets: ∀ A B : ChangeSet, is_true (changeset_eqb A B) <-> A = B. 
+Hint Resolve ProofIrrelevanceForChangeSets : HelperLemmas.
 
 Infix "○" := squash (at level 60).
 
@@ -279,6 +283,7 @@ induction l; auto.
 rewrite IHl.
 now rewrite Nat.eqb_refl.
 Qed.
+Hint Resolve list_neq_beq_refl : HelperLemmas.
 
 Lemma list_op_beq_refl: ∀(l: opList), (list_beq Operation Op_eqb l l) = true.
 intros.
@@ -287,6 +292,7 @@ induction l; auto.
 rewrite IHl.
 now rewrite Op_eqb_refl.
 Qed.
+Hint Resolve list_op_beq_refl : HelperLemmas.
 
 Lemma cons_to_app: ∀(X:Type) (a : X) (l:list X), a::l = [a] ++ l.
 intros.
@@ -359,6 +365,53 @@ now rewrite list_op_beq_refl.
 Qed.
 
 (* Invert operation *)
+Lemma reducedImpliesFirstTwoOpeartionsNotInverses: ∀A T x y, reduced(A) → A = (x::y::T) → (x ≠ y⁻¹)%O.
+intros.
+intuition.
+unfold reduced in H.
+unfold OperationGroup.reduced in H.
+contradict H.
+rewrite H0.
+rewrite cons_to_app at 1.
+rewrite <-app_nil_l.
+rewrite H1.
+apply OperationGroup.intro_letter_inverse.
+Qed.
+
+Lemma reverseIsReduced: ∀A, reduced(A) → reduced(rev A).
+intros.
+unfold reduced.
+unfold OperationGroup.reduced.
+intuition.
+inversion H0.
+assert(A = (rev (rev A))). { now rewrite rev_involutive. }
+rewrite <-H2 in H1.
+rewrite cons_to_app in H1 at 1.
+rewrite cons_to_app with (l:=T) in H1.
+repeat rewrite rev_app_distr in H1.
+repeat rewrite revSingle in H1.
+set (x:=(OperationGroup.opposite a : OperationGroup.alphabet)) in *.
+rewrite <-OperationGroup.opposite_involution with (a:=a) in H1.
+fold OperationGroup.opposite in H1.
+fold x in H1.
+rewrite app_assoc_reverse in H1.
+rewrite app_assoc_reverse in H1.
+rewrite <-cons_to_app in H1.
+rewrite <-cons_to_app in H1.
+set (S':=rev T) in *.
+set (T':=rev S) in *.
+specialize OperationGroup.intro_letter_inverse with (S:=S') (T:=T') (a:=x) as H_AnonReduced.
+assert((@app OperationGroup.alphabet S'
+          (@cons OperationGroup.alphabet (OperationGroup.opposite x) (@cons OperationsGroupImpl.alphabet x T')) =
+(@app OperationGroup.alphabet S'
+                     (@cons OperationsGroupImpl.alphabet (OperationGroup.opposite x) (@cons OperationGroup.alphabet x T'))))).
+auto.
+rewrite <-H3 in H_AnonReduced.
+rewrite <-H1 in H_AnonReduced.
+auto.
+Qed.
+
+
 Lemma invertIsReduced: ∀(opsA: opList), reduced(opsA) -> reduced(OperationGroup.inverse_str opsA).
 intros.
 unfold OperationGroup.inverse_str.
@@ -369,21 +422,11 @@ induction opsA.
   destruct opsA.
   + simpl.
     apply OperationGroup.single_letter_reduced.
-  + assert (a ≠ o⁻¹)%O as H_AnotOInv. {
-      intuition.
-      unfold reduced in H.
-      unfold OperationGroup.reduced in H.
-      contradict H.
-      rewrite H0.
-      rewrite cons_to_app at 1.
-      rewrite <-app_nil_l.
-    
-      apply OperationGroup.intro_letter_inverse.
-    }
+  + apply reducedImpliesFirstTwoOpeartionsNotInverses with (A:=a :: o :: opsA) (T:=opsA) (x:=a) (y:=o) in H; auto.
+
     assert(∀A t x y, reduced(A) → (rev A) = (y::t) → y ≠ x⁻¹ → reduced(A ++ [x]))%O. {
       intros.
-      assert(∀A, reduced(A) → reduced(rev A)) as H_revReduced. give_up.
-      apply H_revReduced in H0.
+      apply reverseIsReduced in H0.
       rewrite H1 in H0.
       assert(rev(A ++ [x]) = rev(A ++ [x])) as HeqA'_rev. auto.
       remember (rev(A ++ [x])) as A'_rev.
@@ -404,7 +447,7 @@ induction opsA.
           rewrite opInvertInvolution in H2.
           now contradiction H2.
       }
-      apply H_revReduced in H3.
+      apply reverseIsReduced in H3.
       rewrite HeqA'_rev in H3.
       rewrite rev_involutive in H3.
       auto.
@@ -423,13 +466,74 @@ Qed.
 
 Definition invert (a: ChangeSet) := match a with 
     | CSet opsA => (CSet {| 
-         operations := (OperationsGroup.inverse_str opsA.(operations));
+         operations := (OperationGroup.inverse_str opsA.(operations));
          operations_reduced := (invertIsReduced opsA.(operations) opsA.(operations_reduced))
       |})
     | _ => InvalidCSet
 end.
 
 Notation "a ⁻¹" := (invert a) (at level 55, no associativity, format "a '⁻¹'") : ChangeSet.
+
+Open Scope CS.
+Lemma squashInverseLeft: ∀X, X ≠ ⦻ → X ○ X⁻¹  = ⊘.
+intros.
+unfold squash.
+destruct X; try contradiction.
+simpl.
+f_equal.
+unfold squashOpList.
+apply ProofIrrelevanceForChangeSets; auto.
+simpl.
+
+rewrite OperationGroup.inverse_str_is_right_inverse.
+auto.
+Qed.
+
+Lemma changeSetInvertInvolution: ∀ X:ChangeSet, (X⁻¹)⁻¹ = X.
+intros.
+unfold invert.
+destruct X; try contradiction.
+simpl.
+destruct ops.
+apply ProofIrrelevanceForChangeSets; auto.
+simpl.
+rewrite OperationGroup.inverse_str_involution.
+all: auto with HelperLemmas.
+Qed.
+
+(*Lemma changeSetInvertReverseSquash: ∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹).
+intros.
+unfold squash.
+unfold invert.
+destruct X; autorewrite with changeset_simplificaton in *.
+destruct Y; autorewrite with changeset_simplificaton in *.
+
+apply ProofIrrelevanceForChangeSets; auto.
+simpl.
+unfold squashOpList.
+destruct X; try contradiction.
+simpl.
+destruct ops.
+simpl.
+rewrite OperationGroup.inverse_str_involution.
+all: auto with HelperLemmas.
+Qed.*)
+
+Lemma squashInverseRight: ∀X:ChangeSet, X ≠ ⦻ → X⁻¹ ○ X  = ⊘.
+intros.
+rewrite <-changeSetInvertInvolution with (X:=X) at 2.
+rewrite squashInverseLeft; auto.
+unfold invert.
+destruct X.
+- discriminate.
+- contradiction.
+Qed.
+
+Hint Rewrite squashInverseLeft using (easy): changeset_simplificaton.
+Hint Rewrite squashInverseRight using (easy) : changeset_simplificaton.
+Hint Rewrite changeSetInvertInvolution : changeset_simplificaton.
+
+Close Scope CS.
 
 (* Helper function to create ChangeSets for ranges *)
 Definition InsertRange (i: nat) (p: nat) (t: string) := 
@@ -807,77 +911,6 @@ Section distributivityProofsChangeSet.
     now unfold rebaseChangeSet.
   Qed.
 
-  (*Lemma squashInverseLeft: ∀X, X ≠ ⦻ → X ○ X⁻¹  = ⊘.
-  intros.
-  unfold squash.
-  destruct X; try contradiction.
-  simpl.
-  f_equal.
-  unfold squashOpList.
-  rewrite <-rev_involutive with (l:=ops).
-  set (t:=(rev ops)) in *.
-  induction t.
-  - rewrite rev_involutive.
-    unfold map. 
-    now unfold rev at 1.
-  - rewrite rev_involutive.
-    rewrite map_cons.
-    destruct (rev (a :: t)) eqn:H_ops.
-    + contradict H_ops.
-      rewrite cons_to_app.
-      rewrite rev_app_distr.
-      unfold rev at 2.
-      rewrite app_nil_l.
-      auto with datatypes.
-    + rewrite opInvertInvolution.
-      rewrite <-H_ops.
-      rewrite cons_to_app at 1.
-      rewrite rev_app_distr.
-      unfold rev at 2.
-      rewrite app_nil_l.
-      rewrite last_last.
-      rewrite Op_eqb_refl.
-      rewrite cons_to_app.
-      rewrite rev_app_distr.
-      unfold rev at 2.
-      rewrite app_nil_l. 
-      rewrite removelast_last.
-      rewrite rev_involutive in IHt.
-      rewrite IHt; auto.
-  Qed.*)
-
-  Lemma changeSetInvertInvolution: ∀ X:ChangeSet, (X⁻¹)⁻¹ = X.
-  intros.
-  unfold invert.
-  destruct X.
-  destruct ops.
-  apply ProofIrrelevanceForChangeSets.
-  simpl.
-  assert ((map invertOperation (rev (map invertOperation (rev operations0)))) = operations0 ). {
-    rewrite <-map_rev.
-    rewrite rev_involutive.
-    induction operations0.
-    - now cbv.
-    - do 2 rewrite map_cons.
-      rewrite opInvertInvolution.
-      apply tailIsReduced in operations_reduced0.
-      now rewrite IHoperations0.
-  }
-  rewrite H.
-  apply list_op_beq_refl.
-  auto.
-  Qed.
-
-  (*Lemma squashInverseRight: ∀X:ChangeSet, X ≠ ⦻ → X⁻¹ ○ X  = ⊘.
-  intros.
-  rewrite <-changeSetInvertInvolution with (X:=X) at 2.
-  rewrite squashInverseLeft; auto.
-  unfold invert.
-  destruct X.
-  - discriminate.
-  - contradiction.
-  Qed.*)
-
   Lemma rebaseEmptyLeft: ∀X, X ≠ ⦻ → ⊘ ↷ X  = ⊘.
   intros.
   cbn.
@@ -895,12 +928,6 @@ Section distributivityProofsChangeSet.
   Create HintDb changeset_simplificaton.
   Hint Rewrite rebaseWithInvalid1 : changeset_simplificaton.
   Hint Rewrite rebaseWithInvalid2 : changeset_simplificaton.
-  Hint Rewrite squashWithInvalid1 : changeset_simplificaton.
-  Hint Rewrite squashWithInvalid2 : changeset_simplificaton.
-  Hint Rewrite squashEmptyLeft : changeset_simplificaton.
-  Hint Rewrite squashEmptyRight : changeset_simplificaton.
-  (*Hint Rewrite squashInverseLeft using (easy): changeset_simplificaton.
-  Hint Rewrite squashInverseRight using (easy) : changeset_simplificaton.*)
   Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
   Hint Rewrite rebaseEmptyLeft using (easy) : changeset_simplificaton.
   Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
@@ -922,10 +949,48 @@ Section distributivityProofsChangeSet.
     autorewrite with changeset_simplificaton in *.
     unfold operations in IHoperations0.
     unfold operations_reduced in IHoperations0.
-    assert ((opToCs a⁻¹ ○ opToCs a) = ⊘) as H_invCancel. {
-     simpl.
-     apply ProofIrrelevanceForChangeSets.
-     simpl.
+    (*assert ((opToCs a⁻¹ ○ opToCs a) = ⊘) as H_invCancel. {
+      simpl.
+      apply ProofIrrelevanceForChangeSets.
+      simpl.
+      replace (squashOpList [OperationGroup.opposite a] [a]) with ([]:list Operation).
+      2: {
+        cbn.
+        destruct operation_eq_dec; auto; contradiction.
+      }
+      auto with HelperLemmas.
+    }*)
+    fold rebaseChangeSetOps in *.
+    rewrite IHoperations0.
+    destruct operations0.
+    + unfold opToCs.
+      unfold changeset_eqb.
+      auto with HelperLemmas.
+    + unfold opToCs.
+      unfold squash.
+      unfold changeset_eqb.
+      unfold operations.
+      assert( (squashOpList [a] (o :: operations0)) = (a :: o :: operations0)). {
+        cbn.
+        unfold OperationGroup.letter_action.
+        destruct operations0.
+        - simpl. give_up.
+        - assert( (OperationGroup.group_str_action (o0 :: operations0) []) = o0::operations0). {
+          -
+      unfold squashOpList.
+      unfold OperationGroup.reduced_string_product.
+      unfold OperationGroup.reduction.
+      unfold OperationGroup.group_str_action.
+      simpl.
+      unfold OperationGroup.letter_action.
+      cbn.
+
+    unfold squash.
+    rewrite H_invCancel in IHoperations0.
+     unfold squashOpList.
+     unfold OperationGroup.reduced_string_product.
+     unfold OperationGroup.reduction.
+     unfold OperationGroup.group_str_action.
       rewrite Op_eqb_refl.
       rewrite list_op_beq_refl.
       auto.
