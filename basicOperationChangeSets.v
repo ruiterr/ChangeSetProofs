@@ -293,6 +293,18 @@ intros.
 now unfold app.
 Qed.
 
+Lemma revEmpty: ∀ A, (rev ([] : list A)) = [].
+intros.
+unfold rev.
+auto.
+Qed.
+
+Lemma revSingle: ∀A x, (rev ([x] : list A)) = [x].
+intros.
+unfold rev.
+auto.
+Qed.
+
 Lemma squashEmptyLeft:  ∀X, ⊘ ○ X  = X.
 intros.
 unfold squash.
@@ -347,12 +359,71 @@ now rewrite list_op_beq_refl.
 Qed.
 
 (* Invert operation *)
-Lemma invertIsReduced: ∀(opsA: opList), reduced(opsA) -> reduced(map invertOperation (rev opsA)).
-Admitted.
+Lemma invertIsReduced: ∀(opsA: opList), reduced(opsA) -> reduced(OperationGroup.inverse_str opsA).
+intros.
+unfold OperationGroup.inverse_str.
+induction opsA.
+- apply OperationGroup.empty_str_reduced.
+- apply tailIsReduced in H as H_opsAreduced.
+  fold OperationGroup.inverse_str in *.
+  destruct opsA.
+  + simpl.
+    apply OperationGroup.single_letter_reduced.
+  + assert (a ≠ o⁻¹)%O as H_AnotOInv. {
+      intuition.
+      unfold reduced in H.
+      unfold OperationGroup.reduced in H.
+      contradict H.
+      rewrite H0.
+      rewrite cons_to_app at 1.
+      rewrite <-app_nil_l.
+    
+      apply OperationGroup.intro_letter_inverse.
+    }
+    assert(∀A t x y, reduced(A) → (rev A) = (y::t) → y ≠ x⁻¹ → reduced(A ++ [x]))%O. {
+      intros.
+      assert(∀A, reduced(A) → reduced(rev A)) as H_revReduced. give_up.
+      apply H_revReduced in H0.
+      rewrite H1 in H0.
+      assert(rev(A ++ [x]) = rev(A ++ [x])) as HeqA'_rev. auto.
+      remember (rev(A ++ [x])) as A'_rev.
+      rewrite HeqA'_rev0 in HeqA'_rev at 2.
+      rewrite rev_app_distr in HeqA'_rev0.
+      rewrite revSingle in HeqA'_rev0.
+      rewrite <-cons_to_app in HeqA'_rev0.
+      rewrite H1 in HeqA'_rev0.
+      assert(reduced A'_rev). {
+        unfold reduced.
+        unfold OperationGroup.reduced.
+        intuition.
+        rewrite HeqA'_rev0 in H3.
+        apply OperationGroup.split_non_reduced in H3.
+        destruct H3.
+        - contradiction.
+        - rewrite H3 in H2.
+          rewrite opInvertInvolution in H2.
+          now contradiction H2.
+      }
+      apply H_revReduced in H3.
+      rewrite HeqA'_rev in H3.
+      rewrite rev_involutive in H3.
+      auto.
+    }
+    unfold OperationGroup.inverse_str.
+    fold OperationGroup.inverse_str.
+    apply H0 with (y:=OperationGroup.opposite o) (t:=(rev (OperationGroup.inverse_str opsA))).
+    * unfold OperationGroup.inverse_str in IHopsA.
+      auto.
+    * rewrite rev_app_distr.
+      rewrite revSingle.
+      now rewrite <-cons_to_app.
+    * rewrite opInvertInvolution.
+      auto.
+Qed.
 
 Definition invert (a: ChangeSet) := match a with 
     | CSet opsA => (CSet {| 
-         operations := (map invertOperation (rev opsA.(operations)));
+         operations := (OperationsGroup.inverse_str opsA.(operations));
          operations_reduced := (invertIsReduced opsA.(operations) opsA.(operations_reduced))
       |})
     | _ => InvalidCSet
@@ -919,18 +990,6 @@ Section distributivityProofsChangeSet.
   - give_up. (* we need to proof that this does not happen *)
   - auto.
   Admitted.
-
-  Lemma revEmpty: ∀ A, (rev ([] : list A)) = [].
-  intros.
-  unfold rev.
-  auto.
-  Qed.
-
-  Lemma revSingle: ∀A x, (rev ([x] : list A)) = [x].
-  intros.
-  unfold rev.
-  auto.
-  Qed.
   
   Definition CSLength (X: ChangeSet) := match X with
     | CSet ops => length ops 
