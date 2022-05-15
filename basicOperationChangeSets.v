@@ -1022,9 +1022,15 @@ Section distributivityProofsChangeSet.
   Hint Rewrite rebaseEmptyRight using (easy) : changeset_simplificaton.
 
   Lemma fold_left_rebaseOperation_squashOpList: ∀ (a:Operation) (ops0 ops1: list Operation),
+    reduced(ops0++ops1) →
     fold_left rebaseOperation (map (λ x : Operation, (Some x)) (squashOpList ops0 ops1)) (Some a) = 
     fold_left rebaseOperation ((map (λ x : Operation, (Some x)) ops0) ++ (map (λ x : Operation, (Some x)) ops1)) (Some a).
-  Admitted.
+  intros.
+  unfold squashOpList.
+  unfold OperationGroup.reduced_string_product.
+  rewrite OperationGroup.reduction_fixes_reduced; auto.
+  now rewrite map_app.
+  Qed.
 
   Lemma invalid_squash_implies_invalid_input: ∀X Y, (X ○ Y) = ⦻ → X = ⦻ ∨ Y = ⦻.
   intros.
@@ -1064,129 +1070,7 @@ Section distributivityProofsChangeSet.
   - give_up. (* we need to proof that this does not happen *)
   - auto.
   Admitted.
-  
-  Definition CSLength (X: ChangeSet) := match X with
-    | CSet ops => length ops 
-    | InvalidCSet => 0
-  end.
-  
-  Notation "‖ x ‖" := (CSLength x) (at level 40, no associativity, format "'‖' x '‖'").
-  Lemma squashLength: ∀X Y, ‖ X ○ Y ‖ ≤ ‖X‖ + ‖Y‖.
-  Admitted.
 
-  Lemma CSetLength0: ∀X, ‖X‖ = 0 → X = ⊘ ∨ X = ⦻.
-  intros.
-  destruct X; auto.
-  apply length_zero_iff_nil in H.
-  rewrite H; auto.
-  Qed.
-  
-  Lemma squash_first: ∀X Y, X ≠ ⦻ ∧ Y ≠ ⦻ → (X ○ Y) = ⊘ ∨
-                                            ∃op t ops, X=CSet (op::t) ∧ Y=CSet ops ∧ 
-                                                       (X ○ Y) = CSet ( op :: (squashOpList t ops)).
-  intros.
-  destruct H.
-  destruct H0.
-  destruct X; try contradiction.
-  destruct Y; try contradiction.
-  (*exists ops.
-  exists ops0.
-  repeat split; auto.
-  unfold squash.*)
-  Admitted.
-
-  Lemma squashAssociativeForInverses: ∀X Y, X ○ (X⁻¹ ○ Y) = Y.
-  Admitted.
-
-  Lemma squashEmptyImpliesInverse: ∀X Y, X ○ Y = ⊘ → Y = X⁻¹.
-  Admitted.
-
-  Lemma squashAssociative: ∀X Y Z, (X ○ Y) ○ Z = X ○ (Y ○ Z).
-  intros.
-  destruct X.
-  destruct Y.
-  destruct Z.
-  all: autorewrite with changeset_simplificaton; auto.
-
-  set (X:=(CSet ops)).
-  set (Y:=(CSet ops0)).
-  set (Z:=(CSet ops1)).
-  specialize squash_first with (X:=X) (Y:=Y).
-  intros.
-  destruct H.
-  - split; discriminate.
-  - rewrite H.
-    apply squashEmptyImpliesInverse in H.
-    rewrite H.
-    rewrite squashAssociativeForInverses.
-    now autorewrite with changeset_simplificaton.
-  - repeat destruct H.
-    destruct H0.
-    rewrite H0.
-    specialize squash_first with (X:=(CSet (x :: squashOpList x0 x1))) (Y:=Z).
-    intros.
-    destruct H1; try (split;discriminate).
-    + rewrite H1.
-      apply squashEmptyImpliesInverse in H1.
-      rewrite H1.
-      rewrite <-H0.
-      rewrite squashAssociativeForInverses.
-      now autorewrite with changeset_simplificaton.
-    
-  Lemma squashAssociative: ∀X Y Z, (X ○ Y) ○ Z = X ○ (Y ○ Z).
-  intros.
-  (*destruct X.
-  destruct Y.
-  destruct Z.
-  all: autorewrite with changeset_simplificaton; auto.*)
-  
-  remember (‖X‖ + ‖Y‖ + ‖Z‖) as len.
-  assert ( (‖X‖ + ‖Y‖ + ‖Z‖) ≤ len) as H_LeLenOps. lia.
-  revert H_LeLenOps.
-  clear Heqlen.
-  revert X.
-  revert Y.
-  revert Z.
-  revert len.
-  induction (len).
-  - intros.
-    assert_nat (‖X‖ = 0) as H_X.
-    apply CSetLength0 in H_X.
-    destruct H_X.
-    all: rewrite H.
-    all: autorewrite with changeset_simplificaton; auto.
-  - intros.
-    destruct X.
-    destruct Y.
-    all: autorewrite with changeset_simplificaton; auto.
-    rewrite <-rev_involutive with (l:=ops).
-    set (invOps := (rev ops)).
-    destruct invOps.
-    all: autorewrite with changeset_simplificaton; auto.
-    destruct ops0.
-    all: autorewrite with changeset_simplificaton; auto.
-    unfold squash at 2.
-    unfold squashOpList.
-    destruct (rev (o :: invOps)).
-    all: autorewrite with changeset_simplificaton; auto.
-    destruct (Op_eqb (last (o1 :: l) (Insert 0 0 "a" 0 [])) (o0⁻¹)%O).
-    + fold squashOpList.
-      fold squash.
-
-    rewrite decomposeCSetLeft.
-    set (X':=(CSet ops)).
-    set (x:=(CSet [o])).
-
-    rewrite IHn with (X:= x).
-    rewrite IHn with (Z:= Z).
-    rewrite IHn with (X:= x).
-    rewrite IHn with (X:= X').
-    auto.
-
-    all: assert(‖X'‖ + 1 = ‖CSet (o :: ops)‖) as H_X'len; try (simpl; lia).
-    all: rewrite <-H_X'len in H_LeLenOps.
-    + lia.
-    + specialize squashLength with (X:=Y) (Y:=Z) as H_YZlen. lia.
 
   Hint Rewrite revEmpty : changeset_simplificaton.
 
