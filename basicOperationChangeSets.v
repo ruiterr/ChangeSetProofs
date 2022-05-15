@@ -932,6 +932,40 @@ Section distributivityProofsChangeSet.
   Hint Rewrite rebaseEmptyLeft using (easy) : changeset_simplificaton.
   Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
 
+  Lemma reducedImpliesNoOpposites: ∀a b t, reduced(a::b::t) →
+                                    ∃ X, (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite b)) = (right X).
+  intros.
+  unfold reduced in H.
+  unfold OperationGroup.reduced in H.
+  assert (a ≠ (OperationGroup.opposite b)). {
+    intuition.
+    apply H.
+    rewrite <-app_nil_l.
+    rewrite H0.
+    apply OperationGroup.intro_letter_inverse.
+  }
+  destruct (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite b)) eqn:H2.
+  - contradiction.
+  - now exists n.
+  Qed.
+
+  Lemma group_str_app_reduced_nop: ∀ops, reduced(ops) → (OperationGroup.group_str_action (ops) []) = ops.
+  intros.
+  induction ops.
+  - now cbv.
+  - unfold OperationGroup.group_str_action.
+    fold OperationGroup.group_str_action.
+    unfold OperationGroup.letter_action.
+    rewrite IHops. 2: {
+      now apply tailIsReduced with (op:=a).
+    }
+    destruct ops.
+    + auto.
+    + apply reducedImpliesNoOpposites in H.
+      destruct H as [H_aneqOppa0 H_notOpposites].
+      now rewrite H_notOpposites.
+  Qed.
+
   Lemma rebaseEmptyRight: ∀X, X ≠ ⦻ → X ↷ ⊘  = X.
   intros.
   unfold rebaseChangeSet.
@@ -949,17 +983,6 @@ Section distributivityProofsChangeSet.
     autorewrite with changeset_simplificaton in *.
     unfold operations in IHoperations0.
     unfold operations_reduced in IHoperations0.
-    (*assert ((opToCs a⁻¹ ○ opToCs a) = ⊘) as H_invCancel. {
-      simpl.
-      apply ProofIrrelevanceForChangeSets.
-      simpl.
-      replace (squashOpList [OperationGroup.opposite a] [a]) with ([]:list Operation).
-      2: {
-        cbn.
-        destruct operation_eq_dec; auto; contradiction.
-      }
-      auto with HelperLemmas.
-    }*)
     fold rebaseChangeSetOps in *.
     rewrite IHoperations0.
     destruct operations0.
@@ -970,45 +993,31 @@ Section distributivityProofsChangeSet.
       unfold squash.
       unfold changeset_eqb.
       unfold operations.
+      specialize reducedImpliesNoOpposites with (a:=a) (b:=o) (t:=operations0) as H_notOpposites.
+      destruct H_notOpposites as [H_AneqOppO H_notOpposites]; auto.
       assert( (squashOpList [a] (o :: operations0)) = (a :: o :: operations0)). {
         cbn.
         unfold OperationGroup.letter_action.
         destruct operations0.
-        - simpl. give_up.
-        - assert( (OperationGroup.group_str_action (o0 :: operations0) []) = o0::operations0). {
-          -
-      unfold squashOpList.
-      unfold OperationGroup.reduced_string_product.
-      unfold OperationGroup.reduction.
-      unfold OperationGroup.group_str_action.
-      simpl.
-      unfold OperationGroup.letter_action.
-      cbn.
+        - simpl. 
+          now rewrite H_notOpposites.
+        - specialize reducedImpliesNoOpposites with (a:=o) (b:=o0) (t:=operations0) as H_notOpposites2.
+          destruct H_notOpposites2 as [H_OneqOppO0 H_notOpposites2]. {
+            now apply tailIsReduced with (op:=a).
+          }
 
-    unfold squash.
-    rewrite H_invCancel in IHoperations0.
-     unfold squashOpList.
-     unfold OperationGroup.reduced_string_product.
-     unfold OperationGroup.reduction.
-     unfold OperationGroup.group_str_action.
-      rewrite Op_eqb_refl.
-      rewrite list_op_beq_refl.
-      auto.
-    }
-    rewrite H_invCancel.
-    rewrite IHoperations0.
-    all: try discriminate.
-    destruct operations0.
-    + simpl.
-      now rewrite Op_eqb_refl.
-    + cbv delta [squash].
-    unfold squashOpList.
-    unfold last.
-    (* TODO: Within a changeset there are no adjacent inverse operations in the list *)
-    assert (Op_eqb a (o⁻¹)%O = false). give_up.
-    rewrite H0.
-    auto with *.
-  Admitted.
+          rewrite group_str_app_reduced_nop. 2: {
+            apply tailIsReduced with (op:=o).
+            now apply tailIsReduced with (op:=a).
+          }
+          rewrite H_notOpposites2.
+          now rewrite H_notOpposites.
+      }
+      rewrite H0.
+      auto with HelperLemmas.
+    + intuition.
+      discriminate H0.
+  Qed.
 
   Hint Rewrite rebaseEmptyRight using (easy) : changeset_simplificaton.
 
