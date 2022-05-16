@@ -1051,17 +1051,50 @@ Section distributivityProofsChangeSet.
     now rewrite IHops.
   Qed.
   
-  Lemma decomposeCSetLeft: ∀ op l, (CSet (op::l) ) = (CSet [op]) ○ (CSet l).
+  Definition tailFromCS (X: ChangeSet) := match X with
+  | CSet ops => match ops.(operations) with
+      | [] => fun x => ⊘
+      | opA::Atail => fun x => (
+            let ATailIsReduced := (tailIsReduced2 ops.(operations) Atail opA x ops.(operations_reduced)) in
+            (CSet {|
+                operations := Atail;
+                operations_reduced := ATailIsReduced
+            |})
+        )
+      end eq_refl
+  | ⦻ => ⦻
+  end.
+
+  Lemma decomposeCSetLeft: ∀(X:ChangeSet) redOps op l, X = (CSet redOps) → (operations(redOps) = op::l) → X = (opToCs op) ○ (tailFromCS X).
   intros.
   unfold squash.
-  unfold squashOpList. 
-  destruct l;auto.
-  destruct (Op_eqb (last [op] (Insert 0 0 "a" 0 [])) (o⁻¹)%O).
-  - give_up. (* we need to proof that this does not happen *)
-  - auto.
-  Admitted.
+  apply ProofIrrelevanceForChangeSets.
+  destruct X. 2: {
+    autorewrite with changeset_simplificaton; auto.
+  }
+  destruct ops.
+  simpl.
+  unfold operations.
+  assert ( (operations redOps) = operations0). {
+    injection H as H_inj.
+    rewrite <-H_inj.
+    now cbv.
+  }
+  destruct operations0 eqn:H_operations0.
+  - rewrite H0 in H1.
+    discriminate H1.
+  - unfold squashOpList.
+    unfold OperationGroup.reduced_string_product.
+    assert(op = o). { rewrite H0 in H1. now injection H1 as H2. }
+    rewrite H2.
+    rewrite OperationGroup.reduction_fixes_reduced. 2: {
+      now rewrite <-cons_to_app.
+    }
+    rewrite <-cons_to_app.
+    auto with HelperLemmas.
+  Qed.
 
-  Lemma decomposeCSetRight: ∀ op l, (CSet (l ++ [op]) ) = (CSet l) ○ (CSet [op]).
+  Lemma decomposeCSetRight: ∀(X:ChangeSet) redOps op l, X = (CSet redOps) → (operations(redOps) = (l ++ [op]) ) = (removeLastFromCS X) ○ (opToCs op).
   intros.
   unfold squash.
   unfold squashOpList. 
@@ -1074,7 +1107,7 @@ Section distributivityProofsChangeSet.
 
   Hint Rewrite revEmpty : changeset_simplificaton.
 
-  Lemma rebaseLeftDistibutivity: (A ○ B) ↷ C  = (A ↷ C) ○ (B ↷ (A⁻¹ ○ C ○ (A ↷ C))).
+  (*Lemma rebaseLeftDistibutivity: (A ○ B) ↷ C  = (A ↷ C) ○ (B ↷ (A⁻¹ ○ C ○ (A ↷ C))).
   intros.
   destruct A.
   destruct B.
@@ -1234,11 +1267,53 @@ apply length_zero_iff_nil in H_lenT.
         cbn -[rebaseChangeSetOps rebaseOperationWithChangeSet squash v].
         destruct (a :: (o :: l)) eqn:H_a_o_l; try discriminate.
         
-        cbn -[rebaseChangeSetOps rebaseOperationWithChangeSet squash].
-          
-           
-  
+        cbn -[rebaseChangeSetOps rebaseOperationWithChangeSet squash].*)
 
 
-Check rebaseOperatrionRightDistibutivity.
+Eval compute in (InsertRange 0 5 "test").
+Eval compute in (RemoveRange 0 2 2 "test").
+ 
+Eval compute in (applyChangeSet "Hello World" (InsertRange 0 6 "cruel ")).
+Eval compute in (applyChangeSet "Hello cruel World" (RemoveRange 0 6 6 "Hello cruel World")).
+
+Eval compute in (squash (InsertRange 0 6 "cruel ") (RemoveRange 0 6 6 "Hello cruel World")).
+Eval compute in (applyChangeSet "Hello World" ( (InsertRange 0 6 "cruel ") ○ (RemoveRange 0 6 6 "Hello cruel World"))).
+
+
+Definition BaseChange := (InsertRange 0 0 "abcde").
+
+Definition ChangeClient1 :=  (RemoveRange 1 0 5 "abcde"). 
+Eval compute in applyChangeSet "" (BaseChange ○ ChangeClient1).
+Definition ChangeClient2_1 :=  (InsertRange 6 3 "y").
+Eval compute in applyChangeSet "" (BaseChange ○ ChangeClient2_1).
+Definition ChangeClient2_2 :=  (InsertRange 7 1 "w").
+Eval compute in applyChangeSet "" (BaseChange ○ ChangeClient2_1 ○ ChangeClient2_2).
+Definition ChangeClient3_1 :=  (InsertRange 8 4 "z").
+Eval compute in applyChangeSet "" (BaseChange ○ ChangeClient3_1).
+Definition ChangeClient3_2 :=  (InsertRange 9  2 "x").
+Eval compute in applyChangeSet "" (BaseChange ○ ChangeClient3_1 ○ ChangeClient3_2).
+
+Fixpoint rebaseChangeSets (CSets : list ChangeSet)  (base : ChangeSet) := match CSets with
+  | [] => []
+  | A::tail => (A ↷ base) :: (rebaseChangeSets tail (A⁻¹ ○ base ○ (A ↷ base)))
+end.
+
+
+Definition ChangesFromClient1 := ChangeClient1.
+Definition rebasedChangesClient2 := (rebaseChangeSets [ChangeClient2_1; ChangeClient2_2] ChangesFromClient1).
+Definition RebasedChangesFromClient2 := (nth 0 rebasedChangesClient2 ⦻) ○ (nth 1 rebasedChangesClient2 ⦻).
+Eval compute in applyChangeSet "" (BaseChange ○ ChangesFromClient1 ○ RebasedChangesFromClient2).
+
+
+Definition rebasedChangesClient3 := (rebaseChangeSets [ChangeClient3_1; ChangeClient3_2] (ChangesFromClient1 ○ RebasedChangesFromClient2)).
+Definition RebasedChangesFromClient3 := (nth 0 rebasedChangesClient3 ⦻) ○ (nth 1 rebasedChangesClient3 ⦻).
+
+Eval compute in applyChangeSet "" (BaseChange ○ ChangesFromClient1 ○ RebasedChangesFromClient2 ○ RebasedChangesFromClient3).
+
+Definition rebasedWithInverse := (rebaseChangeSets [RebasedChangesFromClient2; RebasedChangesFromClient3] (ChangesFromClient1⁻¹)).
+Eval compute in applyChangeSet "" (BaseChange ○ (nth 0 rebasedWithInverse ⦻) ○ (nth 1 rebasedWithInverse ⦻)).
+
+
+
 Close Scope nat.
+
