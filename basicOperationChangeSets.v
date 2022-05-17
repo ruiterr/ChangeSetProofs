@@ -1370,7 +1370,7 @@ Section distributivityProofsChangeSet.
 
         (* transform the term *)
         rewrite <-squashEmptyRight with (X:=A') at 3.
-        rewrite <-squashInverseRight with (X:=b).
+        rewrite <-squashInverseRight with (X:=b). 2: { cbv. discriminate. }
         assert (∀A b o0, b = (opToCs o0) →  (A ○ b) ↷ C = (A ↷ C) ○ (b ↷ (A⁻¹ ○ C ○ ((A ↷ C))))) as rebaseDistributivitySingeOpRight. {
           give_up.
         }
@@ -1381,10 +1381,13 @@ Section distributivityProofsChangeSet.
 
         rewrite <-squashEmptyRight with (X:=(A' ↷ C)).
         rewrite <-rebaseEmptyLeft with (X:=(A'⁻¹ ○ C ○ (A' ↷ C))).
-        rewrite <-squashInverseRight with (X:=b).
+        2: {
+          give_up.
+        }
+        rewrite <-squashInverseRight with (X:=b). 2: { cbv. discriminate. }
 
         rewrite <-squashEmptyRight with (X:=A') at 4.
-        rewrite <-squashInverseRight with (X:=b).
+        rewrite <-squashInverseRight with (X:=b). 2: {cbv. discriminate. }
         rewrite <-squashAssociative with (X:=A').
         
         assert (∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹)) as changeSetInvertReverseSquash. give_up.
@@ -1397,6 +1400,7 @@ Section distributivityProofsChangeSet.
         unfold opToCs.
         remember ((A'⁻¹ ○ C) ○ (A' ↷ C)) as C'.
         destruct C' eqn:H_C'.
+        2: give_up.
         destruct ops.
         rewrite IHn. 2: {
           simpl.
@@ -1444,6 +1448,8 @@ Section distributivityProofsChangeSet.
         unfold opToCs.
         remember (((((A' ○ (b⁻¹))⁻¹) ○ C) ○ ((A' ○ (b⁻¹)) ↷ C))) as C''.
         destruct C'' eqn:H_C''.
+        2: autorewrite with changeset_simplificaton; auto.
+
         destruct ops.
         rewrite IHn. 2: {
           simpl.
@@ -1487,6 +1493,7 @@ Section distributivityProofsChangeSet.
         repeat rewrite squashAssociative.
         repeat rewrite H_aInvb.
         auto.
+      * give_up.
 
       unfold squash at 1.
       unfold squashOpList.
