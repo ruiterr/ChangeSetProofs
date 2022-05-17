@@ -1380,7 +1380,7 @@ Section distributivityProofsChangeSet.
         fold b.
 
         rewrite <-squashEmptyRight with (X:=(A' ↷ C)).
-        rewrite <-rebaseEmptyLeft with (X:=(A' ○ C ○ (A' ↷ C))).
+        rewrite <-rebaseEmptyLeft with (X:=(A'⁻¹ ○ C ○ (A' ↷ C))).
         rewrite <-squashInverseRight with (X:=b).
 
         rewrite <-squashEmptyRight with (X:=A') at 4.
@@ -1390,9 +1390,103 @@ Section distributivityProofsChangeSet.
         assert (∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹)) as changeSetInvertReverseSquash. give_up.
         rewrite changeSetInvertReverseSquash.
 
+        (* use induction hypothesis 2 *)
         rewrite <-H_aInvb at 1.
         unfold a at 1.
         unfold b at 1.
+        unfold opToCs.
+        remember ((A'⁻¹ ○ C) ○ (A' ↷ C)) as C'.
+        destruct C' eqn:H_C'.
+        destruct ops.
+        rewrite IHn. 2: {
+          simpl.
+          rewrite rev_length in H_LeLenOps.
+          rewrite cons_to_app in H_LeLenOps.
+          rewrite app_length in H_LeLenOps.
+          simpl in H_LeLenOps.
+          give_up.
+        }
+        rewrite HeqC'.
+        replace (CSet {| operations := [o]; operations_reduced := singleOpListIsReduced o |}) with a. 2: {
+          unfold a.
+          now unfold opToCs.
+        }
+        replace (CSet {| operations := [o0]; operations_reduced := singleOpListIsReduced o0 |}) with b. 2: {
+          unfold b.
+          now unfold opToCs.
+        }
+        
+        (* use induction hypothesis on RHS *)
+        unfold A' at 12.
+        rewrite <-H_aInvb at 6.
+        unfold a at 4.
+        unfold C at 12.
+        unfold opToCs.
+        rewrite IHn. 2: {
+          rewrite rev_length.
+          rewrite rev_length in H_LeLenOps.
+          rewrite cons_to_app in H_LeLenOps.
+          rewrite app_length in H_LeLenOps.
+          simpl in H_LeLenOps.
+          simpl.
+          lia.
+        }
+        fold C.
+        fold A'.
+        replace (CSet {| operations := [o]; operations_reduced := singleOpListIsReduced o |}) with a. 2: {
+          unfold a.
+          now unfold opToCs.
+        }
+
+        (* use induction hypothesis 2 on RHS *)
+        unfold B' at 2.
+        unfold b at 8.
+        unfold opToCs.
+        remember (((((A' ○ (b⁻¹))⁻¹) ○ C) ○ ((A' ○ (b⁻¹)) ↷ C))) as C''.
+        destruct C'' eqn:H_C''.
+        destruct ops.
+        rewrite IHn. 2: {
+          simpl.
+          rewrite rev_length in H_LeLenOps.
+          rewrite cons_to_app in H_LeLenOps.
+          rewrite app_length in H_LeLenOps.
+          simpl in H_LeLenOps.
+          lia.
+        }
+        rewrite HeqC''.
+        replace (CSet {| operations := [o0]; operations_reduced := singleOpListIsReduced o0 |}) with b. 2: {
+          unfold b.
+          now unfold opToCs.
+        }
+        fold B'.
+
+        (* use induction hypothesis 3 on RHS *)
+        unfold A' at 16.
+        rewrite <-H_aInvb at 7. 
+        unfold a at 5. 
+        unfold C at 16. 
+        unfold opToCs.
+        rewrite IHn. 2: {
+          simpl.
+          rewrite rev_length in H_LeLenOps.
+          rewrite cons_to_app in H_LeLenOps.
+          rewrite app_length in H_LeLenOps.
+          simpl in H_LeLenOps.
+          rewrite rev_length.
+          lia.
+        }
+        fold C.
+        fold A'.
+        replace (CSet {| operations := [o]; operations_reduced := singleOpListIsReduced o |}) with a. 2: {
+          unfold a.
+          now unfold opToCs.
+        }
+        
+        (* Normalize result *)
+        repeat rewrite changeSetInvertReverseSquash.
+        repeat rewrite squashAssociative.
+        repeat rewrite H_aInvb.
+        auto.
 
       unfold squash at 1.
       unfold squashOpList.
