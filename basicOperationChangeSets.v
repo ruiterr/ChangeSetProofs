@@ -1292,7 +1292,10 @@ Section distributivityProofsChangeSet.
             destruct H; discriminate.
         -- rewrite H. 
            now autorewrite with changeset_simplificaton; auto.
-    + destruct (OperationGroup.alphabet_eq_dec o (OperationGroup.opposite o0)) eqn:H_opOppositeO2.
+    + assert (∀A C b o0, b = (opToCs o0) →  (A ○ b) ↷ C = (A ↷ C) ○ (b ↷ (A⁻¹ ○ C ○ ((A ↷ C))))) as rebaseDistributivitySingleOpRight. {
+        give_up.
+      }
+      destruct (OperationGroup.alphabet_eq_dec o (OperationGroup.opposite o0)) eqn:H_opOppositeO2.
       * assert (rev (o :: l) = (rev l) ++ [o]) as H_revOL. {
           give_up.
         }
@@ -1371,12 +1374,10 @@ Section distributivityProofsChangeSet.
         (* transform the term *)
         rewrite <-squashEmptyRight with (X:=A') at 3.
         rewrite <-squashInverseRight with (X:=b). 2: { cbv. discriminate. }
-        assert (∀A b o0, b = (opToCs o0) →  (A ○ b) ↷ C = (A ↷ C) ○ (b ↷ (A⁻¹ ○ C ○ ((A ↷ C))))) as rebaseDistributivitySingeOpRight. {
-          give_up.
-        }
+
         rewrite <-squashAssociative with (X:=A').
         unfold b at 2.
-        rewrite rebaseDistributivitySingeOpRight with (A:=A' ○ ((b⁻¹))) (o0:=o0); auto.
+        rewrite rebaseDistributivitySingleOpRight with (A:=A' ○ ((b⁻¹))) (o0:=o0); auto.
         fold b.
 
         rewrite <-squashEmptyRight with (X:=(A' ↷ C)).
@@ -1493,7 +1494,16 @@ Section distributivityProofsChangeSet.
         repeat rewrite squashAssociative.
         repeat rewrite H_aInvb.
         auto.
-      * give_up.
+      * intros.
+        assert (∃P, ((CSet {| operations := rev (o :: l); operations_reduced := operations_reduced4 |})
+                   ○ (CSet {| operations := o0 :: o1; operations_reduced := operations_reduced3 |})) =
+                    (CSet {| operations := (rev l ++ [o] ++ [o0] ++ o1); operations_reduced := P |})). {
+          give_up.
+        }
+        destruct H.
+        rewrite H.
+                
+        give_up.
 
       unfold squash at 1.
       unfold squashOpList.
