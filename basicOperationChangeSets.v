@@ -1298,7 +1298,7 @@ Section distributivityProofsChangeSet.
 
         (* Determine all cases we can solve by splitting a single element off from the left of A*)
         destruct ( (if (OperationGroup.reduced_dec (operations0 ++ operations1)) then true else false) || 
-                    ((length operations1) <? (length operations0))) eqn:H_leftSplitAPossible.
+                    ((length operations1) <=? (length operations0))) eqn:H_leftSplitAPossible.
           ++ (*apply orb_prop in H_leftSplitAPossible.
              destruct H_leftSplitAPossible as [H_ops0ops1_reduced | H_AgtB].
              assert(∃ P, OperationGroup.reduced_dec (operations0 ++ operations1) = left P) as H_reduced. {
@@ -1548,8 +1548,37 @@ Section distributivityProofsChangeSet.
             destruct ops eqn:H_ops.
             unfold C at 3.
             rewrite IHn. 2: {
-              give_up.
+              assert( (Datatypes.length operations3) ≤ Datatypes.length(l) + 1 ). {
+                unfold A_bopp in H_Abopp.
+                unfold A' in H_Abopp.
+                unfold b in H_Abopp.
+                unfold opToCs in H_Abopp.
+                unfold invert in H_Abopp.
+                unfold OperationGroup.inverse_str in H_Abopp.
+                unfold operations in H_Abopp.
+                unfold squash in H_Abopp.
+                unfold operations.
+                injection H_Abopp as H_operation3.
+                assert (∀A B, (length (squashOpList A B)) ≤ (length A) + (length B)) as SquashOpListMaxLength. give_up.
+                specialize SquashOpListMaxLength with (A:=rev l) (B:=[OperationGroup.opposite o0]) as H_maxLengthOperations3.
+                rewrite H_operation3 in H_maxLengthOperations3.
+                rewrite rev_length in H_maxLengthOperations3.
+                simpl in H_maxLengthOperations3.
+                auto.
+              }
+              simpl. 
+              apply orb_false_elim in H_leftSplitAPossible.
+              destruct H_leftSplitAPossible as [_ H_lenAGtlenB].
+              rewrite_nat.
+              rewrite <-H_operations1 in H_LeLenOps.
+              rewrite rev_length in H_LeLenOps.
+              rewrite rev_length in H_lenAGtlenB.
+              simpl in H_lenAGtlenB.
+              simpl in H_LeLenOps.
+              lia.
             }
+
+
             fold C.
             rewrite <-H_Abopp.
             replace ((CSet {| operations := [o0]; operations_reduced := singleOpListIsReduced o0 |})) with b.
