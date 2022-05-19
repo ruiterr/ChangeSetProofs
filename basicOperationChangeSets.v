@@ -1292,7 +1292,7 @@ Section distributivityProofsChangeSet.
             destruct H; discriminate.
         -- rewrite H. 
            now autorewrite with changeset_simplificaton; auto.
-    + destruct (n <? 2).
+    + destruct (n <? 2) eqn:H_nge2.
       * give_up.
       * intros.
 
@@ -1618,7 +1618,7 @@ Section distributivityProofsChangeSet.
               rewrite cons_to_app in H_LeLenOps.
               rewrite app_length in H_LeLenOps.
               simpl in H_LeLenOps.
-              give_up.
+              solve_nat.
             }
             rewrite HeqC'.
             replace (CSet {| operations := [o]; operations_reduced := singleOpListIsReduced o |}) with a. 2: {
