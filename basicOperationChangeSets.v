@@ -1545,6 +1545,13 @@ Section distributivityProofsChangeSet.
             unfold opToCs.
             set (A_bopp:=(A' ○ (b⁻¹))).
             destruct A_bopp eqn:H_Abopp.
+            2: {
+              unfold A_bopp in H_Abopp.
+              apply invalid_squash_implies_invalid_input in H_Abopp.
+              contradict H_Abopp.
+              intuition.
+              all: discriminate H2.
+            }
             destruct ops eqn:H_ops.
             unfold C at 3.
             rewrite IHn. 2: {
