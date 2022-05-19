@@ -1427,25 +1427,29 @@ Section distributivityProofsChangeSet.
               rewrite H.
               
               give_up.
-        ++ generalize operations_reduced0.
-           generalize operations_reduced1.
-           generalize operations_reduced2.
-           generalize operations_reduced4.
-           rewrite <-H_operations0Split.
-           rewrite <-rev_involutive with (l:=operations0) in *.
-           set (invOps := (rev operations0)) in *.
-           rename o into o_left.
-           rename o0 into o0_left.
-           rename o1 into o0.
-           rename o2 into o1.
+        ++  generalize operations_reduced0.
+            generalize operations_reduced1.
+            generalize operations_reduced2.
+            generalize operations_reduced4.
+            rewrite <-H_operations0Split.
+            rewrite <-rev_involutive with (l:=operations0) in *.
+            set (invOps := (rev operations0)) in *.
+            rename o into o_left.
+            rename o0 into o0_left.
+            rename o1 into o0.
+            rename o2 into o1.
 
-           destruct invOps eqn:H_invOps. 1: {
-             rewrite revEmpty.
-             intros.
-             autorewrite with changeset_simplificaton; auto.
-           }
+            destruct invOps eqn:H_invOps. 1: {
+              rewrite revEmpty.
+              intros.
+              autorewrite with changeset_simplificaton; auto.
+            }
 
             assert (∀A C b o0, b = (opToCs o0) →  (A ○ b) ↷ C = (A ↷ C) ○ (b ↷ (A⁻¹ ○ C ○ ((A ↷ C))))) as rebaseDistributivitySingleOpRight. {
+              intros.
+              destruct A.
+              destruct B.
+              destruct B.
               give_up.
             }
 
@@ -1538,8 +1542,23 @@ Section distributivityProofsChangeSet.
 
             rewrite <-squashAssociative with (X:=A').
             unfold b at 2.
-            rewrite rebaseDistributivitySingleOpRight with (A:=A' ○ ((b⁻¹))) (o0:=o0); auto.
+            unfold opToCs.
+            set (A_bopp:=(A' ○ (b⁻¹))).
+            destruct A_bopp eqn:H_Abopp.
+            destruct ops eqn:H_ops.
+            unfold C at 3.
+            rewrite IHn. 2: {
+              give_up.
+            }
+            fold C.
+            rewrite <-H_Abopp.
+            replace ((CSet {| operations := [o0]; operations_reduced := singleOpListIsReduced o0 |})) with b.
+            2: {
+              unfold b. 
+              now unfold opToCs.
+            }
             fold b.
+            unfold A_bopp.
 
             rewrite <-squashEmptyRight with (X:=(A' ↷ C)).
             rewrite <-rebaseEmptyLeft with (X:=(A'⁻¹ ○ C ○ (A' ↷ C))).
@@ -1563,7 +1582,7 @@ Section distributivityProofsChangeSet.
             remember ((A'⁻¹ ○ C) ○ (A' ↷ C)) as C'.
             destruct C' eqn:H_C'.
             2: give_up.
-            destruct ops.
+            destruct ops0.
             rewrite IHn. 2: {
               simpl.
               rewrite rev_length in H_LeLenOps.
@@ -1612,7 +1631,7 @@ Section distributivityProofsChangeSet.
             destruct C'' eqn:H_C''.
             2: autorewrite with changeset_simplificaton; auto.
 
-            destruct ops.
+            destruct ops0.
             rewrite IHn. 2: {
               simpl.
               rewrite rev_length in H_LeLenOps.
