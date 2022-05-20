@@ -887,57 +887,67 @@ Section distributivityProofs.
   Close Scope OO.
 End distributivityProofs.
 
+Open Scope CS.
+Lemma proofIrrelevanceEmpty: ∀P, CSet {|operations:=[]; operations_reduced:=P|} = ⊘.
+intros.
+apply ProofIrrelevanceForChangeSets.
+auto.
+Qed.
+
+Lemma rebaseWithInvalid1: ∀X, (X ↷ ⦻) = ⦻.
+  intros.
+  unfold rebaseChangeSet.
+  destruct X; auto.
+  unfold rebaseChangeSetOps.
+  destruct ops.
+  induction operations0.
+  - auto.
+  - destruct operations0.
+    + unfold rebaseOperationWithChangeSet; auto.
+    + unfold rebaseOperationWithChangeSet. unfold squash. auto.
+Qed.
+
+Lemma rebaseWithInvalid2: ∀X, (⦻ ↷ X) = ⦻.
+  intros.
+  now unfold rebaseChangeSet.
+Qed.
+
+Lemma rebaseEmptyLeft: ∀X, X ≠ ⦻ → ⊘ ↷ X  = ⊘.
+intros.
+cbn.
+destruct X; auto.
+contradiction.
+Qed.
+
+Lemma rebaseOperationEmpty: ∀op:Operation, (rebaseOperationWithChangeSet op ⊘) = (opToCs op).
+intros.
+unfold rebaseOperationWithChangeSet.  
+unfold fold_left. 
+now simpl.
+Qed.
+
+Lemma emptyInverse: ⊘⁻¹ = ⊘.
+intros.
+cbv.
+now apply ProofIrrelevanceForChangeSets.
+Qed.
+
+Create HintDb changeset_simplificaton.
+Hint Rewrite rebaseWithInvalid1 : changeset_simplificaton.
+Hint Rewrite rebaseWithInvalid2 : changeset_simplificaton.
+Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
+Hint Rewrite rebaseEmptyLeft using (easy) : changeset_simplificaton.
+Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
+Hint Rewrite emptyInverse : changeset_simplificaton.
+Hint Rewrite proofIrrelevanceEmpty : changeset_simplificaton.
+
+Lemma changeSetInvertReverseSquash: ∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹).
+Admitted.
+
 Section distributivityProofsChangeSet.
   Variable A: ChangeSet.
   Variable B: ChangeSet.
   Variable C: ChangeSet.
-
-  Open Scope CS.
-  Lemma rebaseWithInvalid1: ∀X, (X ↷ ⦻) = ⦻.
-    intros.
-    unfold rebaseChangeSet.
-    destruct X; auto.
-    unfold rebaseChangeSetOps.
-    destruct ops.
-    induction operations0.
-    - auto.
-    - destruct operations0.
-      + unfold rebaseOperationWithChangeSet; auto.
-      + unfold rebaseOperationWithChangeSet. unfold squash. auto.
-  Qed.
-
-  Lemma rebaseWithInvalid2: ∀X, (⦻ ↷ X) = ⦻.
-    intros.
-    now unfold rebaseChangeSet.
-  Qed.
-
-  Lemma rebaseEmptyLeft: ∀X, X ≠ ⦻ → ⊘ ↷ X  = ⊘.
-  intros.
-  cbn.
-  destruct X; auto.
-  contradiction.
-  Qed.
-
-  Lemma rebaseOperationEmpty: ∀op:Operation, (rebaseOperationWithChangeSet op ⊘) = (opToCs op).
-  intros.
-  unfold rebaseOperationWithChangeSet.  
-  unfold fold_left. 
-  now simpl.
-  Qed.
-  
-  Lemma emptyInverse: ⊘⁻¹ = ⊘.
-  intros.
-  cbv.
-  now apply ProofIrrelevanceForChangeSets.
-  Qed.
-
-  Create HintDb changeset_simplificaton.
-  Hint Rewrite rebaseWithInvalid1 : changeset_simplificaton.
-  Hint Rewrite rebaseWithInvalid2 : changeset_simplificaton.
-  Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
-  Hint Rewrite rebaseEmptyLeft using (easy) : changeset_simplificaton.
-  Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
-  Hint Rewrite emptyInverse : changeset_simplificaton.
 
   Lemma reducedImpliesNoOpposites: ∀a b t, reduced(a::b::t) →
                                     ∃ X, (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite b)) = (right X).
@@ -1224,13 +1234,6 @@ Section distributivityProofsChangeSet.
 
   Hint Rewrite revEmpty : changeset_simplificaton.
 
-  Lemma proofIrrelevanceEmpty: ∀P, CSet {|operations:=[]; operations_reduced:=P|} = ⊘.
-  intros.
-  apply ProofIrrelevanceForChangeSets.
-  auto.
-  Qed.
-  Hint Rewrite proofIrrelevanceEmpty : changeset_simplificaton.
-
   Hint Unfold OperationGroup.alphabet.
   Hint Unfold OperationsGroupImpl.alphabet.
 
@@ -1299,7 +1302,61 @@ Section distributivityProofsChangeSet.
     + destruct (n <? 2) eqn:H_nge2.
       * give_up.
       * intros.
+        (* These warnings are triggered by the tactic below. I haven't been able to find a way
+           to specify the intro patterns that does not cause the warning. *)
+        Local Set Warnings "-unused-intro-pattern".
+        Ltac applyIH inpA inpB inpC IHn := 
+          let opsA := fresh "opsA" in 
+          let opsA2 := fresh "opsA" in 
+          let H_opsA := fresh "H_opsA" in 
+          destruct inpA as [opsA | opsA2] eqn:H_opsA;
+          try autorewrite with changeset_simplificaton; auto;
+          only 1: destruct opsA;
 
+          let opsB := fresh "opsB" in 
+          let opsB2 := fresh "opsB" in 
+          let H_opsB := fresh "H_opsB" in 
+          destruct inpB as [opsB | opsB2] eqn:H_opsB;
+          try autorewrite with changeset_simplificaton; auto;
+          only 1: destruct opsB;
+
+          let opsC := fresh "opsC" in 
+          let opsC2 := fresh "opsC" in 
+          let H_opsC := fresh "H_opsC" in 
+          destruct inpC as [opsC | opsC2] eqn:H_opsC;
+          try autorewrite with changeset_simplificaton; auto;
+          only 1: destruct opsC;
+          try discriminate;
+
+          try rewrite IHn;
+          try lia;
+
+          try rewrite <-H_opsA in *;
+          try rewrite <-H_opsB in *;
+          try rewrite <-H_opsC in *;
+
+          let H_opsA2 := fresh "H_opsA2" in
+          try unfold inpA in H_opsA;
+          try unfold opToCs in H_opsA;
+          try injection H_opsA as H_opsA2;
+
+          let H_opsB2 := fresh "H_opsB2" in
+          try unfold inpB in H_opsB;
+          try unfold opToCs in H_opsB;
+          try injection H_opsB as H_opsB2;
+
+          let H_opsC2 := fresh "H_opsC2" in
+          try unfold inpC in H_opsC;
+          try unfold opToCs in H_opsC;
+          try injection H_opsC as H_opsC2;
+          try rewrite <-H_opsA2;
+          try rewrite <-H_opsB2;
+          try rewrite <-H_opsC2; 
+          try solve [
+            simpl;
+            autounfold;
+            lia
+          ].
         (* Determine all cases we can solve by splitting a single element off from the left of A*)
         destruct ( (if (OperationGroup.reduced_dec (operations0 ++ operations1)) then true else false) || 
                     ((length operations1) <=? (length operations0))) eqn:H_leftSplitAPossible.
@@ -1526,15 +1583,9 @@ Section distributivityProofsChangeSet.
                       rewrite H_fix; auto.
                       auto with HelperLemmas.
                     }
-                    set (t2 := (((a⁻¹) ○ C) ○ (a ↷ C))).
-                    destruct t2 eqn:H_t2. 2: {
-                     autorewrite with changeset_simplificaton; auto.
-                    }
-                    destruct ops.
-                    unfold a'.
-                    unfold A'' at 2.
-                    unfold opToCs.
-                    rewrite IHn. 2: {
+                    unfold t.
+                    applyIH a' A'' ((a⁻¹ ○ C) ○ a ↷ C) IHn.
+                    2: {
                       rewrite H.
                       simpl.
                       assert ( (@Datatypes.length Operation l) + 1 ≤ length (o3) + length(o1 :: o2)). {
@@ -1553,18 +1604,35 @@ Section distributivityProofsChangeSet.
                       rewrite H1 in H_LeLenOps.
                       lia.
                     }
-                    unfold opToCs in a'.
-                    fold a'.
-                    fold A''.
-                    rewrite <-H_t2.
-                    unfold t.
-                    now unfold t2.
-                    
+                    easy.
               }
               destruct H.
               rewrite H.
               
-              give_up.
+              apply tailIsReduced in operations_reduced0 as operations_reduced_o2.
+              set (A':= CSet {| operations := o0; operations_reduced := operations_reduced_o2 |}).
+              assert (CSet {| operations := squashOpList o0 (o1 :: o2); operations_reduced := x0 |} = (A' ○ B)). {apply ProofIrrelevanceForChangeSets.  simpl. auto with HelperLemmas. }
+              rewrite H0. clear H0.
+
+              assert (A = a ○ A'). {
+                apply ProofIrrelevanceForChangeSets.
+                simpl. 
+                unfold squashOpList. 
+                unfold OperationGroup.reduced_string_product.
+                rewrite OperationGroup.reduction_fixes_reduced; auto. 
+                simpl. 
+                auto with HelperLemmas bool.
+              }
+              rewrite H0. clear H0.
+              rewrite changeSetInvertReverseSquash with (X:=a) (Y:=A').
+  
+              autounfold in H_LeLenOps.
+              simpl in H_LeLenOps.
+
+              applyIH (a) (A')  C IHn.
+              applyIH (A') (B)  ((a⁻¹ ○  C) ○ a ↷ C) IHn.
+
+              now repeat rewrite squashAssociative.
         ++  generalize operations_reduced0.
             generalize operations_reduced1.
             generalize operations_reduced2.
@@ -1787,7 +1855,6 @@ Section distributivityProofsChangeSet.
             rewrite <-squashInverseRight with (X:=b). 2: {cbv. discriminate. }
             rewrite <-squashAssociative with (X:=A').
             
-            assert (∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹)) as changeSetInvertReverseSquash. give_up.
             rewrite changeSetInvertReverseSquash.
 
             (* use induction hypothesis 2 *)
