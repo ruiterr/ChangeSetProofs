@@ -1149,6 +1149,98 @@ Section distributivityProofsChangeSet.
       unfold removeLastFromCS.
       rewrite H_X.
       unfold operations.
+      eexists ?[P].
+      (*match goal with
+        |- context[ match _ as _ return _ with | [] => ?x | (cons opA Atail) => _ end ] => idtac "test" x
+      end.*)
+      (*set (sub_fun := fun opA' Atail' => (fun
+            x : @eq (list Operation) (@cons Operation opA' Atail')
+                  (@rev Operation (@cons Operation o o0)) =>
+          CSet
+            (mkReducedOpList (@rev Operation Atail')
+               (reverseIsReduced Atail'
+                  (tailIsReduced2 (@rev Operation (@cons Operation o o0))
+                     Atail' opA' x
+                     (reverseIsReduced (@cons Operation o o0)
+                        (operations_reduced
+                           (mkReducedOpList (@cons Operation o o0)
+                              operations_reduced0)))))))).*)
+  autounfold.
+  set (revO:=rev (o :: o0)).
+  set (sub_fun := fun opA' Atail' => (fun x : @eq (list Operation) (@cons Operation opA' Atail') revO =>
+       CSet
+         (mkReducedOpList (@rev Operation Atail')
+            (reverseIsReduced Atail'
+               (tailIsReduced2 revO Atail' opA' x
+                  (reverseIsReduced (@cons Operation o o0)
+                     (operations_reduced
+                        (mkReducedOpList (@cons Operation o o0)
+                           operations_reduced0)))))))).
+  assert (match revO as x return (x = revO → ChangeSet) with
+| [] => λ _ : [] = revO, ⊘
+| opA :: Atail =>
+    λ x : opA :: Atail = revO,
+      CSet
+        {|
+          operations := rev Atail;
+          operations_reduced :=
+            reverseIsReduced Atail
+              (tailIsReduced2 revO Atail opA x
+                 (reverseIsReduced (o :: o0)
+                    (operations_reduced
+                       {|
+                         operations := o :: o0;
+                         operations_reduced := operations_reduced0
+                       |})))
+        |}
+end = (match revO as x return (x = revO → ChangeSet) with
+    | [] => λ _ : [] = revO, ⊘
+    | opA :: Atail => sub_fun opA Atail
+    end)).
+  unfold sub_fun.
+  reflexivity.
+  rewrite H2.
+
+  refine (match revO as x return (revO=x → match revO as x return (x = revO → ChangeSet) with
+| [] => λ _ : [] = revO, ⊘
+| opA :: Atail => sub_fun opA Atail
+end eq_refl = CSet {| operations := l; operations_reduced := ?P |}) with
+    | [] => _
+    | a'::t' => _
+  end eq_refl).
+  + intros.
+    unfold revO in H3.
+    assert((rev []:list Operation) = (rev [])) as H_rev_contradiction. reflexivity.
+    rewrite <-H3 in H_rev_contradiction at 1.
+    rewrite rev_involutive in H_rev_contradiction.
+    rewrite revEmpty in H_rev_contradiction.
+    discriminate.
+  + intros.
+    
+    assert (∃ P, match revO as x return (x = revO → ChangeSet) with
+      | [] => λ _ : [] = revO, ⊘
+      | opA :: Atail => sub_fun opA Atail
+      end eq_refl = sub_fun a' t' P). {
+    generalize sub_fun.
+    intros.
+    
+    dependent destruction revO.
+    intros.
+    rewrite H3.
+    unfold revO.
+    
+  destruct revO eqn:H_revO.
+  + assert(match revO as x return (x = revO → ChangeSet) with
+        | [] => λ _ : [] = revO, ⊘
+        | opA :: Atail => sub_fun opA Atail
+        end eq_refl = sub_fun o [] eq_refl).
+      generalize sub_fun.
+      intros.
+      rewrite revSingle with (x:=o) in H3.
+      rewrite H3 in *.
+    clear H2.
+    specialize sub_fun.
+    unfold sub_fun0.
       assert((rev (o::o0)) = (op::l)). give_up.
 (*      case_eq (rev(o::o0)).
       rewrite H2 at 1.
