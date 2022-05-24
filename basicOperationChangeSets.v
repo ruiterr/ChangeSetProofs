@@ -1371,7 +1371,53 @@ Section distributivityProofsChangeSet.
         -- rewrite H. 
            autoChangeSetSimplification.
     + destruct (n <? 2) eqn:H_nge2.
-      * give_up.
+      * intros.
+        simpl in H_LeLenOps.
+        assert(Datatypes.length o0 = 0) as H_o0. solve_nat.
+        assert(Datatypes.length o2 = 0) as H_o2. solve_nat.
+        apply length_zero_iff_nil in H_o0.
+        apply length_zero_iff_nil in H_o2.
+        unfold squash at 1.
+        unfold operations.
+        Ltac rewriteCSets H :=
+          multimatch goal with |- context[CSet {|operations := ?x; operations_reduced := ?y|}] => (
+            let rewrittenX := fresh "rewrittenX" in
+            let H_rewrittenX := fresh "H_rewrittenX" in
+            let H_rewrittenCS := fresh "rewrittenCS" in
+            let H_reducedRewX := fresh "H_reducedRewX" in
+            let H_reduced := fresh "H_reduced" in
+            pose (rewrittenX:=x);
+            assert(rewrittenX = rewrittenX) as H_rewrittenX; auto;
+            unfold rewrittenX at 2 in H_rewrittenX;
+            rewrite H in H_rewrittenX;
+            match goal with
+            | H1 : rewrittenX = ?rewX|- _ => (
+             assert(∃ P', CSet {|operations := x; operations_reduced := y|} = CSet {|operations := rewX; operations_reduced := P'|}) as H_rewrittenCS;
+              only 1: (
+                assert(reduced rewX) as H_reducedRewX;
+                only 1: (
+                  rewrite <-H;
+                  exact y
+                );
+                exists H_reducedRewX;
+                apply ProofIrrelevanceForChangeSets;
+                simpl;
+                rewrite H;
+                auto with HelperLemmas bool
+              );
+              destruct H_rewrittenCS as [H_reduced H_rewrittenCS];
+              rewrite H_rewrittenCS;
+              clear H_rewrittenCS;
+              clear H_rewrittenX;
+              clear rewrittenX
+            )
+            end
+          )
+        end.
+
+        repeat rewriteCSets H_o0.
+        repeat rewriteCSets H_o2.
+
       * intros.
         (* These warnings are triggered by the tactic below. I haven't been able to find a way
            to specify the intro patterns that does not cause the warning. *)
