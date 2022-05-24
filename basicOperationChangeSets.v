@@ -1969,9 +1969,31 @@ Section distributivityProofsChangeSet.
             unfold A_bopp.
 
             rewrite <-squashEmptyRight with (X:=(A' ↷ C)).
+            destruct (changeset_eqb (A' ↷ C) ⦻) eqn:H_aC. {
+              applyIH A' (b⁻¹) C IHn. 2: {
+                rewrite cons_to_app in H_LeLenOps.
+                rewrite rev_app_distr in H_LeLenOps.
+                rewrite revSingle in H_LeLenOps.
+                rewrite app_length in H_LeLenOps.
+                simpl in H_LeLenOps.
+                simpl.
+                solve_nat.
+              }
+              assert ((A' ↷ C) = ⦻). { apply ProofIrrelevanceForChangeSets. rewrite H_aC. auto. }
+              rewrite H1.
+              autoChangeSetSimplification.
+            }
+
             rewrite <-rebaseEmptyLeft with (X:=(A'⁻¹ ○ C ○ (A' ↷ C))).
             2: {
-              give_up.
+              intuition.
+              apply invalid_squash_implies_invalid_input in H1.
+              destruct H1.
+              - apply invalid_squash_implies_invalid_input in H1.
+                destruct H1; try discriminate.
+              - rewrite H1 in H_aC.
+                contradict H_aC.
+                auto with HelperLemmas bool.
             }
             rewrite <-squashInverseRight with (X:=b). 2: { cbv. discriminate. }
 
@@ -1988,7 +2010,17 @@ Section distributivityProofsChangeSet.
             unfold opToCs.
             remember ((A'⁻¹ ○ C) ○ (A' ↷ C)) as C'.
             destruct C' eqn:H_C'.
-            2: give_up.
+            2: {
+              autoChangeSetSimplification.
+              symmetry in HeqC'.
+              apply invalid_squash_implies_invalid_input in HeqC'.
+              destruct HeqC'.
+              - apply invalid_squash_implies_invalid_input in H1.
+                destruct H1; try discriminate.
+              - rewrite H1 in H_aC.
+                contradict H_aC.
+                auto with HelperLemmas bool.
+            }
             destruct ops0.
             rewrite IHn. 2: {
               simpl.
