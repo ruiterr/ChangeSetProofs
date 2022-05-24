@@ -1858,15 +1858,55 @@ Section distributivityProofsChangeSet.
               set (cond:=rev ((rev l) ++ [o])).
               specialize rev_unit with (l:=(rev l)) (a:=o) (A:=Operation) as H_cond.
               fold cond in H_cond.
-              
-              generalize (@eq_refl (list Operation) cond).
-              give_up.
+              set (sub_fun := λ opA Atail, λ x : opA :: Atail = cond,
+                CSet
+                  {|
+                    operations := rev Atail;
+                    operations_reduced :=
+                      reverseIsReduced Atail
+                        (tailIsReduced2 cond Atail opA x
+                           (reverseIsReduced (rev l ++ [o])
+                              (operations_reduced {| operations := rev l ++ [o]; operations_reduced := operations_reduced5 |})))
+                  |}).
+              assert ((match cond as x return (x = cond → ChangeSet) with
+                | [] => λ _ : [] = cond, ⊘
+                | opA :: Atail =>
+                    λ x : opA :: Atail = cond,
+                      CSet
+                        {|
+                          operations := rev Atail;
+                          operations_reduced :=
+                            reverseIsReduced Atail
+                              (tailIsReduced2 cond Atail opA x
+                                 (reverseIsReduced (rev l ++ [o])
+                                    (operations_reduced {| operations := rev l ++ [o]; operations_reduced := operations_reduced5 |})))
+                        |}
+              end eq_refl) = (match cond as x return (x = cond → ChangeSet) with
+              | [] => λ _ : [] = cond, ⊘
+              | opA :: Atail => sub_fun opA Atail
+              end eq_refl)). { unfold sub_fun. auto. }
+              rewrite H. clear H.
+              assert(∃ P, (match cond as x return (x = cond → ChangeSet) with
+              | [] => λ _ : [] = cond, ⊘
+              | opA :: Atail => sub_fun opA Atail
+              end eq_refl) = sub_fun o (rev (rev l)) P). {
+                generalize sub_fun.
+                rewrite H_cond.
+                intros.
+                now exists eq_refl.
+              }
+              destruct H.
+              rewrite H. clear H.
+              unfold sub_fun.
+              simpl.
+              rewrite rev_involutive.
+              auto with HelperLemmas.
             }
             destruct H.
             rewrite H.
             set (A' := (CSet {| operations := rev l; operations_reduced := x |})).
             assert (∃P_A', (tailFromCS Y) = CSet {| operations := o1; operations_reduced := P_A' |}). {
-              give_up.
+              
             }
             destruct H0.
             rewrite H0.
