@@ -944,354 +944,362 @@ Hint Rewrite proofIrrelevanceEmpty : changeset_simplificaton.
 Lemma changeSetInvertReverseSquash: ∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹).
 Admitted.
 
+Lemma  splitOffLeftFromReduction: ∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) → A = (a::t) → (
+  OperationGroup.reduction (A++B) = (a::(OperationGroup.reduction (t++B))) ∨ 
+  ((length A) = (length B) ∧ OperationGroup.reduction (A++B) = [])).
+Admitted.
+
+Lemma reducedImpliesNoOpposites: ∀a b t, reduced(a::b::t) →
+                                  ∃ X, (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite b)) = (right X).
+intros.
+unfold reduced in H.
+unfold OperationGroup.reduced in H.
+assert (a ≠ (OperationGroup.opposite b)). {
+  intuition.
+  apply H.
+  rewrite <-app_nil_l.
+  rewrite H0.
+  apply OperationGroup.intro_letter_inverse.
+}
+destruct (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite b)) eqn:H2.
+- contradiction.
+- now exists n.
+Qed.
+
+Lemma group_str_app_reduced_nop: ∀ops, reduced(ops) → (OperationGroup.group_str_action (ops) []) = ops.
+intros.
+induction ops.
+- now cbv.
+- unfold OperationGroup.group_str_action.
+  fold OperationGroup.group_str_action.
+  unfold OperationGroup.letter_action.
+  rewrite IHops. 2: {
+    now apply tailIsReduced with (op:=a).
+  }
+  destruct ops.
+  + auto.
+  + apply reducedImpliesNoOpposites in H.
+    destruct H as [H_aneqOppa0 H_notOpposites].
+    now rewrite H_notOpposites.
+Qed.
+
+Lemma rebaseEmptyRight: ∀X, X ≠ ⦻ → X ↷ ⊘  = X.
+intros.
+unfold rebaseChangeSet.
+destruct X; auto.
+unfold rebaseChangeSetOps.
+destruct ops.
+induction operations0; auto.
+- apply ProofIrrelevanceForChangeSets.
+  simpl.
+  auto.
+- apply ProofIrrelevanceForChangeSets.
+  auto.
+  unfold operations.
+  unfold operations_reduced.
+  autorewrite with changeset_simplificaton in *.
+  unfold operations in IHoperations0.
+  unfold operations_reduced in IHoperations0.
+  fold rebaseChangeSetOps in *.
+  rewrite IHoperations0.
+  destruct operations0.
+  + unfold opToCs.
+    unfold changeset_eqb.
+    auto with HelperLemmas.
+  + unfold opToCs.
+    unfold squash.
+    unfold changeset_eqb.
+    unfold operations.
+    specialize reducedImpliesNoOpposites with (a:=a) (b:=o) (t:=operations0) as H_notOpposites.
+    destruct H_notOpposites as [H_AneqOppO H_notOpposites]; auto.
+    assert( (squashOpList [a] (o :: operations0)) = (a :: o :: operations0)). {
+      cbn.
+      unfold OperationGroup.letter_action.
+      destruct operations0.
+      - simpl. 
+        now rewrite H_notOpposites.
+      - specialize reducedImpliesNoOpposites with (a:=o) (b:=o0) (t:=operations0) as H_notOpposites2.
+        destruct H_notOpposites2 as [H_OneqOppO0 H_notOpposites2]. {
+          now apply tailIsReduced with (op:=a).
+        }
+
+        rewrite group_str_app_reduced_nop. 2: {
+          apply tailIsReduced with (op:=o).
+          now apply tailIsReduced with (op:=a).
+        }
+        rewrite H_notOpposites2.
+        now rewrite H_notOpposites.
+    }
+    rewrite H0.
+    auto with HelperLemmas.
+  + intuition.
+    discriminate H0.
+Qed.
+
+Hint Rewrite rebaseEmptyRight using (easy) : changeset_simplificaton.
+
+Lemma fold_left_rebaseOperation_squashOpList: ∀ (a:Operation) (ops0 ops1: list Operation),
+  reduced(ops0++ops1) →
+  fold_left rebaseOperation (map (λ x : Operation, (Some x)) (squashOpList ops0 ops1)) (Some a) = 
+  fold_left rebaseOperation ((map (λ x : Operation, (Some x)) ops0) ++ (map (λ x : Operation, (Some x)) ops1)) (Some a).
+intros.
+unfold squashOpList.
+unfold OperationGroup.reduced_string_product.
+rewrite OperationGroup.reduction_fixes_reduced; auto.
+now rewrite map_app.
+Qed.
+
+Lemma invalid_squash_implies_invalid_input: ∀X Y, (X ○ Y) = ⦻ → X = ⦻ ∨ Y = ⦻.
+intros.
+unfold squash in H.
+destruct X.
+all: destruct Y; auto.
+discriminate.
+Qed.
+
+Lemma fold_left_rebaseOperation_With_None: ∀ (ops: list Operation), fold_left rebaseOperation (map (λ x : Operation, (Some x)) ops) None = None.
+intros.
+induction ops.
+- now simpl.
+- rewrite map_cons.
+  unfold fold_left in *.
+  replace (None ↷ (Some a))%OO with (None : (option Operation)).
+  2: now cbv.
+  now rewrite IHops.
+Qed.
+
+Definition tailFromCS (X: ChangeSet) := match X with
+| CSet ops => match ops.(operations) with
+    | [] => fun x => ⊘
+    | opA::Atail => fun x => (
+          let ATailIsReduced := (tailIsReduced2 ops.(operations) Atail opA x ops.(operations_reduced)) in
+          (CSet {|
+              operations := Atail;
+              operations_reduced := ATailIsReduced
+          |})
+      )
+    end eq_refl
+| ⦻ => ⦻
+end.
+
+Hint Rewrite revEmpty : changeset_simplificaton.
+Hint Unfold OperationGroup.alphabet.
+Hint Unfold OperationsGroupImpl.alphabet.
+
+Lemma decomposeCSetLeft: ∀(X:ChangeSet) redOps op l, X = (CSet redOps) → (operations(redOps) = op::l) → X = (opToCs op) ○ (tailFromCS X).
+intros.
+unfold squash.
+apply ProofIrrelevanceForChangeSets.
+destruct X. 2: {
+  autorewrite with changeset_simplificaton; auto.
+}
+destruct ops.
+simpl.
+unfold operations.
+assert ( (operations redOps) = operations0). {
+  injection H as H_inj.
+  rewrite <-H_inj.
+  now cbv.
+}
+destruct operations0 eqn:H_operations0.
+- rewrite H0 in H1.
+  discriminate H1.
+- unfold squashOpList.
+  unfold OperationGroup.reduced_string_product.
+  assert(op = o). { rewrite H0 in H1. now injection H1 as H2. }
+  rewrite H2.
+  rewrite OperationGroup.reduction_fixes_reduced. 2: {
+    now rewrite <-cons_to_app.
+  }
+  rewrite <-cons_to_app.
+  auto with HelperLemmas.
+Qed.
+
+Definition removeLastFromCS (X: ChangeSet) := match X with
+| CSet ops => match rev(ops.(operations)) with
+    | [] => fun x => ⊘
+    | opA::Atail => fun x => (
+          let RemoveTailIsReduced := (tailIsReduced2 (rev ops.(operations)) Atail opA x (reverseIsReduced ops.(operations) ops.(operations_reduced))) in
+          let RevRemoveTailIsReduced := (reverseIsReduced Atail RemoveTailIsReduced) in
+          (CSet {|
+              operations := (rev Atail);
+              operations_reduced := RevRemoveTailIsReduced
+          |})
+      )
+    end eq_refl
+| ⦻ => ⦻
+end.
+
+Lemma decomposeCSetRight: ∀(X:ChangeSet) redOps op l, X = (CSet redOps) → (operations(redOps) = (l ++ [op])) → X = (removeLastFromCS X) ○ (opToCs op).
+intros.
+unfold squash.
+apply ProofIrrelevanceForChangeSets.
+destruct X eqn:H_X. 2: {
+  autorewrite with changeset_simplificaton; auto.
+}
+destruct ops.
+assert ( (operations redOps) = operations0). {
+  injection H as H_inj.
+  rewrite <-H_inj.
+  now cbv.
+}
+
+destruct (operations0) eqn:H_operations0.
+- unfold operations.
+  rewrite H0 in H1.
+  apply app_eq_nil in H1.
+  destruct H1.
+  discriminate.
+- assert (∃ P, (removeLastFromCS X) = CSet {|operations := l; operations_reduced:=P|}). {
+    unfold removeLastFromCS.
+    rewrite H_X.
+    unfold operations.
+    eexists ?[P].
+
+    autounfold.
+    set (revO:=rev (o :: o0)).
+    set (sub_fun := fun opA' Atail' => (fun x : @eq (list Operation) (@cons Operation opA' Atail') revO =>
+         CSet
+           (mkReducedOpList (@rev Operation Atail')
+              (reverseIsReduced Atail'
+                 (tailIsReduced2 revO Atail' opA' x
+                    (reverseIsReduced (@cons Operation o o0)
+                       (operations_reduced
+                          (mkReducedOpList (@cons Operation o o0)
+                             operations_reduced0)))))))).
+    assert (match revO as x return (x = revO → ChangeSet) with
+      | [] => λ _ : [] = revO, ⊘
+      | opA :: Atail =>
+          λ x : opA :: Atail = revO,
+            CSet
+              {|
+                operations := rev Atail;
+                operations_reduced :=
+                  reverseIsReduced Atail
+                    (tailIsReduced2 revO Atail opA x
+                       (reverseIsReduced (o :: o0)
+                          (operations_reduced
+                             {|
+                               operations := o :: o0;
+                               operations_reduced := operations_reduced0
+                             |})))
+              |}
+      end = (match revO as x return (x = revO → ChangeSet) with
+      | [] => λ _ : [] = revO, ⊘
+      | opA :: Atail => sub_fun opA Atail
+      end)).
+    unfold sub_fun.
+    reflexivity.
+    rewrite H2.
+
+    refine (match revO as x return (revO=x → match revO as x return (x = revO → ChangeSet) with
+        | [] => λ _ : [] = revO, ⊘
+        | opA :: Atail => sub_fun opA Atail
+      end eq_refl = CSet {| operations := l; operations_reduced := ?P |}) with
+        | [] => _
+        | a'::t' => _
+      end eq_refl).
+    + intros.
+      unfold revO in H3.
+      assert((rev []:list Operation) = (rev [])) as H_rev_contradiction. reflexivity.
+      rewrite <-H3 in H_rev_contradiction at 1.
+      rewrite rev_involutive in H_rev_contradiction.
+      rewrite revEmpty in H_rev_contradiction.
+      discriminate.
+    + intros. 
+      assert (∃ P, match revO as x return (x = revO → ChangeSet) with
+        | [] => λ _ : [] = revO, ⊘
+        | opA :: Atail => sub_fun opA Atail
+        end eq_refl = sub_fun a' t' P). {
+        generalize sub_fun.
+        rewrite H3.
+        intros.
+        exists eq_refl.
+        reflexivity.
+      }
+      destruct H4.
+      rewrite H4. clear H4.
+      unfold sub_fun.
+      apply ProofIrrelevanceForChangeSets.
+      simpl.
+      assert(l=(rev t')). {
+        rewrite H1 in H0.
+        unfold revO in H3.
+        rewrite H0 in H3.
+        rewrite rev_app_distr in H3.
+        rewrite revSingle in H3.
+        rewrite <-cons_to_app in H3.
+        inversion H3.
+        now rewrite rev_involutive.
+     }
+     rewrite H4.
+     auto with HelperLemmas bool.
+     Unshelve.
+     rewrite H1 in H0.
+     apply reverseIsReduced in operations_reduced0 as H_lReduced.
+     rewrite H0 in H_lReduced.
+     rewrite rev_app_distr in H_lReduced.
+     rewrite revSingle in H_lReduced.
+     apply tailIsReduced in H_lReduced.
+     apply reverseIsReduced in H_lReduced.
+     now rewrite rev_involutive in H_lReduced.
+   }
+
+  rewrite <-H_X.
+
+   destruct H2.
+   rewrite H2.
+   simpl.
+   unfold changeset_eqb.
+   rewrite H_X.
+   unfold operations.
+   unfold squashOpList.
+   unfold OperationGroup.reduced_string_product.
+   rewrite H1 in H0.
+   autounfold.
+  
+   rewrite <-H0.
+
+   rewrite OperationGroup.reduction_fixes_reduced with (S:=o :: o0); auto with HelperLemmas.
+Qed.
+
+
+Lemma ReductionMaxLength: ∀X, (length (OperationGroup.reduction X)) ≤ (length X).
+intros.
+induction X.
+- auto.
+- destruct (OperationGroup.reduced_dec (a::X)).
+  + rewrite OperationGroup.reduction_fixes_reduced; auto.
+ 
+  + unfold OperationGroup.reduction.
+    unfold OperationGroup.group_str_action.
+    unfold OperationGroup.letter_action at 1.
+      set (Y  :=  (fix group_str_action (S T : OperationGroup.group_str) {struct S} :
+       OperationGroup.group_str :=
+     match S with
+     | [] => T
+     | a0 :: S0 => OperationGroup.letter_action a0 (group_str_action S0 T)
+     end) X []).
+    destruct Y eqn:H_Y.
+    ++ simpl. lia.
+    ++ assert(OperationGroup.reduction (X) = Y) as H_YreductionX. { auto. }
+       rewrite H_YreductionX in IHX.
+       rewrite H_Y in IHX.
+       simpl in IHX.
+       destruct (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite a0)).
+       -- simpl.
+          lia.
+       -- simpl.
+          lia.
+Qed.
+
+
+Ltac autoChangeSetSimplification := autorewrite with changeset_simplificaton; auto with HelperLemmas bool; try discriminate.
+
 Section distributivityProofsChangeSet.
   Variable A: ChangeSet.
   Variable B: ChangeSet.
   Variable C: ChangeSet.
-
-  Lemma reducedImpliesNoOpposites: ∀a b t, reduced(a::b::t) →
-                                    ∃ X, (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite b)) = (right X).
-  intros.
-  unfold reduced in H.
-  unfold OperationGroup.reduced in H.
-  assert (a ≠ (OperationGroup.opposite b)). {
-    intuition.
-    apply H.
-    rewrite <-app_nil_l.
-    rewrite H0.
-    apply OperationGroup.intro_letter_inverse.
-  }
-  destruct (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite b)) eqn:H2.
-  - contradiction.
-  - now exists n.
-  Qed.
-
-  Lemma group_str_app_reduced_nop: ∀ops, reduced(ops) → (OperationGroup.group_str_action (ops) []) = ops.
-  intros.
-  induction ops.
-  - now cbv.
-  - unfold OperationGroup.group_str_action.
-    fold OperationGroup.group_str_action.
-    unfold OperationGroup.letter_action.
-    rewrite IHops. 2: {
-      now apply tailIsReduced with (op:=a).
-    }
-    destruct ops.
-    + auto.
-    + apply reducedImpliesNoOpposites in H.
-      destruct H as [H_aneqOppa0 H_notOpposites].
-      now rewrite H_notOpposites.
-  Qed.
-
-  Lemma rebaseEmptyRight: ∀X, X ≠ ⦻ → X ↷ ⊘  = X.
-  intros.
-  unfold rebaseChangeSet.
-  destruct X; auto.
-  unfold rebaseChangeSetOps.
-  destruct ops.
-  induction operations0; auto.
-  - apply ProofIrrelevanceForChangeSets.
-    simpl.
-    auto.
-  - apply ProofIrrelevanceForChangeSets.
-    auto.
-    unfold operations.
-    unfold operations_reduced.
-    autorewrite with changeset_simplificaton in *.
-    unfold operations in IHoperations0.
-    unfold operations_reduced in IHoperations0.
-    fold rebaseChangeSetOps in *.
-    rewrite IHoperations0.
-    destruct operations0.
-    + unfold opToCs.
-      unfold changeset_eqb.
-      auto with HelperLemmas.
-    + unfold opToCs.
-      unfold squash.
-      unfold changeset_eqb.
-      unfold operations.
-      specialize reducedImpliesNoOpposites with (a:=a) (b:=o) (t:=operations0) as H_notOpposites.
-      destruct H_notOpposites as [H_AneqOppO H_notOpposites]; auto.
-      assert( (squashOpList [a] (o :: operations0)) = (a :: o :: operations0)). {
-        cbn.
-        unfold OperationGroup.letter_action.
-        destruct operations0.
-        - simpl. 
-          now rewrite H_notOpposites.
-        - specialize reducedImpliesNoOpposites with (a:=o) (b:=o0) (t:=operations0) as H_notOpposites2.
-          destruct H_notOpposites2 as [H_OneqOppO0 H_notOpposites2]. {
-            now apply tailIsReduced with (op:=a).
-          }
-
-          rewrite group_str_app_reduced_nop. 2: {
-            apply tailIsReduced with (op:=o).
-            now apply tailIsReduced with (op:=a).
-          }
-          rewrite H_notOpposites2.
-          now rewrite H_notOpposites.
-      }
-      rewrite H0.
-      auto with HelperLemmas.
-    + intuition.
-      discriminate H0.
-  Qed.
-
-  Hint Rewrite rebaseEmptyRight using (easy) : changeset_simplificaton.
-
-  Lemma fold_left_rebaseOperation_squashOpList: ∀ (a:Operation) (ops0 ops1: list Operation),
-    reduced(ops0++ops1) →
-    fold_left rebaseOperation (map (λ x : Operation, (Some x)) (squashOpList ops0 ops1)) (Some a) = 
-    fold_left rebaseOperation ((map (λ x : Operation, (Some x)) ops0) ++ (map (λ x : Operation, (Some x)) ops1)) (Some a).
-  intros.
-  unfold squashOpList.
-  unfold OperationGroup.reduced_string_product.
-  rewrite OperationGroup.reduction_fixes_reduced; auto.
-  now rewrite map_app.
-  Qed.
-
-  Lemma invalid_squash_implies_invalid_input: ∀X Y, (X ○ Y) = ⦻ → X = ⦻ ∨ Y = ⦻.
-  intros.
-  unfold squash in H.
-  destruct X.
-  all: destruct Y; auto.
-  discriminate.
-  Qed.
-
-  Lemma fold_left_rebaseOperation_With_None: ∀ (ops: list Operation), fold_left rebaseOperation (map (λ x : Operation, (Some x)) ops) None = None.
-  intros.
-  induction ops.
-  - now simpl.
-  - rewrite map_cons.
-    unfold fold_left in *.
-    replace (None ↷ (Some a))%OO with (None : (option Operation)).
-    2: now cbv.
-    now rewrite IHops.
-  Qed.
-  
-  Definition tailFromCS (X: ChangeSet) := match X with
-  | CSet ops => match ops.(operations) with
-      | [] => fun x => ⊘
-      | opA::Atail => fun x => (
-            let ATailIsReduced := (tailIsReduced2 ops.(operations) Atail opA x ops.(operations_reduced)) in
-            (CSet {|
-                operations := Atail;
-                operations_reduced := ATailIsReduced
-            |})
-        )
-      end eq_refl
-  | ⦻ => ⦻
-  end.
-
-  Hint Rewrite revEmpty : changeset_simplificaton.
-  Hint Unfold OperationGroup.alphabet.
-  Hint Unfold OperationsGroupImpl.alphabet.
-
-  Lemma decomposeCSetLeft: ∀(X:ChangeSet) redOps op l, X = (CSet redOps) → (operations(redOps) = op::l) → X = (opToCs op) ○ (tailFromCS X).
-  intros.
-  unfold squash.
-  apply ProofIrrelevanceForChangeSets.
-  destruct X. 2: {
-    autorewrite with changeset_simplificaton; auto.
-  }
-  destruct ops.
-  simpl.
-  unfold operations.
-  assert ( (operations redOps) = operations0). {
-    injection H as H_inj.
-    rewrite <-H_inj.
-    now cbv.
-  }
-  destruct operations0 eqn:H_operations0.
-  - rewrite H0 in H1.
-    discriminate H1.
-  - unfold squashOpList.
-    unfold OperationGroup.reduced_string_product.
-    assert(op = o). { rewrite H0 in H1. now injection H1 as H2. }
-    rewrite H2.
-    rewrite OperationGroup.reduction_fixes_reduced. 2: {
-      now rewrite <-cons_to_app.
-    }
-    rewrite <-cons_to_app.
-    auto with HelperLemmas.
-  Qed.
-
-  Definition removeLastFromCS (X: ChangeSet) := match X with
-  | CSet ops => match rev(ops.(operations)) with
-      | [] => fun x => ⊘
-      | opA::Atail => fun x => (
-            let RemoveTailIsReduced := (tailIsReduced2 (rev ops.(operations)) Atail opA x (reverseIsReduced ops.(operations) ops.(operations_reduced))) in
-            let RevRemoveTailIsReduced := (reverseIsReduced Atail RemoveTailIsReduced) in
-            (CSet {|
-                operations := (rev Atail);
-                operations_reduced := RevRemoveTailIsReduced
-            |})
-        )
-      end eq_refl
-  | ⦻ => ⦻
-  end.
-
-  Lemma decomposeCSetRight: ∀(X:ChangeSet) redOps op l, X = (CSet redOps) → (operations(redOps) = (l ++ [op])) → X = (removeLastFromCS X) ○ (opToCs op).
-  intros.
-  unfold squash.
-  apply ProofIrrelevanceForChangeSets.
-  destruct X eqn:H_X. 2: {
-    autorewrite with changeset_simplificaton; auto.
-  }
-  destruct ops.
-  assert ( (operations redOps) = operations0). {
-    injection H as H_inj.
-    rewrite <-H_inj.
-    now cbv.
-  }
-
-  destruct (operations0) eqn:H_operations0.
-  - unfold operations.
-    rewrite H0 in H1.
-    apply app_eq_nil in H1.
-    destruct H1.
-    discriminate.
-  - assert (∃ P, (removeLastFromCS X) = CSet {|operations := l; operations_reduced:=P|}). {
-      unfold removeLastFromCS.
-      rewrite H_X.
-      unfold operations.
-      eexists ?[P].
-
-      autounfold.
-      set (revO:=rev (o :: o0)).
-      set (sub_fun := fun opA' Atail' => (fun x : @eq (list Operation) (@cons Operation opA' Atail') revO =>
-           CSet
-             (mkReducedOpList (@rev Operation Atail')
-                (reverseIsReduced Atail'
-                   (tailIsReduced2 revO Atail' opA' x
-                      (reverseIsReduced (@cons Operation o o0)
-                         (operations_reduced
-                            (mkReducedOpList (@cons Operation o o0)
-                               operations_reduced0)))))))).
-      assert (match revO as x return (x = revO → ChangeSet) with
-        | [] => λ _ : [] = revO, ⊘
-        | opA :: Atail =>
-            λ x : opA :: Atail = revO,
-              CSet
-                {|
-                  operations := rev Atail;
-                  operations_reduced :=
-                    reverseIsReduced Atail
-                      (tailIsReduced2 revO Atail opA x
-                         (reverseIsReduced (o :: o0)
-                            (operations_reduced
-                               {|
-                                 operations := o :: o0;
-                                 operations_reduced := operations_reduced0
-                               |})))
-                |}
-        end = (match revO as x return (x = revO → ChangeSet) with
-        | [] => λ _ : [] = revO, ⊘
-        | opA :: Atail => sub_fun opA Atail
-        end)).
-      unfold sub_fun.
-      reflexivity.
-      rewrite H2.
-
-      refine (match revO as x return (revO=x → match revO as x return (x = revO → ChangeSet) with
-          | [] => λ _ : [] = revO, ⊘
-          | opA :: Atail => sub_fun opA Atail
-        end eq_refl = CSet {| operations := l; operations_reduced := ?P |}) with
-          | [] => _
-          | a'::t' => _
-        end eq_refl).
-      + intros.
-        unfold revO in H3.
-        assert((rev []:list Operation) = (rev [])) as H_rev_contradiction. reflexivity.
-        rewrite <-H3 in H_rev_contradiction at 1.
-        rewrite rev_involutive in H_rev_contradiction.
-        rewrite revEmpty in H_rev_contradiction.
-        discriminate.
-      + intros. 
-        assert (∃ P, match revO as x return (x = revO → ChangeSet) with
-          | [] => λ _ : [] = revO, ⊘
-          | opA :: Atail => sub_fun opA Atail
-          end eq_refl = sub_fun a' t' P). {
-          generalize sub_fun.
-          rewrite H3.
-          intros.
-          exists eq_refl.
-          reflexivity.
-        }
-        destruct H4.
-        rewrite H4. clear H4.
-        unfold sub_fun.
-        apply ProofIrrelevanceForChangeSets.
-        simpl.
-        assert(l=(rev t')). {
-          rewrite H1 in H0.
-          unfold revO in H3.
-          rewrite H0 in H3.
-          rewrite rev_app_distr in H3.
-          rewrite revSingle in H3.
-          rewrite <-cons_to_app in H3.
-          inversion H3.
-          now rewrite rev_involutive.
-       }
-       rewrite H4.
-       auto with HelperLemmas bool.
-       Unshelve.
-       rewrite H1 in H0.
-       apply reverseIsReduced in operations_reduced0 as H_lReduced.
-       rewrite H0 in H_lReduced.
-       rewrite rev_app_distr in H_lReduced.
-       rewrite revSingle in H_lReduced.
-       apply tailIsReduced in H_lReduced.
-       apply reverseIsReduced in H_lReduced.
-       now rewrite rev_involutive in H_lReduced.
-     }
-
-    rewrite <-H_X.
-
-     destruct H2.
-     rewrite H2.
-     simpl.
-     unfold changeset_eqb.
-     rewrite H_X.
-     unfold operations.
-     unfold squashOpList.
-     unfold OperationGroup.reduced_string_product.
-     rewrite H1 in H0.
-     autounfold.
-    
-     rewrite <-H0.
-
-     rewrite OperationGroup.reduction_fixes_reduced with (S:=o :: o0); auto with HelperLemmas.
-  Qed.
-
-
-  Lemma ReductionMaxLength: ∀X, (length (OperationGroup.reduction X)) ≤ (length X).
-  intros.
-  induction X.
-  - auto.
-  - destruct (OperationGroup.reduced_dec (a::X)).
-    + rewrite OperationGroup.reduction_fixes_reduced; auto.
-   
-    + unfold OperationGroup.reduction.
-      unfold OperationGroup.group_str_action.
-      unfold OperationGroup.letter_action at 1.
-        set (Y  :=  (fix group_str_action (S T : OperationGroup.group_str) {struct S} :
-         OperationGroup.group_str :=
-       match S with
-       | [] => T
-       | a0 :: S0 => OperationGroup.letter_action a0 (group_str_action S0 T)
-       end) X []).
-      destruct Y eqn:H_Y.
-      ++ simpl. lia.
-      ++ assert(OperationGroup.reduction (X) = Y) as H_YreductionX. { auto. }
-         rewrite H_YreductionX in IHX.
-         rewrite H_Y in IHX.
-         simpl in IHX.
-         destruct (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite a0)).
-         -- simpl.
-            lia.
-         -- simpl.
-            lia.
-  Qed.
 
   Lemma SquashOpListMaxLength: ∀A B, (length (squashOpList A B)) ≤ (length A) + (length B).
   intros.
@@ -1300,13 +1308,6 @@ Section distributivityProofsChangeSet.
   specialize ReductionMaxLength with (A0 ++ B0) as H_lenA0B0.
   now rewrite app_length in H_lenA0B0.
   Qed.
-
-  Ltac autoChangeSetSimplification := autorewrite with changeset_simplificaton; auto with HelperLemmas bool; try discriminate.
-
-  Lemma  splitOffLeftFromReduction: ∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) → A = (a::t) → (
-    OperationGroup.reduction (A++B) = (a::(OperationGroup.reduction (t++B))) ∨ 
-    ((length A) = (length B) ∧ OperationGroup.reduction (A++B) = [])).
-  Admitted.
 
   Lemma rebaseLeftDistibutivity: (A ○ B) ↷ C  = (A ↷ C) ○ (B ↷ (A⁻¹ ○ C ○ (A ↷ C))).
   intros.
@@ -1641,8 +1642,8 @@ Section distributivityProofsChangeSet.
                       apply tailIsReduced in H_ops0ops1_reduced2.
                       rewrite OperationGroup.reduction_fixes_reduced; auto.
                     - rewrite_nat.
-                      specialize splitOffLeftFromReduction with (A:=(o0 :: o3)) (B:=o1 :: o2) (a:=o0) (t:=o3); auto.
-                      destruct splitOffLeftFromReduction; auto.
+                      specialize splitOffLeftFromReduction with (A:=(o0 :: o3)) (B:=o1 :: o2) (a:=o0) (t:=o3) as H_splitOffLeftFromReduction; auto.
+                      destruct H_splitOffLeftFromReduction; auto.
                       1: now apply tailIsReduced in operations_reduced4 as H.
                       + rewrite H_operations0Split in H_AgtB.
                         rewrite H_operations1 in H_AgtB.
