@@ -1906,7 +1906,14 @@ Section distributivityProofsChangeSet.
             rewrite H.
             set (A' := (CSet {| operations := rev l; operations_reduced := x |})).
             assert (∃P_A', (tailFromCS Y) = CSet {| operations := o1; operations_reduced := P_A' |}). {
-              
+              unfold tailFromCS.
+              unfold Y.
+              unfold operations.
+              apply tailIsReduced in operations_reduced1 as H_o1Reduced.
+              exists H_o1Reduced.
+              apply ProofIrrelevanceForChangeSets.
+              simpl.
+              auto with HelperLemmas bool.
             }
             destruct H0.
             rewrite H0.
