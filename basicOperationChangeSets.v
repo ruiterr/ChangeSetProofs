@@ -1389,6 +1389,7 @@ Section distributivityProofsChangeSet.
             pose (rewrittenX:=x);
             assert(rewrittenX = rewrittenX) as H_rewrittenX; auto;
             unfold rewrittenX at 2 in H_rewrittenX;
+            idtac "found" x;
             rewrite H in H_rewrittenX;
             match goal with
             | H1 : rewrittenX = ?rewX|- _ => (
@@ -1396,9 +1397,18 @@ Section distributivityProofsChangeSet.
               only 1: (
                 assert(reduced rewX) as H_reducedRewX;
                 only 1: (
-                  rewrite <-H;
-                  exact y
+                  first [ (
+                      rewrite <-H;
+                      exact y
+                    ) |
+                    (
+                      rewrite H in y;
+                      idtac "found exact y" y rewX;
+                      exact y
+                    )
+                  ]
                 );
+                
                 exists H_reducedRewX;
                 apply ProofIrrelevanceForChangeSets;
                 simpl;
