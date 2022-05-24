@@ -1301,13 +1301,20 @@ Section distributivityProofsChangeSet.
   now rewrite app_length in H_lenA0B0.
   Qed.
 
+  Ltac autoChangeSetSimplification := autorewrite with changeset_simplificaton; auto with HelperLemmas bool; try discriminate.
+
+  Lemma  splitOffLeftFromReduction: ∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) → A = (a::t) → (
+    OperationGroup.reduction (A++B) = (a::(OperationGroup.reduction (t++B))) ∨ 
+    ((length A) = (length B) ∧ OperationGroup.reduction (A++B) = [])).
+  Admitted.
+
   Lemma rebaseLeftDistibutivity: (A ○ B) ↷ C  = (A ↷ C) ○ (B ↷ (A⁻¹ ○ C ○ (A ↷ C))).
   intros.
   destruct A.
   destruct B.
   destruct C.
   
-  all: autorewrite with changeset_simplificaton; auto.
+  all: autoChangeSetSimplification.
   destruct ops.
   destruct ops0.
   destruct ops1.
@@ -1334,7 +1341,7 @@ Section distributivityProofsChangeSet.
     rewrite H_ops0.
     rewrite H_ops1.
     intros.
-    autorewrite with changeset_simplificaton; auto.
+    autoChangeSetSimplification.
   - intros.
 
     generalize operations_reduced0.
@@ -1348,20 +1355,20 @@ Section distributivityProofsChangeSet.
 
     destruct operations1 eqn:H_operations1.
     + intros.
-      autorewrite with changeset_simplificaton; auto.
+      autoChangeSetSimplification.
       set (t:=((((CSet {| operations := (o :: o0); operations_reduced := operations_reduced4 |})⁻¹)
         ○ (CSet {| operations := operations2; operations_reduced := operations_reduced2 |}))
        ○ ((CSet {| operations := (o :: o0); operations_reduced := operations_reduced4 |})
           ↷ (CSet {| operations := operations2; operations_reduced := operations_reduced2 |})))).
       destruct t eqn:H_t.
-      * autorewrite with changeset_simplificaton; auto.
+      * autoChangeSetSimplification.
       * unfold t in H_t.
         apply invalid_squash_implies_invalid_input in H_t.
         destruct H_t.
         -- apply invalid_squash_implies_invalid_input in H.
             destruct H; discriminate.
         -- rewrite H. 
-           now autorewrite with changeset_simplificaton; auto.
+           autoChangeSetSimplification.
     + destruct (n <? 2) eqn:H_nge2.
       * give_up.
       * intros.
@@ -1422,7 +1429,7 @@ Section distributivityProofsChangeSet.
           ].
         (* Determine all cases we can solve by splitting a single element off from the left of A*)
         destruct ( (if (OperationGroup.reduced_dec (operations0 ++ operations1)) then true else false) || 
-                    ((length operations1) <=? (length operations0))) eqn:H_leftSplitAPossible.
+                    ((length operations1) <? (length operations0))) eqn:H_leftSplitAPossible.
           ++ assert (∃P, (((CSet {| operations := o :: o0; operations_reduced := operations_reduced4 |})
                             ○ (CSet {| operations := o1 :: o2; operations_reduced := operations_reduced3 |})) ) =
                               (CSet {| operations := o::(squashOpList o0 (o1::o2)); operations_reduced := P|})). {
@@ -1430,8 +1437,30 @@ Section distributivityProofsChangeSet.
                 unfold squashOpList.
                 unfold OperationGroup.reduced_string_product.
                 unfold operations.
-                (* destruct (OperationGroup.alphabet_eq_dec o (OperationGroup.opposite o0)) eqn:H_opOppositeO2. *)
-                give_up.
+                eexists ?[P].
+                apply ProofIrrelevanceForChangeSets.
+                simpl.
+                apply orb_prop in H_leftSplitAPossible.
+                destruct H_leftSplitAPossible as [H_ops0ops1_reduced | H_AgtB].
+                - destruct (OperationGroup.reduced_dec (operations0 ++ operations1)); try discriminate.
+                  rewrite H_operations0Split in r.
+                  rewrite H_operations1 in r.
+                  rewrite <-app_comm_cons in r.
+                  apply tailIsReduced in r as H_tailReduced.
+                  repeat rewrite OperationGroup.reduction_fixes_reduced; auto with HelperLemmas.
+                - assert(OperationGroup.reduction (o :: o0 ++ o1 :: o2) = (o :: OperationGroup.reduction (o0 ++ o1 :: o2))). {
+                    specialize splitOffLeftFromReduction with (a:=o) (t:=o0) (A:=o::o0) (B:=o1::o2) as H_splitOff.
+                    rewrite H_operations0Split in H_AgtB.
+                    rewrite H_operations1 in H_AgtB.
+                    destruct H_splitOff; auto.
+                    + rewrite_nat.
+                      intuition.
+                    + destruct H.
+                      autounfold in *.
+                      solve_nat.
+                  }
+                  autounfold in *.
+                  rewrite H; auto with HelperLemmas.
               }
               destruct H.
               rewrite H.
@@ -1524,31 +1553,7 @@ Section distributivityProofsChangeSet.
                 (*set (t:=(squashOpList o0 (o1 :: o2))).*)
                 unfold squashOpList in Heqt.
                 unfold OperationGroup.reduced_string_product in Heqt.
-                assert( (OperationGroup.reduction (@app OperationGroup.alphabet (o0 :: o3) (o1 :: o2))) = o0::(OperationGroup.reduction ((@app OperationGroup.alphabet o3 (o1 :: o2))))) as Heq2. {
-                  apply orb_prop in H_leftSplitAPossible.
-                  destruct H_leftSplitAPossible as [H_ops0ops1_reduced | H_AgtB].
-                  - assert(∃ P, OperationGroup.reduced_dec (operations0 ++ operations1) = left P) as H_reduced. {
-                      destruct (OperationGroup.reduced_dec (operations0 ++ operations1)).
-                      - now exists r.
-                      - discriminate.
-                    }
-                    destruct H_reduced as [H_ops0ops1_reduced2 _].
-                    rewrite H_operations1 in H_ops0ops1_reduced2.
-                    rewrite H_operations0Split in H_ops0ops1_reduced2.
-                    rewrite <-app_comm_cons in H_ops0ops1_reduced2.
-                    apply tailIsReduced in H_ops0ops1_reduced2.
-                    rewrite OperationGroup.reduction_fixes_reduced; auto.
-                    rewrite <-app_comm_cons in H_ops0ops1_reduced2.
-                    apply tailIsReduced in H_ops0ops1_reduced2.
-                    rewrite OperationGroup.reduction_fixes_reduced; auto.
-                  - rewrite_nat.
-                    assert(∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) →A = (a::t) → (OperationGroup.reduction (A++B)) = (a::(OperationGroup.reduction (t++B))) ∨
-                                                                  (OperationGroup.reduction (A++B)) = []) as splitOffLeftFromReduction. {
-                      give_up.
-                    }
-                    give_up. 
-                }
-                rewrite Heq2 in Heqt; auto.
+
                 set (sub_fun:=(rebaseOperationWithChangeSet o C)
                ○ ((fix rebaseChangeSetOps
                      (a0 : list Operation) (a_reduced : reduced a0) (b : ChangeSet) {struct a0} :
@@ -1595,6 +1600,61 @@ Section distributivityProofsChangeSet.
                        autorewrite with changeset_simplificaton; auto.
                 - *) 
                   unfold sub_fun.
+                  destruct (length t =? 0) eqn:H_lengthT. { rewrite_nat.
+                    apply length_zero_iff_nil in H_lengthT.
+                    rewrite Heqt in H_lengthT.
+                    rewrite H_lengthT in Heqt.
+                    subst t.
+                    exists OperationGroup.empty_str_reduced.
+                    destruct (changeset_eqb (a ↷ C) ⦻) eqn:H_aC.
+                    - assert ((a ↷ C) = ⦻). { apply ProofIrrelevanceForChangeSets. rewrite H_aC. auto. }
+                      rewrite H.
+                      autoChangeSetSimplification.
+                    - assert (((a⁻¹ ○ C) ○ a ↷ C) ≠ ⦻). {
+                        intuition.
+                        apply invalid_squash_implies_invalid_input in H.
+                        destruct H.
+                        - apply invalid_squash_implies_invalid_input in H.
+                          destruct H; try discriminate.
+                        - rewrite H in H_aC.
+                          contradict H_aC.
+                          auto with HelperLemmas bool.
+                    }
+                    autoChangeSetSimplification.
+                  }
+
+                  assert( (OperationGroup.reduction (@app OperationGroup.alphabet (o0 :: o3) (o1 :: o2))) = o0::(OperationGroup.reduction ((@app OperationGroup.alphabet o3 (o1 :: o2))))) as Heq2. {
+                    apply orb_prop in H_leftSplitAPossible.
+                    destruct H_leftSplitAPossible as [H_ops0ops1_reduced | H_AgtB].
+                    - assert(∃ P, OperationGroup.reduced_dec (operations0 ++ operations1) = left P) as H_reduced. {
+                        destruct (OperationGroup.reduced_dec (operations0 ++ operations1)).
+                        - now exists r.
+                        - discriminate.
+                      }
+                      destruct H_reduced as [H_ops0ops1_reduced2 _].
+                      rewrite H_operations1 in H_ops0ops1_reduced2.
+                      rewrite H_operations0Split in H_ops0ops1_reduced2.
+                      rewrite <-app_comm_cons in H_ops0ops1_reduced2.
+                      apply tailIsReduced in H_ops0ops1_reduced2.
+                      rewrite OperationGroup.reduction_fixes_reduced; auto.
+                      rewrite <-app_comm_cons in H_ops0ops1_reduced2.
+                      apply tailIsReduced in H_ops0ops1_reduced2.
+                      rewrite OperationGroup.reduction_fixes_reduced; auto.
+                    - rewrite_nat.
+                      specialize splitOffLeftFromReduction with (A:=(o0 :: o3)) (B:=o1 :: o2) (a:=o0) (t:=o3); auto.
+                      destruct splitOffLeftFromReduction; auto.
+                      1: now apply tailIsReduced in operations_reduced4 as H.
+                      + rewrite H_operations0Split in H_AgtB.
+                        rewrite H_operations1 in H_AgtB.
+                        simpl in H_AgtB.
+                        simpl.
+                        intuition.
+                      + destruct H.
+                        rewrite <-Heqt in H0.
+                        contradict H_lengthT.
+                        now apply length_zero_iff_nil.
+                  }
+                  rewrite Heq2 in Heqt; auto.
                   subst t.
                   set (g:=OperationGroup.reduction (@app OperationGroup.alphabet o3 (@cons Operation o1 o2))).
                   fold rebaseChangeSetOps.
