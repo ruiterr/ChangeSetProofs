@@ -1428,6 +1428,25 @@ Section distributivityProofsChangeSet.
         repeat rewriteCSets H_o0.
         repeat rewriteCSets H_o2.
 
+        destruct (OperationGroup.alphabet_eq_dec o (OperationGroup.opposite o1)) eqn:H_oInvO1.
+        ++ give_up.
+        ++ assert (squashOpList [o] [o1] = [o; o1]). {
+             cbn.
+             now rewrite H_oInvO1.
+           }
+           rewriteCSets H. clear H.
+           unfold rebaseChangeSet.
+           unfold rebaseChangeSetOps at 1.
+           unfold operations.
+           unfold rebaseChangeSetOps.
+           unfold opToCs.
+           assert (CSet {| operations := [o]; operations_reduced := singleOpListIsReduced o |} = CSet {| operations := [o]; operations_reduced := H_reduced0 |}). {
+            apply ProofIrrelevanceForChangeSets.
+            simpl.
+            auto with HelperLemmas bool.
+           }
+           now rewrite H.
+
       * intros.
         (* These warnings are triggered by the tactic below. I haven't been able to find a way
            to specify the intro patterns that does not cause the warning. *)
@@ -2217,6 +2236,8 @@ Section distributivityProofsChangeSet.
             repeat rewrite H_aInvb.
             auto.
 Admitted.
+
+
     * intros.
       assert (∃P, ((CSet {| operations := rev (o :: l); operations_reduced := operations_reduced4 |})
                  ○ (CSet {| operations := o0 :: o1; operations_reduced := operations_reduced3 |})) =
