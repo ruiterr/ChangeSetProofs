@@ -1364,6 +1364,83 @@ destruct (OperationGroup.alphabet_eq_dec b (OperationGroup.opposite c)) eqn:H_bI
   + give_up.
 Admitted. (* TODO: Fix error cases *)
 
+Ltac rewriteCSets H :=
+          multimatch goal with |- context[CSet {|operations := ?x; operations_reduced := ?y|}] => (
+            let rewrittenX := fresh "rewrittenX" in
+            let H_rewrittenX := fresh "H_rewrittenX" in
+            let H_rewrittenCS := fresh "rewrittenCS" in
+            let H_reducedRewX := fresh "H_reducedRewX" in
+            let H_reduced := fresh "H_reduced" in
+            pose (rewrittenX:=x);
+            assert(rewrittenX = rewrittenX) as H_rewrittenX; auto;
+            unfold rewrittenX at 2 in H_rewrittenX;
+            idtac "found" x;
+            rewrite H in H_rewrittenX;
+            match goal with
+            | H1 : rewrittenX = ?rewX|- _ => (
+             assert(∃ P', CSet {|operations := x; operations_reduced := y|} = CSet {|operations := rewX; operations_reduced := P'|}) as H_rewrittenCS;
+              only 1: (
+                assert(reduced rewX) as H_reducedRewX;
+                only 1: (
+                  first [ (
+                      rewrite <-H;
+                      exact y
+                    ) |
+                    (
+                      rewrite H in y;
+                      idtac "found exact y" y rewX;
+                      exact y
+                    )
+                  ]
+                );
+                
+                exists H_reducedRewX;
+                apply ProofIrrelevanceForChangeSets;
+                simpl;
+                rewrite H;
+                auto with HelperLemmas bool
+              );
+              destruct H_rewrittenCS as [H_reduced H_rewrittenCS];
+              rewrite H_rewrittenCS;
+              clear H_rewrittenCS;
+              clear H_rewrittenX;
+              clear rewrittenX
+            )
+            end
+          )
+        end.
+
+Lemma rightDistributivitySingleOperation2: ∀ (a b : Operation) (C: ChangeSet), (opToCs a) ↷ ((opToCs b) ○ C) = ((opToCs a) ↷ (opToCs b)) ↷ C.
+intros.
+destruct C.
+2: autoChangeSetSimplification.
+destruct ops.
+remember (length operations0) as lenOps0.
+revert HeqlenOps0.
+revert operations_reduced0.
+revert operations0.
+induction lenOps0.
+- intros.
+  symmetry in HeqlenOps0.
+  apply length_zero_iff_nil in HeqlenOps0.
+  rewriteCSets HeqlenOps0.
+  autoChangeSetSimplification.
+  rewrite rebaseEmptyRight.
+  reflexivity.
+  give_up.
+- intros.
+  destruct operations0 eqn:H_ops0. { simpl in HeqlenOps0. lia. }
+  rewrite decomposeCSetLeft with (X:=CSet {| operations := o :: o0; operations_reduced := operations_reduced0 |}) (redOps:={| operations := o :: o0; operations_reduced := operations_reduced0 |}) (op:=o) (l:=o0) in *; auto.
+  unfold tailFromCS.
+  unfold operations.
+  unfold operations_reduced.
+  (* cases a = b^-1 *)
+  (* - USE IHn *)
+  (*   use previous lemma *)
+  (*   cancel out inverses, simplify *)
+  (* - convert squash to single concatenated CS *)
+  (*   reuse proof from previous lemma for simple concatenated CS *)
+
 Section distributivityProofsChangeSet.
   Variable A: ChangeSet.
   Variable B: ChangeSet.
@@ -1447,51 +1524,6 @@ Section distributivityProofsChangeSet.
         apply length_zero_iff_nil in H_o2.
         unfold squash at 1.
         unfold operations.
-        Ltac rewriteCSets H :=
-          multimatch goal with |- context[CSet {|operations := ?x; operations_reduced := ?y|}] => (
-            let rewrittenX := fresh "rewrittenX" in
-            let H_rewrittenX := fresh "H_rewrittenX" in
-            let H_rewrittenCS := fresh "rewrittenCS" in
-            let H_reducedRewX := fresh "H_reducedRewX" in
-            let H_reduced := fresh "H_reduced" in
-            pose (rewrittenX:=x);
-            assert(rewrittenX = rewrittenX) as H_rewrittenX; auto;
-            unfold rewrittenX at 2 in H_rewrittenX;
-            idtac "found" x;
-            rewrite H in H_rewrittenX;
-            match goal with
-            | H1 : rewrittenX = ?rewX|- _ => (
-             assert(∃ P', CSet {|operations := x; operations_reduced := y|} = CSet {|operations := rewX; operations_reduced := P'|}) as H_rewrittenCS;
-              only 1: (
-                assert(reduced rewX) as H_reducedRewX;
-                only 1: (
-                  first [ (
-                      rewrite <-H;
-                      exact y
-                    ) |
-                    (
-                      rewrite H in y;
-                      idtac "found exact y" y rewX;
-                      exact y
-                    )
-                  ]
-                );
-                
-                exists H_reducedRewX;
-                apply ProofIrrelevanceForChangeSets;
-                simpl;
-                rewrite H;
-                auto with HelperLemmas bool
-              );
-              destruct H_rewrittenCS as [H_reduced H_rewrittenCS];
-              rewrite H_rewrittenCS;
-              clear H_rewrittenCS;
-              clear H_rewrittenX;
-              clear rewrittenX
-            )
-            end
-          )
-        end.
 
         repeat rewriteCSets H_o0.
         repeat rewriteCSets H_o2.
