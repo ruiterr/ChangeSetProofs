@@ -1470,7 +1470,7 @@ Lemma splitOffSingleRebaseOperation: ∀ (a b:Operation) (l:list Operation) (red
     auto.
 Qed.
 
-Lemma rightDistributivitySingleOperation2: ∀ (a b : Operation) (C: ChangeSet), (opToCs a) ↷ ((opToCs b) ○ C) = ((opToCs a) ↷ (opToCs b)) ↷ C.
+Lemma rightDistributivitySingleOperationWithCS: ∀ (a b : Operation) (C: ChangeSet), (opToCs a) ↷ ((opToCs b) ○ C) = ((opToCs a) ↷ (opToCs b)) ↷ C.
 intros.
 destruct C.
 2: autoChangeSetSimplification.
@@ -1663,7 +1663,16 @@ Section distributivityProofsChangeSet.
                      tailIsReduced2 (a :: operations2) operations2 a eq_refl operations_reduced2
                  |}) in *.
              replace (O⁻¹) with O1. 2: { unfold O. unfold O1. unfold invert. apply ProofIrrelevanceForChangeSets. simpl. rewrite e. rewrite OperationGroup.opposite_involution. auto with HelperLemmas bool. }
-             rewrite rightDistributivitySingleOperation.
+
+             specialize rightDistributivitySingleOperationWithCS with (a:=o) (b:=a) (C:=A') as H_splitOff1.
+             replace (opToCs o) with O in H_splitOff1. 2: { unfold O. unfold opToCs. apply ProofIrrelevanceForChangeSets. simpl.  auto with HelperLemmas bool. }
+             replace (opToCs a) with A in H_splitOff1. 2: { unfold O. unfold opToCs. apply ProofIrrelevanceForChangeSets. simpl.  auto with HelperLemmas bool. }
+             rewrite H_splitOff1.
+             rewrite squashAssociative.
+             specialize rightDistributivitySingleOperationWithCS with (a:=o1) (b:=o1) (C:=((A ○ A') ○ O ↷ A ↷ A')) as H_splitOff2.
+             replace (opToCs o1) with O1 in H_splitOff2. 2: { unfold O. unfold opToCs. apply ProofIrrelevanceForChangeSets. simpl.  auto with HelperLemmas bool. }
+             rewrite H_splitOff2.
+
               
 Print fold_left.
 
