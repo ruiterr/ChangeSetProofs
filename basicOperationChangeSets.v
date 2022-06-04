@@ -1792,7 +1792,20 @@ Section distributivityProofsChangeSet.
                rewrite H0 at 1.
                rewrite <-H_OrebA.
                assert (∃x, (opToCs x) = O⁻¹ ↷ O⁻¹ ↷ A) as H_singleOpLeft. {
-                 give_up.
+                 rewrite SingleOperationCSInvert with (a:=o).
+                  2:  { unfold O. unfold opToCs. apply ProofIrrelevanceForChangeSets. simpl.  auto with HelperLemmas bool. }
+                  intros.
+                  specialize SingleOperationCSRebase with (a:=(OperationGroup.opposite o)) (b:=(OperationGroup.opposite o)) 
+                                                        (A:=opToCs (OperationGroup.opposite o)) (B:=opToCs (OperationGroup.opposite o)) as H1.
+                  destruct H1; auto.
+                  rewrite H1.
+
+                  specialize SingleOperationCSRebase with (a:=x0) (b:=a) 
+                                                          (A:=opToCs x0) (B:=A) as H2.
+                  destruct H2; auto.
+                  rewrite H2.
+
+                  now exists x1.
                }
                destruct H_singleOpLeft as [singleOp H_singleOpLeft].
                rewrite <-H_singleOpLeft.
