@@ -1289,6 +1289,8 @@ induction X.
           lia.
 Qed.
 
+Lemma noErrorsDuringRebase: ∀A B, (A ↷ B)%OO = None → False.
+Admitted.
 
 Ltac autoChangeSetSimplification := autorewrite with changeset_simplificaton; auto with HelperLemmas bool; try discriminate.
 
@@ -1330,9 +1332,9 @@ destruct (OperationGroup.alphabet_eq_dec b (OperationGroup.opposite c)) eqn:H_bI
       -- unfold invertOperationOption in H.
         rewrite H in H_oRebasedC.
         now inversion H_oRebasedC.
-      -- give_up.
-    * give_up.
-  + give_up.
+      -- now apply noErrorsDuringRebase in H.
+    * now apply noErrorsDuringRebase in H_oRebasedC.
+  + now apply noErrorsDuringRebase in H_aRebaseCInv.
 - assert (∃ P, (opToCs b ○ opToCs c) = (CSet {|operations:=[b;c]; operations_reduced:= P|})). {
     cbn.
     eexists ?[P].
@@ -1360,9 +1362,9 @@ destruct (OperationGroup.alphabet_eq_dec b (OperationGroup.opposite c)) eqn:H_bI
     * unfold opToCs.
       rewrite H_oRebasedC.
       auto.
-    * give_up.
-  + give_up.
-Admitted. (* TODO: Fix error cases *)
+    * now apply noErrorsDuringRebase in H_oRebasedC.
+  + now apply noErrorsDuringRebase in H_aRebasedB.
+Qed.
 
 Lemma recomposeCSetLeft: ∀ (a:Operation) (B: reducedOpList) (reduced_aB : (reduced (a::(operations B)))), 
             ((opToCs a) ○ (CSet B)) = (CSet {|operations:=(a::(operations B)); operations_reduced:= reduced_aB |}).
@@ -1472,6 +1474,7 @@ Lemma splitOffSingleRebaseOperation: ∀ (a b:Operation) (l:list Operation) (red
     auto.
 Qed.
 
+ 
 Lemma rightDistributivitySingleOperationWithCS: ∀ (a b : Operation) (C: ChangeSet), (opToCs a) ↷ ((opToCs b) ○ C) = ((opToCs a) ↷ (opToCs b)) ↷ C.
 intros.
 destruct C.
@@ -1491,7 +1494,11 @@ induction lenOps0.
   autoChangeSetSimplification.
   rewrite rebaseEmptyRight.
   reflexivity.
-  give_up.
+  cbv beta iota fix delta -[rebaseOperation].
+  destruct ((Some a) ↷ (Some b))%OO eqn:H_rebase.
+  + intuition.
+    discriminate H.
+  + now apply noErrorsDuringRebase in H_rebase.
 - intros.
   destruct operations0 eqn:H_ops0. { simpl in HeqlenOps0. lia. }
 
@@ -1512,7 +1519,7 @@ induction lenOps0.
       destruct (((Some a) ↷ (Some b))%OO) eqn:H_aRebB.
       - exists o1.
         now unfold opToCs.
-      - give_up.
+      - now apply noErrorsDuringRebase in H_aRebB.
     }
     destruct H_aRb as [aRb H_aRb].
     rewrite <-H_aRb.
@@ -1537,7 +1544,7 @@ induction lenOps0.
     apply ProofIrrelevanceForChangeSets.
     simpl.
     auto with HelperLemmas bool.
-Admitted.
+Qed.
 
 Section distributivityProofsChangeSet.
   Variable A: ChangeSet.
@@ -1709,7 +1716,7 @@ Section distributivityProofsChangeSet.
                destruct x eqn:H_x.
                - exists o3.
                  now unfold opToCs.
-               - give_up.
+               - now apply noErrorsDuringRebase in H_x.
              }
              assert (∀(A B:ChangeSet) (a b:Operation), (A = (opToCs a)) → B = (opToCs b) → ∃oRebB, (A ↷ B) = (opToCs oRebB)) as SingleOperationCSRebase. {
                intros.
@@ -1818,8 +1825,10 @@ Section distributivityProofsChangeSet.
                rewrite <-H_OrebA.
                rewrite squashInverseLeft.
                rewrite rebaseEmptyRight; auto.
-               - give_up.
-               - give_up.
+               - rewrite <-H_singleOpLeft.
+                 discriminate. 
+               - rewrite H_OrebA.
+                 discriminate.
              }
              set (y:=(O ↷ A)).
 
@@ -1837,9 +1846,9 @@ Section distributivityProofsChangeSet.
              replace (CSet {| operations := [oRebo]; operations_reduced := OperationGroup.single_letter_reduced oRebo |}) with y in IHn0.
 
              assert(∃Yinv, (opToCs Yinv) = y⁻¹). {
-               rewrite SingleOperationCSInvert with (a:=o).
-                2:  { unfold y. unfold opToCs. apply ProofIrrelevanceForChangeSets. simpl.  auto with HelperLemmas bool. }
-               now exists (OperationGroup.opposite o).
+               rewrite SingleOperationCSInvert with (a:=oRebo).
+                2:  { unfold y. auto with HelperLemmas bool. }
+               now exists (OperationGroup.opposite oRebo).
              }
              destruct H as [Yinv H_Yinv].
              rewrite <-H_Yinv in IHn0.
@@ -2668,7 +2677,7 @@ Section distributivityProofsChangeSet.
             repeat rewrite squashAssociative.
             repeat rewrite H_aInvb.
             auto.
-Admitted.
+Qed.
 
 
     * intros.
