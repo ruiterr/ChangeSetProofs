@@ -940,9 +940,121 @@ Hint Rewrite proofIrrelevanceEmpty : changeset_simplificaton.
 Lemma changeSetInvertReverseSquash: ∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹).
 Admitted.
 
+Lemma operationGroupIsRightInjective: ∀ A B C, (reduced B) → (reduced C) → (OperationGroup.reduced_string_product A B) = (OperationGroup.reduced_string_product A C) → B = C.
+intros.
+replace (B) with (OperationGroup.reduced_string_product (OperationGroup.inverse_str A) (OperationGroup.reduced_string_product A B)).
+2: {
+  rewrite <-OperationGroup.reduced_string_product_assoc.
+  rewrite OperationGroup.inverse_str_is_left_inverse.
+  rewrite OperationGroup.empty_str_is_left_id; auto.
+}
+rewrite H1.
+rewrite <-OperationGroup.reduced_string_product_assoc.
+rewrite OperationGroup.inverse_str_is_left_inverse.
+rewrite OperationGroup.empty_str_is_left_id; auto.
+Qed.
+
+Lemma uniqueInverse: ∀A B, (reduced A) → (reduced B) → (OperationGroup.reduced_string_product A B) = [] → A = (OperationGroup.inverse_str B).
+intros.
+specialize OperationGroup.inverse_str_is_right_inverse with (S:=A) as H_inv.
+rewrite <-H1 in H_inv.
+apply operationGroupIsRightInjective in H_inv; auto.
+rewrite <-H_inv.
+now rewrite OperationGroup.inverse_str_involution.
+now apply invertIsReduced.
+Qed.
+
 Lemma  splitOffLeftFromReduction: ∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) → A = (a::t) → (
   OperationGroup.reduction (A++B) = (a::(OperationGroup.reduction (t++B))) ∨ 
   ((length A) = (length B) ∧ OperationGroup.reduction (A++B) = [])).
+intros.
+destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
+- rewrite OperationGroup.reduction_fixes_reduced; auto.
+  rewrite H2.
+  assert (OperationGroup.reduced (t ++ B)). {
+    clear H_AplusBReduced.
+    rewrite H2 in r.
+    rewrite <-app_comm_cons in r.
+    now apply tailIsReduced in r.
+  }
+  rewrite OperationGroup.reduction_fixes_reduced; auto.
+- revert H.
+  revert H1.
+  revert H2.
+  clear H_AplusBReduced.
+  revert n.
+  revert a.
+  revert A.
+  induction t.
+  + intros.
+    destruct B.
+    * rewrite H2.
+      simpl.
+      rewrite OperationGroup.reduction_fixes_reduced; auto.
+      apply OperationGroup.single_letter_reduced.
+    * rewrite H2 in H1.
+      simpl in H1.
+      assert ((Datatypes.length B) = 0). { lia. }
+      apply length_zero_iff_nil in H3.
+      rewrite H3 in *.
+      rewrite H2 in *.
+      simpl in n.
+      apply OperationGroup.split_non_reduced in n.
+      destruct n. { contradict H4. apply OperationGroup.single_letter_reduced. }
+      right.
+      split.
+      ++ now simpl.
+      ++ rewrite H4.
+         assert ([OperationGroup.opposite a0:OperationGroup.alphabet] = (OperationGroup.inverse_str [a0])); auto.
+         rewrite H5.
+         specialize OperationGroup.inverse_str_is_left_inverse with (S:=[a0]) as H_inv.
+         unfold OperationGroup.reduced_string_product in H_inv.
+         now rewrite H_inv.
+  + intros.
+    destruct (Datatypes.length A =? Datatypes.length B) eqn:H_equalLength.
+    {
+      give_up.
+    }
+    specialize IHt with (A:=a::t) (a:=a).
+    destruct IHt; auto.
+    * rewrite H2 in n.
+      do 2 rewrite <-app_comm_cons in n.
+      apply OperationGroup.split_non_reduced in n.
+      destruct n.
+      -- auto.
+      -- rewrite H2 in H.
+         specialize OperationGroup.intro_letter_inverse with (S:=[]) (T:=t) (a:=a) as H_nonReducedA.
+         rewrite <-H3 in H_nonReducedA.
+         simpl in H_nonReducedA.
+         contradiction.
+    * simpl. 
+      rewrite H2 in H1. 
+      simpl in H1.
+      rewrite H2 in H_equalLength.
+      rewrite_nat.
+      simpl in H_equalLength.
+      lia. 
+    * rewrite H2 in H.
+      apply tailIsReduced with (op:=a0); auto.
+    * rewrite H2.
+      rewrite <-app_comm_cons.
+      assert(OperationGroup.reduction (a0 :: (a :: t) ++ B) = OperationGroup.reduction (a0 :: (OperationGroup.reduction ((a :: t) ++ B)))) as H_additionReduction. {
+        give_up.
+      }
+      rewrite H_additionReduction.
+      destruct (OperationGroup.reduced_dec (a0 :: OperationGroup.reduction ((a :: t) ++ B))).
+      -- rewrite OperationGroup.reduction_fixes_reduced; auto.
+      -- rewrite H3 in n0.
+         apply OperationGroup.split_non_reduced in n0.
+         destruct n0.
+         ++ rewrite <-H3 in H4.
+            contradict H4.
+            apply OperationGroup.reduction_is_reduced.
+         ++ rewrite H2 in H.
+            specialize OperationGroup.intro_letter_inverse with (S:=[]) (T:=t) (a:=a) as H_nonReducedA.
+            rewrite <-H4 in H_nonReducedA.
+            simpl in H_nonReducedA.
+            contradiction.
 Admitted.
 
 Lemma reducedImpliesNoOpposites: ∀a b t, reduced(a::b::t) →
