@@ -2790,8 +2790,13 @@ Section distributivityProofsChangeSet.
             repeat rewrite H_aInvb.
             auto.
   Qed.
+End distributivityProofsChangeSet.
   
-  Transparent rebaseChangeSetOps.
+Transparent rebaseChangeSetOps.
+Section distributivityProofsChangeSet2.
+  Variable A: ChangeSet.
+  Variable B: ChangeSet.
+  Variable C: ChangeSet.
   Lemma rebaseRightDistibutivity: A ↷ (B ○ C)  = A ↷ B ↷ C.
     destruct A eqn:H_A.
     destruct B eqn:H_B.
@@ -2813,6 +2818,9 @@ Section distributivityProofsChangeSet.
     clear H_A H_B H_C.
     clear A B C.
     revert operations_reduced0.
+    revert operations0.
+    revert ops0.
+    revert ops1.
     revert len.
     induction (len).
 
@@ -2878,6 +2886,66 @@ Section distributivityProofsChangeSet.
              tailIsReduced2 (o :: o0) o0 o eq_refl operations_reduced0
          |}).
         
+        assert (n > 1). { give_up. }
+        specialize IHn with (operations0:=[o]) (operations_reduced0:=OperationGroup.single_letter_reduced o) (ops0 := ops0) (ops1 := ops1) as IHn_O'.
+        replace (CSet
+             {|
+               operations := [o];
+               operations_reduced := OperationGroup.single_letter_reduced o
+             |})  with O' in IHn_O'; auto.
+        fold B in IHn_O'.
+        fold C in IHn_O'.
+        rewrite IHn_O'.
+        2: {
+          simpl.
+          lia.
+        }
+
+        rewrite <-squashEmptyRight with (X:=B) at 2.
+        rewrite <-squashInverseLeft with (X:=O' ↷ B).
+        rewrite <-squashAssociative.
+        rewrite <-squashAssociative.
+        rewrite <-squashAssociative.
+        set (XX:=((O'⁻¹ ○ B) ○ O' ↷ B)).
+        rewrite squashAssociative.
+        rewrite squashAssociative.
+        set (YY:=((O' ↷ B)⁻¹ ○ (C ○ O' ↷ B ↷ C))).
+
+        assert(∃opsXX, CSet opsXX = XX). { give_up. }
+        destruct H0 as [opsXX H_opsXX].
+        assert(∃opsYY, CSet opsYY = YY). { give_up. }
+        destruct H0 as [opsYY H_opsYY].
+
+        specialize IHn with (operations0:=o0) (operations_reduced0:=tailIsReduced2 (o :: o0) o0 o eq_refl operations_reduced0) (ops0 := opsXX) (ops1 := opsYY) as IHn_O0.
+        fold O0' in IHn_O0.
+        rewrite H_opsXX in IHn_O0.
+        rewrite H_opsYY in IHn_O0.
+        rewrite IHn_O0.
+        2: {
+          simpl.
+          simpl in H_LeLenOps.
+          lia.
+        }
+        unfold XX.
+        unfold YY.
+        set (X:=O0' ↷ ((O'⁻¹ ○ B) ○ O' ↷ B)).
+        set (Y:=(O' ↷ B)).
+
+        rewrite <-squashAssociative.
+        rewrite <-rebaseLeftDistibutivity with (A:=Y) (B:=X) (C:=C).
+
+        unfold X.
+        unfold Y.
+
+        now rewrite <-rebaseLeftDistibutivity with (A:=O') (B:=O0') (C:=B).
+
+        assert(∃opsX, CSet opsX = X). { give_up. }
+        destruct H0 as [opsX H_opsX].
+        assert(∃opsY, CSet opsY = Y). { give_up. }
+        destruct H0 as [opsY H_opsY].
+
+        specialize IHn with (operations0:=o0) (operations_reduced0:=tailIsReduced2 (o :: o0) o0 o eq_refl operations_reduced0) (ops0 := opsX) (ops1 := opsY) as IHn_final.
+
 
         unfold rebaseChangeSet at 1.
         unfold operations.
