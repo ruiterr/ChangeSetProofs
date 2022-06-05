@@ -1013,6 +1013,148 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
   + intros.
     destruct (Datatypes.length A =? Datatypes.length B) eqn:H_equalLength.
     {
+      rewrite_nat.
+      destruct (list_beq Operation Op_eqb (OperationGroup.reduction (A ++ B)) []) eqn:H_squashEmpty.
+      - apply internal_list_dec_bl in H_squashEmpty.
+        rewrite H_squashEmpty.
+        right.
+        auto.
+        + give_up.
+      - assert ((OperationGroup.reduction (A ++ B)) ≠ []). {
+          intuition.
+          rewrite H3 in H_squashEmpty.
+          contradict H_squashEmpty.
+          intuition.
+        }
+        left.
+        assert(∀A B, (reduced A) → (reduced B) → (length A) = (length B) → (OperationGroup.reduction (A ++ B)) ≠ [] → ∃a b ta sb, (A=(a::ta)) ∧ (B=sb ++ [b]) ∧ (OperationGroup.reduction (A ++ B)) = a::(OperationGroup.reduction (ta ++ sb))++[b]). {
+          intro A0.
+          induction A0.
+          - intros.
+            simpl in H6.
+            symmetry in H6.
+            apply length_zero_iff_nil in H6.
+            rewrite H6 in H7.
+            simpl in H7.
+            rewrite OperationGroup.reduction_fixes_reduced in H7.
+            2: { apply OperationGroup.empty_str_reduced. }
+            contradiction.
+          - intros.
+            exists a1.
+            destruct (rev B0) as [ | b sb] eqn:H_revB0. {
+              destruct B0.
+              - simpl in H6.
+                lia.
+              - rewrite cons_to_app in H_revB0.
+                rewrite rev_app_distr in H_revB0.
+                simpl in H_revB0.
+                apply app_eq_nil in H_revB0.
+                destruct H_revB0.
+                discriminate.
+            }
+            assert (B0 = ((rev sb) ++ [b])) as H_B0. {
+              rewrite <-rev_involutive with (l:=B0).
+              rewrite H_revB0.
+              rewrite cons_to_app.
+              rewrite rev_app_distr.
+              rewrite revSingle.
+              easy.
+            }
+
+            exists b.
+            exists A0.
+            exists (rev sb).
+            intros.
+            do 2 split; auto.
+
+            rewrite H_B0.
+            rewrite cons_to_app.
+            rewrite <-app_assoc.
+            rewrite app_assoc with (l:=A0).
+
+            assert(∀X Y, OperationGroup.reduction (X ++ Y) = OperationGroup.reduction ((OperationGroup.reduction X) ++ (OperationGroup.reduction Y))) as nestedReductions. {
+              give_up.
+            }
+            rewrite nestedReductions at 1.
+            rewrite nestedReductions with (X:=A0++(rev sb)) at 1.
+            destruct (list_beq Operation Op_eqb (OperationGroup.reduction (A0 ++ (rev sb))) []) eqn:H_innerEmpty. {
+              give_up.
+            }
+            specialize IHA0 with (B:=(rev sb)).
+            destruct IHA0.
+            + apply tailIsReduced with (op:=a1); auto.
+            + rewrite H_B0 in H5.
+              apply reverseIsReduced in H5.
+              rewrite rev_app_distr in H5.
+              rewrite revSingle in H5.
+              rewrite <-cons_to_app in H5.
+              apply tailIsReduced in H5.
+              apply reverseIsReduced.
+              now rewrite rev_involutive in H5. 
+            + rewrite H_B0 in H6.
+              rewrite app_length in H6.
+              simpl in H6.
+              lia.
+            + intuition.
+              contradict H_innerEmpty.
+              rewrite H8.
+              intuition.
+            + destruct H8 as [b' [ta [tb H8]]].
+              destruct H8.
+              destruct H9.
+              rewrite H10.
+              rewrite <-nestedReductions.
+              rewrite OperationGroup.reduction_fixes_reduced with (S := [b]).
+              2: { apply OperationGroup.single_letter_reduced. }
+              rewrite OperationGroup.reduction_fixes_reduced at 1.
+              now rewrite <-cons_to_app.
+              assert (reduced (x :: ((OperationGroup.reduction (ta ++ tb)) ++ [b']))) as H_red1. {
+                specialize OperationGroup.reduction_is_reduced with (S:=A0 ++ (rev sb)) as H_red.
+                now rewrite H10 in H_red.
+              }
+              assert (reduced (((x :: ((OperationGroup.reduction (ta ++ tb)) ++ [b'])) ++ [b]))) as H_red2. {
+                rewrite <-rev_involutive with (l:=(x :: ((OperationGroup.reduction (ta ++ tb)) ++ [b'])) ++ [b]).
+                apply reverseIsReduced.
+                rewrite rev_app_distr.
+                rewrite revSingle.
+                rewrite <-cons_to_app.
+                rewrite app_comm_cons.
+                rewrite rev_app_distr.
+                rewrite revSingle.
+                rewrite <-cons_to_app.
+                apply OperationGroup.join_reduced.
+                - apply reverseIsReduced in H_red1.
+                  rewrite app_comm_cons in H_red1.
+                  rewrite rev_app_distr in H_red1.
+                  rewrite revSingle in H_red1.
+                  now rewrite <-cons_to_app in H_red1.
+                - rewrite H_B0 in H5.
+                  rewrite H9 in H5.
+                  apply reverseIsReduced in H5.
+                  repeat rewrite rev_app_distr in H5.
+                  repeat rewrite revSingle in H5.
+                  repeat rewrite <-cons_to_app in H5.
+                  intuition.
+                  contradict H5.
+                  specialize OperationGroup.intro_letter_inverse with (S:=[]) (a:=b') (T:=rev tb) as H_nr.
+                  rewrite <-H11 in H_nr.
+                  simpl in H_nr.
+                  auto.
+              }
+              rewrite <-cons_to_app.
+              apply OperationGroup.join_reduced.
+              * auto.
+              * rewrite H8 in H4.
+                intuition.
+                contradict H4.
+                specialize OperationGroup.intro_letter_inverse with (S:=[]) (a:=x) (T:=ta) as H_nr.
+                rewrite <-H11 in H_nr.
+                simpl in H_nr.
+                auto.
+        }
+        
+        destruct H_squashEmpty.
+      assert (
       give_up.
     }
     specialize IHt with (A:=a::t) (a:=a).
