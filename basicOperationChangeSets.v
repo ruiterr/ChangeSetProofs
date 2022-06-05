@@ -1404,6 +1404,9 @@ Qed.
 Lemma noErrorsDuringRebase: ∀A B, (A ↷ B)%OO = None → False.
 Admitted.
 
+Lemma noErrorsDuringRebaseCS: ∀A B, (A ↷ B) ≠ ⦻.
+Admitted.
+
 Ltac autoChangeSetSimplification := autorewrite with changeset_simplificaton; auto with HelperLemmas bool; try discriminate.
 
 Lemma rightDistributivitySingleOperation: ∀a b c : Operation, (opToCs a) ↷ ((opToCs b) ○ (opToCs c)) = ((opToCs a) ↷ (opToCs b)) ↷ (opToCs c).
@@ -2856,7 +2859,7 @@ Section distributivityProofsChangeSet2.
                 destruct H.
                 + discriminate.
                 + auto.
-              - give_up.
+              - now apply noErrorsDuringRebaseCS in H.
             }
             autoChangeSetSimplification.
           - replace (rebaseOperationWithChangeSet o X) with (opToCs o ↷ X).
@@ -2868,6 +2871,12 @@ Section distributivityProofsChangeSet2.
         }
 
         rewrite unfoldSingleRebaseOp.
+        2: {
+          intuition.
+          apply invalid_squash_implies_invalid_input in H.
+          destruct H; discriminate.
+        }
+
         set (O':= opToCs o).
         set (O0' := CSet {| operations := o0; operations_reduced := tailIsReduced2 (o :: o0) o0 o eq_refl operations_reduced0 |}).
         cbv zeta.
@@ -2903,6 +2912,9 @@ Section distributivityProofsChangeSet2.
 
         rewrite <-squashEmptyRight with (X:=B) at 2.
         rewrite <-squashInverseLeft with (X:=O' ↷ B).
+        2: {
+          apply noErrorsDuringRebaseCS.
+        }
         rewrite <-squashAssociative.
         rewrite <-squashAssociative.
         rewrite <-squashAssociative.
@@ -2911,9 +2923,47 @@ Section distributivityProofsChangeSet2.
         rewrite squashAssociative.
         set (YY:=((O' ↷ B)⁻¹ ○ (C ○ O' ↷ B ↷ C))).
 
-        assert(∃opsXX, CSet opsXX = XX). { give_up. }
+        assert(∃opsXX, CSet opsXX = XX). { 
+          assert (XX ≠ ⦻). {
+            intuition.
+            unfold XX in H0.
+            apply invalid_squash_implies_invalid_input in H0.
+            destruct H0.
+            - apply invalid_squash_implies_invalid_input in H0.
+              destruct H0; discriminate.
+            - now apply noErrorsDuringRebaseCS in H0.
+          }
+          destruct XX.
+          - now exists ops.
+          - contradiction.
+        }
+
         destruct H0 as [opsXX H_opsXX].
-        assert(∃opsYY, CSet opsYY = YY). { give_up. }
+        assert(∃opsYY, CSet opsYY = YY). { 
+          assert (YY ≠ ⦻). {
+            intuition.
+            unfold YY in H0.
+            apply invalid_squash_implies_invalid_input in H0.
+            destruct H0.
+            - assert(∀ U, U ≠ ⦻  → (U⁻¹)%CS ≠ ⦻ ) as invalid_inverse_implies_invalid. {
+                intros.
+                cbv.
+                destruct U.
+                - discriminate.
+                - contradiction.
+              }
+              contradict H0.
+              apply invalid_inverse_implies_invalid. 
+              now apply noErrorsDuringRebaseCS.
+            - apply invalid_squash_implies_invalid_input in H0.
+              destruct H0.
+              + unfold C in H0. discriminate H0.
+              + now apply noErrorsDuringRebaseCS in H0.
+          }
+          destruct YY.
+          - now exists ops.
+          - contradiction.
+        }
         destruct H0 as [opsYY H_opsYY].
 
         specialize IHn with (operations0:=o0) (operations_reduced0:=tailIsReduced2 (o :: o0) o0 o eq_refl operations_reduced0) (ops0 := opsXX) (ops1 := opsYY) as IHn_O0.
@@ -2939,38 +2989,7 @@ Section distributivityProofsChangeSet2.
 
         now rewrite <-rebaseLeftDistibutivity with (A:=O') (B:=O0') (C:=B).
 
-        assert(∃opsX, CSet opsX = X). { give_up. }
-        destruct H0 as [opsX H_opsX].
-        assert(∃opsY, CSet opsY = Y). { give_up. }
-        destruct H0 as [opsY H_opsY].
-
-        specialize IHn with (operations0:=o0) (operations_reduced0:=tailIsReduced2 (o :: o0) o0 o eq_refl operations_reduced0) (ops0 := opsX) (ops1 := opsY) as IHn_final.
-
-
-        unfold rebaseChangeSet at 1.
-        unfold operations.
-        unfold operations_reduced.
-        unfold rebaseChangeSetOps.
-        destruct o0.
-        * specialize rightDistributivitySingleOperation with (a := o) as H_rightDistrib.
-         unfold rebaseOperationWithChangeSet.
-        unfold squash.
-        destruct (fold_left rebaseOperation (map (λ x : Operation, (Some x)) ops0) (Some a)) eqn:H_left_rebase.
-        * rewrite <-H_left_rebase.
-          rewrite <-fold_left_app.
-          now rewrite fold_left_rebaseOperation_squashOpList.
-        * rewrite fold_left_rebaseOperation_squashOpList.
-          rewrite fold_left_app.
-          rewrite H_left_rebase.
-          now rewrite fold_left_rebaseOperation_With_None.
-      + unfold rebaseChangeSet at 1.
-        cbv delta [rebaseChangeSetOps].
-        set (v := o::l).
-        cbn -[rebaseChangeSetOps rebaseOperationWithChangeSet squash v].
-        destruct (a :: (o :: l)) eqn:H_a_o_l; try discriminate.
-        
-        cbn -[rebaseChangeSetOps rebaseOperationWithChangeSet squash].*)
-
+Admitted.
 
 Eval compute in (InsertRange 0 5 "test").
 Eval compute in (RemoveRange 0 2 2 "test").
