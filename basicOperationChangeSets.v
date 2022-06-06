@@ -964,6 +964,14 @@ now rewrite OperationGroup.inverse_str_involution.
 now apply invertIsReduced.
 Qed.
 
+Lemma Op_eqb_eq: ∀ x y : Operation, (((Op_eqb x y) = true) → x = y).
+intros.
+unfold Op_eqb in H.
+destruct (operation_eq_dec x y) eqn:H_eq; auto.
+discriminate.
+Qed.
+
+
 Lemma  splitOffLeftFromReduction: ∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) → A = (a::t) → (
   OperationGroup.reduction (A++B) = (a::(OperationGroup.reduction (t++B))) ∨ 
   ((length A) = (length B) ∧ OperationGroup.reduction (A++B) = [])).
@@ -1019,7 +1027,7 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
         rewrite H_squashEmpty.
         right.
         auto.
-        + give_up.
+        + apply Op_eqb_eq.
       - assert ((OperationGroup.reduction (A ++ B)) ≠ []). {
           intuition.
           rewrite H3 in H_squashEmpty.
@@ -1078,7 +1086,52 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
             rewrite nestedReductions at 1.
             rewrite nestedReductions with (X:=A0++(rev sb)) at 1.
             destruct (list_beq Operation Op_eqb (OperationGroup.reduction (A0 ++ (rev sb))) []) eqn:H_innerEmpty. {
-              give_up.
+              apply internal_list_dec_bl in H_innerEmpty.
+              rewrite H_innerEmpty.
+              rewrite OperationGroup.reduction_fixes_reduced with (S:=[a1]).
+              2: { apply OperationGroup.single_letter_reduced. }
+              rewrite OperationGroup.reduction_fixes_reduced with (S:=[b]).
+              2: { apply OperationGroup.single_letter_reduced. }
+              simpl.
+              rewrite OperationGroup.reduction_fixes_reduced with (S:=[b]).
+              2: { apply OperationGroup.single_letter_reduced. }
+              simpl.
+              destruct (Op_eqb (OperationGroup.opposite a1) b) eqn:H_opposites.
+              - rewrite H_B0 in H7.
+                rewrite cons_to_app in H7.
+                rewrite <-app_assoc in H7.
+                rewrite app_assoc with (l:=A0) in H7.
+                rewrite nestedReductions in H7.
+                rewrite nestedReductions with (X:=A0++(rev sb)) in H7.
+                rewrite H_innerEmpty  in H7.
+                rewrite OperationGroup.reduction_fixes_reduced with (S:=[a1])  in H7.
+                2: { apply OperationGroup.single_letter_reduced. }
+                rewrite OperationGroup.reduction_fixes_reduced with (S:=[b])  in H7.
+                2: { apply OperationGroup.single_letter_reduced. }
+                simpl in H7.
+                rewrite OperationGroup.reduction_fixes_reduced with (S:=[b])  in H7.
+                2: { apply OperationGroup.single_letter_reduced. }
+                simpl in H7.
+                apply Op_eqb_eq in H_opposites.
+                rewrite <-H_opposites in H7.
+                replace (OperationGroup.reduction [a1: OperationGroup.alphabet; OperationGroup.opposite a1:OperationGroup.alphabet]) with 
+                        (OperationGroup.reduced_string_product [a1] (OperationGroup.inverse_str [a1])) in H7.
+                2: { 
+                  unfold OperationGroup.reduced_string_product.
+                  unfold OperationGroup.inverse_str.
+                  now simpl.
+                }
+                rewrite OperationGroup.inverse_str_is_right_inverse in H7.
+                contradiction.
+              - rewrite OperationGroup.reduction_fixes_reduced; auto.
+                apply OperationGroup.join_reduced with (S:=[]).
+                + apply OperationGroup.single_letter_reduced.
+                + intuition.
+                  rewrite H8 in H_opposites.
+                  rewrite OperationGroup.opposite_involution in H_opposites.
+                  rewrite Op_eqb_refl in H_opposites.
+                  discriminate.
+              - apply Op_eqb_eq.
             }
             specialize IHA0 with (B:=(rev sb)).
             destruct IHA0.
