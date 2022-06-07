@@ -971,6 +971,9 @@ destruct (operation_eq_dec x y) eqn:H_eq; auto.
 discriminate.
 Qed.
 
+Lemma nestedReductions: ∀X Y, OperationGroup.reduction (X ++ Y) = OperationGroup.reduction ((OperationGroup.reduction X) ++ (OperationGroup.reduction Y)).
+  give_up.
+Admitted.
 
 Lemma  splitOffLeftFromReduction: ∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) → A = (a::t) → (
   OperationGroup.reduction (A++B) = (a::(OperationGroup.reduction (t++B))) ∨ 
@@ -1080,9 +1083,6 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
             rewrite <-app_assoc.
             rewrite app_assoc with (l:=A0).
 
-            assert(∀X Y, OperationGroup.reduction (X ++ Y) = OperationGroup.reduction ((OperationGroup.reduction X) ++ (OperationGroup.reduction Y))) as nestedReductions. {
-              give_up.
-            }
             rewrite nestedReductions at 1.
             rewrite nestedReductions with (X:=A0++(rev sb)) at 1.
             destruct (list_beq Operation Op_eqb (OperationGroup.reduction (A0 ++ (rev sb))) []) eqn:H_innerEmpty. {
@@ -1205,10 +1205,19 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
                 simpl in H_nr.
                 auto.
         }
-        
-        destruct H_squashEmpty.
-      assert (
-      give_up.
+        specialize H4 with (A:=A) (B:=B).
+        destruct H4 as [a' [b [ ta  [sb H4]] ] ]; auto.
+        destruct H4 as [H_eqA [H_eqB H_reductionSplit] ].
+        rewrite H_reductionSplit.
+        rewrite H2 in H_eqA.
+        inversion H_eqA.
+        rewrite <-OperationGroup.reduction_fixes_reduced with (S:=(OperationGroup.reduction ((a :: t) ++ sb)) ++ [b]).
+        2: { give_up. }
+        rewrite <-OperationGroup.reduction_fixes_reduced with (S:=[b]).
+        2: { apply OperationGroup.single_letter_reduced. }
+        rewrite <-nestedReductions.
+        rewrite H_eqB.
+        now rewrite app_assoc.
     }
     specialize IHt with (A:=a::t) (a:=a).
     destruct IHt; auto.
@@ -1250,6 +1259,15 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
             rewrite <-H4 in H_nonReducedA.
             simpl in H_nonReducedA.
             contradiction.
+    * left.
+      rewrite H2.
+      rewrite cons_to_app at 1.
+      rewrite <-app_assoc.
+      rewrite nestedReductions.
+      destruct H3.
+      rewrite H4.
+      do 2 rewrite OperationGroup.reduction_fixes_reduced; auto.
+      all: simpl; apply OperationGroup.single_letter_reduced.
 Admitted.
 
 Lemma reducedImpliesNoOpposites: ∀a b t, reduced(a::b::t) →
