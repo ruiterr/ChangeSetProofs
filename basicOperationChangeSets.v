@@ -937,9 +937,6 @@ Hint Rewrite rebaseOperationEmpty : changeset_simplificaton.
 Hint Rewrite emptyInverse : changeset_simplificaton.
 Hint Rewrite proofIrrelevanceEmpty : changeset_simplificaton.
 
-Lemma changeSetInvertReverseSquash: ∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹).
-Admitted.
-
 Lemma operationGroupIsRightInjective: ∀ A B C, (reduced B) → (reduced C) → (OperationGroup.reduced_string_product A B) = (OperationGroup.reduced_string_product A C) → B = C.
 intros.
 replace (B) with (OperationGroup.reduced_string_product (OperationGroup.inverse_str A) (OperationGroup.reduced_string_product A B)).
@@ -962,6 +959,50 @@ apply operationGroupIsRightInjective in H_inv; auto.
 rewrite <-H_inv.
 now rewrite OperationGroup.inverse_str_involution.
 now apply invertIsReduced.
+Qed.
+
+(*Lemma inverseStringSwapsWithReduction: ∀X, (OperationGroup.reduction (OperationGroup.inverse_str X)) = (OperationGroup.inverse_str (OperationGroup.reduction X)).
+intros.
+destruct X.*)
+
+Ltac autoChangeSetSimplification := autorewrite with changeset_simplificaton; auto with HelperLemmas bool; try discriminate.
+
+Lemma changeSetInvertReverseSquash: ∀ X Y:ChangeSet, (X ○ Y)⁻¹ = (Y⁻¹ ○ X⁻¹).
+intros.
+unfold invert.
+unfold squash.
+destruct X; autoChangeSetSimplification.
+all: destruct Y; autoChangeSetSimplification.
+- unfold operations.
+  unfold operations_reduced.
+  apply ProofIrrelevanceForChangeSets.
+  simpl.
+  unfold squashOpList.
+  destruct ops.
+  destruct ops0.
+  enough ((OperationGroup.inverse_str
+        (OperationGroup.reduced_string_product operations0 operations1)) =
+     (OperationGroup.reduced_string_product (OperationGroup.inverse_str operations1)
+        (OperationGroup.inverse_str operations0))).
+  + rewrite H.
+    auto with HelperLemmas.
+  + apply operationGroupIsRightInjective with (A:=OperationGroup.reduced_string_product operations0 operations1).
+    {
+      apply invertIsReduced.
+      unfold OperationGroup.reduced_string_product.
+      apply OperationGroup.reduction_is_reduced.
+    }
+    {
+      unfold OperationGroup.reduced_string_product.
+      apply OperationGroup.reduction_is_reduced.
+    }
+    rewrite OperationGroup.inverse_str_is_right_inverse.
+    rewrite OperationGroup.reduced_string_product_assoc.
+    rewrite <-OperationGroup.reduced_string_product_assoc with (S1:=operations1).
+    rewrite OperationGroup.inverse_str_is_right_inverse.
+    rewrite OperationGroup.empty_str_is_left_id.
+    2: { now apply invertIsReduced. }
+    now rewrite OperationGroup.inverse_str_is_right_inverse.
 Qed.
 
 Lemma Op_eqb_eq: ∀ x y : Operation, (((Op_eqb x y) = true) → x = y).
@@ -1686,8 +1727,6 @@ Admitted.
 
 Lemma noErrorsDuringRebaseCS: ∀A B, (A ↷ B) ≠ ⦻.
 Admitted.
-
-Ltac autoChangeSetSimplification := autorewrite with changeset_simplificaton; auto with HelperLemmas bool; try discriminate.
 
 Lemma rightDistributivitySingleOperation: ∀a b c : Operation, (opToCs a) ↷ ((opToCs b) ○ (opToCs c)) = ((opToCs a) ↷ (opToCs b)) ↷ (opToCs c).
 intros.
