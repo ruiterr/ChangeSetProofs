@@ -1205,14 +1205,70 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
                 simpl in H_nr.
                 auto.
         }
-        specialize H4 with (A:=A) (B:=B).
-        destruct H4 as [a' [b [ ta  [sb H4]] ] ]; auto.
-        destruct H4 as [H_eqA [H_eqB H_reductionSplit] ].
+        specialize H4 with (A:=A) (B:=B) as H4'.
+        destruct H4' as [a' [b [ ta  [sb H4']] ] ]; auto.
+        destruct H4' as [H_eqA [H_eqB H_reductionSplit] ].
         rewrite H_reductionSplit.
         rewrite H2 in H_eqA.
         inversion H_eqA.
         rewrite <-OperationGroup.reduction_fixes_reduced with (S:=(OperationGroup.reduction ((a :: t) ++ sb)) ++ [b]).
-        2: { give_up. }
+        2: {
+          rewrite <-rev_involutive.
+          apply reverseIsReduced.
+          rewrite rev_app_distr.
+          rewrite revSingle.
+          rewrite <-cons_to_app.
+          assert (∀ x y : Operation, ((x = y) → (Op_eqb x y) = true)) as Op_eq_eqb. {
+            intros.
+            rewrite H5.
+            apply Op_eqb_refl.
+          }
+          destruct (list_eq_dec Operation Op_eqb Op_eqb_eq Op_eq_eqb (OperationGroup.reduction ((a :: t) ++ sb)) []) eqn:H_emptyInner.
+          - give_up.
+          - specialize H4 with (A:=a::t) (B:=sb) as H4''.
+            destruct H4'' as [a'' [b' [ ta'  [sb' H4'']] ] ]; auto.
+            + rewrite H2 in H.
+              now apply tailIsReduced with (op:=a0).
+            + rewrite H_eqB in H0.
+              apply reverseIsReduced in H0.
+              rewrite rev_app_distr in H0.
+              rewrite revSingle in H0.
+              rewrite <-cons_to_app in H0.
+              apply tailIsReduced in H0.
+              apply reverseIsReduced in H0.
+              now rewrite rev_involutive in H0.
+            + rewrite H2 in H_equalLength.
+              rewrite H_eqB in H_equalLength.
+              rewrite app_length in H_equalLength.
+              simpl in H_equalLength.
+              simpl.
+              lia.
+            + destruct H4'' as [H_eqA' [H_eqB' Hsplit'']].
+              rewrite Hsplit''.
+              rewrite app_comm_cons.
+              rewrite rev_app_distr.
+              rewrite revSingle.
+              rewrite <-cons_to_app.
+              apply OperationGroup.join_reduced.
+              * specialize OperationGroup.reduction_is_reduced with (S:=(a :: t) ++ sb) as H_reduced.
+                rewrite Hsplit'' in H_reduced.
+                apply reverseIsReduced in H_reduced.
+                rewrite app_comm_cons in H_reduced.
+                rewrite rev_app_distr in H_reduced.
+                rewrite revSingle in H_reduced.
+                now rewrite <-cons_to_app in H_reduced.
+              * rewrite H_eqB in H0.
+                rewrite H_eqB' in H0.
+                apply reverseIsReduced in H0.
+                do 2 rewrite rev_app_distr in H0.
+                do 2 rewrite revSingle in H0.
+                do 2 rewrite <-cons_to_app in H0.
+                intuition.
+                contradict H0.
+                rewrite H5.
+                specialize OperationGroup.intro_letter_inverse with (S:=[]) (a:=b') (T:=rev sb') as H_nonreduced.
+                now simpl in H_nonreduced.
+        }
         rewrite <-OperationGroup.reduction_fixes_reduced with (S:=[b]).
         2: { apply OperationGroup.single_letter_reduced. }
         rewrite <-nestedReductions.
@@ -1243,7 +1299,10 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
     * rewrite H2.
       rewrite <-app_comm_cons.
       assert(OperationGroup.reduction (a0 :: (a :: t) ++ B) = OperationGroup.reduction (a0 :: (OperationGroup.reduction ((a :: t) ++ B)))) as H_additionReduction. {
-        give_up.
+        rewrite cons_to_app.
+        rewrite nestedReductions.
+        rewrite OperationGroup.reduction_fixes_reduced with (S:=[a0]); try apply OperationGroup.single_letter_reduced.
+        now rewrite <-cons_to_app.
       }
       rewrite H_additionReduction.
       destruct (OperationGroup.reduced_dec (a0 :: OperationGroup.reduction ((a :: t) ++ B))).
