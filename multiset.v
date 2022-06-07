@@ -2,6 +2,7 @@ From Coq Require Import Arith.Arith.
 From Coq Require Import Bool.Bool.
 Require Export Coq.Strings.String.
 
+From Coq Require Import Logic.ProofIrrelevance.
 From Coq Require Import Logic.FunctionalExtensionality.
 From Coq Require Import Lists.List.
 From Coq Require Import List. Import ListNotations.
@@ -73,6 +74,58 @@ destruct (i =? y0) eqn:H_ineqy0.
   repeat rewrite P.F.add_neq_o; auto.
 Qed.
 
+Lemma Equal_ProofIrrelevance: ∀(A B: M.t nat), (Equal A B) → A = B.
+intros.
+unfold Equal in H.
+destruct A.
+destruct B.
+assert (this0 = this1). {
+  induction this0.
+  - assert (∀ y, (find (elt:=nat) y {| this := []; sorted := sorted0 |}) = None). {
+      intros.
+      auto.
+    }
+    destruct this1.
+    + auto.
+    + contradict H.
+      intuition.
+      destruct p as [p_k p_v].
+      specialize H with (y:=p_k).
+      rewrite H0 in H.
+      assert ((find (elt:=nat) p_k
+       {| this := (p_k, p_v) :: this1; sorted := sorted1 |}) = Some p_v). {
+        unfold find.
+        unfold Raw.find.
+        simpl.
+        specialize Raw.MX.elim_compare_eq with (x:=p_k) (y:=p_k) as H_EQ.
+        destruct H_EQ; auto.
+        now rewrite H1.
+      }
+      rewrite H1 in H.
+      discriminate.
+  - destruct this1.
+    + destruct a as [a_k a_v].
+      specialize H with (y:=a_k).
+      assert ((find (elt:=nat) a_k
+       {| this := (a_k, a_v) :: this0; sorted := sorted0 |}) = Some a_v). {
+        unfold find.
+        unfold Raw.find.
+        simpl.
+        specialize Raw.MX.elim_compare_eq with (x:=a_k) (y:=a_k) as H_EQ.
+        destruct H_EQ; auto.
+        now rewrite H0.
+      }
+      rewrite H0 in H. clear H0.
+      assert ((find (elt:=nat) a_k {| this := []; sorted := sorted1 |}) = None). {
+        intros.
+        auto.
+      }
+      rewrite H0 in H.
+      discriminate.
+    + assert (a = p). {
+        destruct 
+    
+
 Inductive Operation :=
   | Insert (s : M.t nat)
   | Remove (s : M.t nat).
@@ -91,45 +144,96 @@ rewrite duplicated_map_add.
 reflexivity.
 Qed.
 
-Lemma duplicated_add: ∀(m: M.t nat) (i x y:nat), (add i x (add i y m)) = (add i x m).
+ Lemma duplicated_add: ∀(m: M.t nat) (i x y:nat), (add i x (add i y m)) = (add i x m).
 intros.
 unfold add.
-set (this:= Raw.add i x (this {| this := Raw.add i y (this m); sorted := Raw.add_sorted (sorted m) i y |})).
-set (sorted := Raw.add_sorted (sorted {| this := Raw.add i y (M.this m); sorted := Raw.add_sorted (sorted m) i y |}) i x).
 
-assert( sorted = (Raw.add_sorted (M.sorted m) i x) ). give_up.
-assert( this = Raw.add i x (M.this m)). give_up.
+assert(∀s,(Raw.add i x
+      {|
+        this := Raw.add i y m;
+        sorted := s
+      |}) = (Raw.add i x m)). {
+  intros.
+  destruct m.
+  induction this0.
+  - unfold Raw.add.
+    simpl.
+    specialize Raw.MX.elim_compare_eq with (x:=i) (y:=i) as H_EQ.
+    destruct H_EQ; auto.
+    now rewrite H.
+  - unfold Raw.add.
+    simpl.
+    destruct a as [p_k p_v].
+    destruct (Nat_as_OT.compare i p_k) eqn:H_k'.
+    + rewrite H_k'.
+      specialize Raw.MX.elim_compare_eq with (x:=i) (y:=i) as H_EQ.
+      destruct H_EQ; auto.
+      now rewrite H.
+    + specialize Raw.MX.elim_compare_eq with (x:=i) (y:=i) as H_EQ.
+      destruct H_EQ; auto.
+      now rewrite H.
+    + rewrite H_k'.
+      f_equal.
 
-unfold Raw.add.
-destruct m.
-destruct this0 eqn:H_this0.
-cbn.
+      assert(Sorted (Raw.PX.ltk (elt:=nat)) this0) as H_sortedThis0. {
+        apply Sorted_inv in sorted0 as sorted_tail.
+        now destruct sorted_tail.
+      }
+      assert(Sorted (Raw.PX.ltk (elt:=nat)) (Raw.add i y {| this := this0; sorted := H_sortedThis0 |})) as H_sorted_sTail. {
+        apply Raw.add_sorted.
+        auto.
+      }
 
-assert( ∃x, (Nat_as_OT.compare i i) = (EQ x)). give_up.
-destruct H.
-set (t:=Nat_as_OT.compare i i).
-fold t in H.
-Check (Raw.add_sorted (Raw.add_sorted sorted0 i y) i x).
-rewrite H at 1.
- 
-destruct (Nat_as_OT.compare i i).
-(* assert(∀(x0 y0:nat), x0 = y0 → (Nat_as_OT.compare x0 y0) = (EQ (nat_compare_eq x0 y0))). *)
-cbv delta [Nat_as_OT.compare].
-cbv beta.
-rewrite Nat.compare_refl with (x:=i).
 
-set (t:= (i ?= i)).
-assert(t=Eq).
-subst t.
-auto.
-unfold t at 3.
-unfold t at 3.
-unfold t at 3.
-unfold t at 3.
-unfold t at 2.
-simpl. 
-rewrite H.
-rewrite Nat.compare_refl with (x:=i) at 1.
+      match goal with 
+      | |- (_  _ _ ?t1) = ?t2 => set (inner:=t1); set (rhs:=t2)
+      end.
+      assert(rhs = Raw.add i x {| this := this0; sorted := H_sortedThis0 |}). {
+        intros.
+        unfold rhs.
+        unfold Raw.add.
+        now simpl.
+      }
+
+      assert(inner = Raw.add i y
+                       {| this := this0; sorted := H_sortedThis0 |}). {
+        intros.
+        unfold inner.
+        unfold Raw.add.
+        now simpl.
+      }
+      rewrite H.
+      rewrite H0.
+
+
+      specialize IHthis0 with (sorted0 := H_sortedThis0) (s:=H_sorted_sTail).
+      rewrite <-IHthis0.
+      auto.
+  }
+
+  set (inner:=Raw.add i x
+      {|
+        this := Raw.add i y m;
+        sorted := Raw.add_sorted (sorted m) i y
+      |}).
+  assert (inner = (Raw.add i x m)). {
+    unfold inner.
+    now rewrite H.
+  }
+
+  generalize (Raw.add_sorted
+      (sorted
+         {|
+           this := Raw.add i y m;
+           sorted := Raw.add_sorted (sorted m) i y
+         |}) i x).
+  fold inner.
+  rewrite H0.
+  generalize (Raw.add_sorted (sorted m) i x).
+  intros.
+  replace s with s0; auto.
+  apply proof_irrelevance.
+Qed.
 
 Lemma multiset_insert_remove: ∀(ms:multiset) (i:nat), (ms_remove i (ms_insert i ms)) = ms.
 intros.
@@ -137,10 +241,16 @@ unfold ms_remove.
 unfold ms_insert.
 destruct ms as [map].
 destruct (find (elt:=nat) i map) eqn:H_map.
-rewrite P.F.add_eq_o; auto.
-rewrite_nat_all (0 <? n + 1 = true).
-rewrite Nat.add_sub.
-f_equal.
+- rewrite P.F.add_eq_o; auto.
+  rewrite_nat_all (0 <? n + 1 = true).
+  rewrite Nat.add_sub.
+  f_equal.
+  rewrite duplicated_add with (m:=map) (i:=i) (x:=n) (y:=n+1).
+  give_up.
+- rewrite F.add_eq_o; auto.
+  assert_nat(0<?0=false).
+  rewrite H.
+rewrite H_map.
 unfold @eq.
 
 Eval compute in (
