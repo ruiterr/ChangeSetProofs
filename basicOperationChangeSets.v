@@ -1224,7 +1224,9 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
             apply Op_eqb_refl.
           }
           destruct (list_eq_dec Operation Op_eqb Op_eqb_eq Op_eq_eqb (OperationGroup.reduction ((a :: t) ++ sb)) []) eqn:H_emptyInner.
-          - give_up.
+          - rewrite e.
+            simpl.
+            apply OperationGroup.single_letter_reduced.
           - specialize H4 with (A:=a::t) (B:=sb) as H4''.
             destruct H4'' as [a'' [b' [ ta'  [sb' H4'']] ] ]; auto.
             + rewrite H2 in H.
@@ -1327,7 +1329,7 @@ destruct (OperationGroup.reduced_dec (A++B)) eqn:H_AplusBReduced.
       rewrite H4.
       do 2 rewrite OperationGroup.reduction_fixes_reduced; auto.
       all: simpl; apply OperationGroup.single_letter_reduced.
-Admitted.
+Qed.
 
 Lemma reducedImpliesNoOpposites: ∀a b t, reduced(a::b::t) →
                                   ∃ X, (OperationGroup.alphabet_eq_dec a (OperationGroup.opposite b)) = (right X).
