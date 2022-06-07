@@ -972,8 +972,14 @@ discriminate.
 Qed.
 
 Lemma nestedReductions: ∀X Y, OperationGroup.reduction (X ++ Y) = OperationGroup.reduction ((OperationGroup.reduction X) ++ (OperationGroup.reduction Y)).
-  give_up.
-Admitted.
+  intros.
+  apply OperationGroup.equiv_strings_have_same_reductions.
+  specialize OperationGroup.reduction_equiv with (S:=X) as H_reduction1.
+  specialize OperationGroup.reduction_equiv with (S:=Y) as H_reduction2.
+  rewrite H_reduction1.
+  rewrite H_reduction2.
+  apply OperationGroup.group_str_equiv_refl.
+Qed.
 
 Lemma  splitOffLeftFromReduction: ∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) → A = (a::t) → (
   OperationGroup.reduction (A++B) = (a::(OperationGroup.reduction (t++B))) ∨ 
