@@ -276,117 +276,40 @@ assert (this0 = this1). {
     replace sorted2 with sorted3; auto.
     apply proof_irrelevance.
 Qed.
-      
 
-    
-
-Inductive Operation :=
-  | Insert (s : M.t nat)
-  | Remove (s : M.t nat).
-
-Definition op1 := (Insert (add 1 5 (M.empty nat))).
-Definition op2 := (Insert (add 1 5 (add 1 3 (M.empty nat)))).
-
-(*Lemma test_op1_op2: op1 = op2.
-unfold op1.
-unfold op2.
-f_equal.
-rewrite duplicated_map_add.*)
-
-Lemma test_lemma: (Equal (remove 1 (add 1 5 (add 1 3 (M.empty nat)))) (remove 1 (add 1 5 (M.empty nat)))).
-rewrite duplicated_map_add.
-reflexivity.
+Lemma duplicated_add: ∀(m: M.t nat) (i x y:nat), (add i x (add i y m)) = (add i x m).
+intros.
+apply Equal_ProofIrrelevance.
+apply duplicated_map_add.
 Qed.
 
- Lemma duplicated_add: ∀(m: M.t nat) (i x y:nat), (add i x (add i y m)) = (add i x m).
+Lemma redundant_add: ∀map i n, (find (elt:=nat) i map) = (Some n) → (add i n map) = map.
 intros.
-unfold add.
+apply Equal_ProofIrrelevance.
+unfold Equal.
+intros.
+destruct (y =? i) eqn:H_yEqi.
+- rewrite_nat.
+  rewrite H_yEqi in *.
+  rewrite H.
+  rewrite P.F.add_eq_o; auto.
+- rewrite_nat.
+  rewrite P.F.add_neq_o; auto.
+Qed.
 
-assert(∀s,(Raw.add i x
-      {|
-        this := Raw.add i y m;
-        sorted := s
-      |}) = (Raw.add i x m)). {
-  intros.
-  destruct m.
-  induction this0.
-  - unfold Raw.add.
-    simpl.
-    specialize Raw.MX.elim_compare_eq with (x:=i) (y:=i) as H_EQ.
-    destruct H_EQ; auto.
-    now rewrite H.
-  - unfold Raw.add.
-    simpl.
-    destruct a as [p_k p_v].
-    destruct (Nat_as_OT.compare i p_k) eqn:H_k'.
-    + rewrite H_k'.
-      specialize Raw.MX.elim_compare_eq with (x:=i) (y:=i) as H_EQ.
-      destruct H_EQ; auto.
-      now rewrite H.
-    + specialize Raw.MX.elim_compare_eq with (x:=i) (y:=i) as H_EQ.
-      destruct H_EQ; auto.
-      now rewrite H.
-    + rewrite H_k'.
-      f_equal.
-
-      assert(Sorted (Raw.PX.ltk (elt:=nat)) this0) as H_sortedThis0. {
-        apply Sorted_inv in sorted0 as sorted_tail.
-        now destruct sorted_tail.
-      }
-      assert(Sorted (Raw.PX.ltk (elt:=nat)) (Raw.add i y {| this := this0; sorted := H_sortedThis0 |})) as H_sorted_sTail. {
-        apply Raw.add_sorted.
-        auto.
-      }
-
-
-      match goal with 
-      | |- (_  _ _ ?t1) = ?t2 => set (inner:=t1); set (rhs:=t2)
-      end.
-      assert(rhs = Raw.add i x {| this := this0; sorted := H_sortedThis0 |}). {
-        intros.
-        unfold rhs.
-        unfold Raw.add.
-        now simpl.
-      }
-
-      assert(inner = Raw.add i y
-                       {| this := this0; sorted := H_sortedThis0 |}). {
-        intros.
-        unfold inner.
-        unfold Raw.add.
-        now simpl.
-      }
-      rewrite H.
-      rewrite H0.
-
-
-      specialize IHthis0 with (sorted0 := H_sortedThis0) (s:=H_sorted_sTail).
-      rewrite <-IHthis0.
-      auto.
-  }
-
-  set (inner:=Raw.add i x
-      {|
-        this := Raw.add i y m;
-        sorted := Raw.add_sorted (sorted m) i y
-      |}).
-  assert (inner = (Raw.add i x m)). {
-    unfold inner.
-    now rewrite H.
-  }
-
-  generalize (Raw.add_sorted
-      (sorted
-         {|
-           this := Raw.add i y m;
-           sorted := Raw.add_sorted (sorted m) i y
-         |}) i x).
-  fold inner.
-  rewrite H0.
-  generalize (Raw.add_sorted (sorted m) i x).
-  intros.
-  replace s with s0; auto.
-  apply proof_irrelevance.
+Lemma redundant_remove: ∀ i map, (find (elt:=nat) i map) = None → (remove (elt:=nat) i (add i 0 map)) = map.
+intros.
+apply Equal_ProofIrrelevance.
+unfold Equal.
+intros.
+destruct (y =? i) eqn:H_yEqi.
+- rewrite_nat.
+  rewrite H_yEqi in *.
+  rewrite H.
+  rewrite P.F.remove_eq_o; auto.
+- rewrite_nat.
+  rewrite P.F.remove_neq_o; auto.
+  rewrite P.F.add_neq_o; auto.
 Qed.
 
 Lemma multiset_insert_remove: ∀(ms:multiset) (i:nat), (ms_remove i (ms_insert i ms)) = ms.
@@ -400,12 +323,13 @@ destruct (find (elt:=nat) i map) eqn:H_map.
   rewrite Nat.add_sub.
   f_equal.
   rewrite duplicated_add with (m:=map) (i:=i) (x:=n) (y:=n+1).
-  give_up.
+  apply redundant_add; auto.
 - rewrite F.add_eq_o; auto.
   assert_nat(0<?0=false).
   rewrite H.
-rewrite H_map.
-unfold @eq.
+  f_equal.
+  apply redundant_remove; auto.
+Qed.
 
 Eval compute in (
   (ms_contains 1
