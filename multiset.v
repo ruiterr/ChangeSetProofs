@@ -64,6 +64,13 @@ Definition ms_contains (i: nat) (ms: multiset) :=
       false
 end.
 
+
+Fixpoint ms_create_from_list (l: list nat) :=
+  match l with
+  | [] => empty_MultiSet
+  | h::t => ms_insert h (ms_create_from_list t)
+  end.
+
 Lemma duplicated_map_add: ∀(m: M.t nat) (i x y:nat), (Equal (add i x (add i y m)) (add i x m)).
 unfold Equal.
 intros.
@@ -330,6 +337,35 @@ destruct (find (elt:=nat) i map) eqn:H_map.
   f_equal.
   apply redundant_remove; auto.
 Qed.
+
+Definition m_t_nat_eq_dec: forall (a b:M.t nat), {a=b} + {a<>b}.
+intros.
+destruct a.
+destruct b.
+assert ({this0 = this1} + { this0 ≠ this1}). {
+  repeat decide equality.
+}
+
+destruct H.
+- revert sorted1.
+  rewrite <-e.
+  intros.
+  assert (sorted1 = sorted0). { apply proof_irrelevance. }
+  rewrite H.
+  auto.
+- assert ({| this := this0; sorted := sorted0 |} ≠ {| this := this1; sorted := sorted1 |}). {
+    intuition.
+    inversion H.
+    contradiction.
+  }
+  auto.
+Defined.
+
+Definition multiset_eq_dec: forall a b:multiset, {a=b} + {a<>b}.
+intros.
+decide equality.
+apply m_t_nat_eq_dec.
+Defined.
 
 Eval compute in (
   (ms_contains 1
