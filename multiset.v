@@ -74,14 +74,52 @@ destruct (i =? y0) eqn:H_ineqy0.
   repeat rewrite P.F.add_neq_o; auto.
 Qed.
 
+
+Lemma keySmallerFindEqNone: ∀y_k y_v t0, (  HdRel (Raw.PX.ltk (elt:=nat)) (y_k, y_v) t0) → (Sorted (Raw.PX.ltk (elt:=nat)) t0) → (Raw.find (elt:=nat) y_k t0) = None.
+  intros.
+  induction t0.
+  - now cbv.
+  - apply Sorted_inv in H0 as H_sortedT0_2.
+    destruct H_sortedT0_2 as [H_sortedT0_2 H_aLtT0].
+    destruct a as [a_k a_v].
+    apply HdRel_inv in H as H_yLtT0.
+    cbv in H_yLtT0.
+    specialize Raw.PX.MO.elim_compare_lt with (x:=y_k) (y:=a_k) as H_Tail.
+    destruct H_Tail; try lia.
+    simpl.
+    now rewrite H1.
+Qed.
+
+Lemma keySmallerFindEqNoneSplit: ∀y_k (y_v:nat) p_k p_v t0, (y_k < p_k) → (Sorted (Raw.PX.ltk (elt:=nat)) ((p_k,p_v)::t0)) → (Raw.find (elt:=nat) y_k ((p_k,p_v)::t0)) = None.
+  intros.
+  apply Sorted_inv in H0 as H_sortedT0_2.
+  destruct H_sortedT0_2 as [H_sortedT0_2 H_aLtT0].
+  specialize Raw.PX.Inf_lt with (l:=t0) (x:=(y_k, y_v)) (x':=(p_k, p_v)) as H_HdRel.
+  apply keySmallerFindEqNone with (y_v:=y_v).
+  all: auto.
+Qed.
+
 Lemma Equal_ProofIrrelevance: ∀(A B: M.t nat), (Equal A B) → A = B.
 intros.
 unfold Equal in H.
 destruct A.
 destruct B.
 assert (this0 = this1). {
-  induction this0.
-  - assert (∀ y, (find (elt:=nat) y {| this := []; sorted := sorted0 |}) = None). {
+  remember (length this0) as lenThis0.
+  revert H.
+  revert sorted0.
+  revert sorted1.
+  revert HeqlenThis0.
+  revert this0.
+  revert this1.
+  induction lenThis0.
+  - intros.
+    symmetry in HeqlenThis0.
+    apply length_zero_iff_nil in HeqlenThis0.
+    rewrite HeqlenThis0.
+    destruct this0 eqn:H_this0.
+    2: { discriminate. }
+    assert (∀ y, (find (elt:=nat) y {| this := []; sorted := sorted0 |}) = None). {
       intros.
       auto.
     }
@@ -103,11 +141,14 @@ assert (this0 = this1). {
       }
       rewrite H1 in H.
       discriminate.
-  - destruct this1.
-    + destruct a as [a_k a_v].
+  - intros.
+    destruct this0 eqn:H_this0.
+    1: { discriminate. } 
+    destruct this1.
+    + destruct p as [a_k a_v].
       specialize H with (y:=a_k).
       assert ((find (elt:=nat) a_k
-       {| this := (a_k, a_v) :: this0; sorted := sorted0 |}) = Some a_v). {
+       {| this := (a_k, a_v) :: t0; sorted := sorted0 |}) = Some a_v). {
         unfold find.
         unfold Raw.find.
         simpl.
@@ -122,8 +163,121 @@ assert (this0 = this1). {
       }
       rewrite H0 in H.
       discriminate.
-    + assert (a = p). {
-        destruct 
+    + assert (p = p0). {
+        destruct p as [p_k p_v].
+        destruct p0 as [p0_k p0_v].
+        destruct (p_k =? p0_k) eqn:H_p_kEqp0_k.
+        2: {
+          destruct (p_k <? p0_k) eqn:H_p_kltp0_k.
+          - rewrite_nat.
+            specialize H with (y:=p_k).
+
+            assert (find (elt:=nat) p_k {| this := (p_k, p_v) :: t0; sorted := sorted0 |} = Some p_v) as H_findFirst. { 
+              cbn.
+              specialize Raw.MX.elim_compare_eq with (x:=p_k) (y:=p_k) as H_refl.
+              destruct H_refl; auto.
+              now rewrite H0.
+            }
+            rewrite H_findFirst in H.
+
+            assert ((find (elt:=nat) p_k {| this := (p0_k, p0_v) :: this1; sorted := sorted1 |}) = None) as H_findSecond. {
+              apply keySmallerFindEqNoneSplit; auto.
+            }
+            rewrite H_findSecond in H.
+            discriminate.
+         - assert_nat (p0_k < p_k) as H_p_kGt_p0.
+            specialize H with (y:=p0_k).
+
+            assert ((find (elt:=nat) p0_k {| this := (p0_k, p0_v) :: this1; sorted := sorted1 |}) = Some p0_v) as H_findFirst. { 
+              cbn.
+              specialize Raw.MX.elim_compare_eq with (x:=p0_k) (y:=p0_k) as H_refl.
+              destruct H_refl; auto.
+              now rewrite H0.
+            }
+            rewrite H_findFirst in H.
+
+            assert ((find (elt:=nat) p0_k {| this := (p_k, p_v) :: t0; sorted := sorted0 |}) = None) as H_findSecond. { 
+              apply keySmallerFindEqNoneSplit; auto.
+            }
+            rewrite H_findSecond in H.
+            discriminate.
+          }
+          rewrite_nat.
+          specialize H with (y:=p_k).
+          rewrite <-H_p_kEqp0_k.
+
+          assert ((find (elt:=nat) p_k {| this := (p_k, p_v) :: t0; sorted := sorted0 |}) = Some p_v) as H_findFirst. { 
+            cbn.
+            specialize Raw.MX.elim_compare_eq with (x:=p_k) (y:=p_k) as H_refl.
+            destruct H_refl; auto.
+            now rewrite H0.
+          }
+          rewrite H_findFirst in H.
+          assert((find (elt:=nat) p_k {| this := (p0_k, p0_v) :: this1; sorted := sorted1 |}) = Some p0_v) as H_findSecond. {
+            cbn.
+            rewrite H_p_kEqp0_k.
+            specialize Raw.MX.elim_compare_eq with (x:=p0_k) (y:=p0_k) as H_refl.
+            destruct H_refl; auto.
+            now rewrite H0.
+          }
+          rewrite H_findSecond in H.
+          now inversion H.
+      }
+      rewrite <- H0 in *.
+      apply Sorted_inv in sorted0 as H_sortedT0.
+      destruct H_sortedT0 as [H_sortedT0 H_pLtT0 ].
+      apply Sorted_inv in sorted1 as H_sortedThis1.
+      destruct H_sortedThis1 as [H_sortedThis1 H_p0LtThis1 ].
+      rewrite IHlenThis0 with (this0:=t0)  (this1:=this1) (sorted0:=H_sortedT0) (sorted1:=H_sortedThis1).
+      * auto.
+      * simpl in HeqlenThis0.
+        lia.
+      * intros.
+        destruct p as [p_k p_v].
+        destruct (y =? p_k) eqn:H_yEqp_k.
+        ++ rewrite_nat.
+          specialize H with (y:=p_k).
+          rewrite H_yEqp_k.
+
+          assert ((find (elt:=nat) p_k {| this := t0; sorted := H_sortedT0 |}) = None) as H_rewriteFirst. {
+            apply keySmallerFindEqNone with (y_v:=p_v); auto.
+          }
+          rewrite H_rewriteFirst.
+
+          assert ((find (elt:=nat) p_k {| this := this1; sorted := H_sortedThis1 |}) = None) as H_rewriteSecond. {
+            rewrite <-H0 in H_p0LtThis1.
+            apply keySmallerFindEqNone with (y_v:=p_v); auto.
+          }
+          now rewrite H_rewriteSecond.
+        ++ rewrite_nat.
+           cbn.
+           destruct (Nat_as_OT.compare y p_k) eqn:H_compare.
+           -- replace ((Raw.find (elt:=nat) y t0)) with (None : option nat).
+              replace ((Raw.find (elt:=nat) y this1)) with (None : option nat); auto.
+              all: (
+                symmetry;
+                apply keySmallerFindEqNone with (y_v:=0);
+                auto
+              ).
+              ** apply Raw.PX.Inf_lt with (x:=(y, 0)) (x':=(p_k, p_v)); auto.
+                 now rewrite H0.
+              ** apply Raw.PX.Inf_lt with (x:=(y, 0)) (x':=(p_k, p_v)); auto.
+          -- contradiction.
+          -- specialize H with (y:=y).
+             cbn in H.
+             rewrite <-H0 in H.
+             rewrite H_compare in H.
+             assumption.
+    }
+    generalize sorted0.
+    generalize sorted1.
+    rewrite H0.
+    intros.
+    replace sorted2 with sorted3; auto.
+    apply proof_irrelevance.
+Qed.
+      
+
     
 
 Inductive Operation :=
