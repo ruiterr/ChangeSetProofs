@@ -304,6 +304,21 @@ destruct (y =? i) eqn:H_yEqi.
   rewrite P.F.add_neq_o; auto.
 Qed.
 
+Lemma redundant_remove_add: ∀map i n, (find (elt:=nat) i map) = (Some n) → (add i n (remove i map)) = map.
+intros.
+apply Equal_ProofIrrelevance.
+unfold Equal.
+intros.
+destruct (y =? i) eqn:H_yEqi.
+- rewrite_nat.
+  rewrite H_yEqi in *.
+  rewrite H.
+  rewrite P.F.add_eq_o; auto.
+- rewrite_nat.
+  rewrite P.F.add_neq_o; auto.
+  rewrite P.F.remove_neq_o; auto.
+Qed.
+
 Lemma redundant_remove: ∀ i map, (find (elt:=nat) i map) = None → (remove (elt:=nat) i (add i 0 map)) = map.
 intros.
 apply Equal_ProofIrrelevance.
@@ -336,6 +351,38 @@ destruct (find (elt:=nat) i map) eqn:H_map.
   rewrite H.
   f_equal.
   apply redundant_remove; auto.
+Qed.
+
+Lemma multiset_remove_insert: ∀(ms:multiset) (i:nat), ms_contains i ms = true → (ms_insert i (ms_remove i ms)) = ms.
+intros.
+destruct ms.
+unfold ms_contains in H.
+unfold ms_insert.
+unfold ms_remove.
+destruct (find (elt:=nat) i X) eqn:H_find.
+- destruct (0 <? n) eqn:H_n.
+  + rewrite_nat.
+    rewrite P.F.add_eq_o; auto.
+    f_equal.
+    rewrite duplicated_add.
+    replace (n - 1 + 1) with n; try lia.
+    apply redundant_add; auto.
+  + rewrite P.F.remove_eq_o; auto.
+    assert_nat(n=0).
+    rewrite H0 in H_find.
+    f_equal.
+    rewrite redundant_remove_add; auto.
+- discriminate.
+Qed.
+
+Lemma multiset_contains_insert: ∀(ms:multiset) (i:nat), (ms_contains i (ms_insert i ms)) = true.
+intros.
+destruct ms.
+unfold ms_contains.
+unfold ms_insert.
+destruct (find (elt:=nat) i X).
+- rewrite P.F.add_eq_o; auto.
+- rewrite P.F.add_eq_o; auto.
 Qed.
 
 Definition m_t_nat_eq_dec: forall (a b:M.t nat), {a=b} + {a<>b}.
@@ -374,3 +421,4 @@ Eval compute in (
   (ms_insert 1
   (ms_insert 1 empty_MultiSet)))))
 ).
+

@@ -9,6 +9,7 @@ From Coq Require Import Lists.List.
 From Coq Require Import List. Import ListNotations.
 From Coq Require Import Arith.PeanoNat.
 From Coq Require Import ZArith.Znat.
+From Coq Require Import Logic.ProofIrrelevance.
 
 Require Coq.Structures.OrdersFacts.
 Require Import Unicode.Utf8.
@@ -17,6 +18,7 @@ Require Import Lia.
 (*Add LoadPath "/Users/ruiterr/work/fluid/ChangeSetProofs" as ChangeSets.*)
 Require Import NatHelper.
 Require Import free_group.
+Require Import multiset.
 
 Require Import BinPos BinInt BinNat Pnat Nnat.
 
@@ -25,8 +27,8 @@ Scheme Equality for list.
 
 (* General definition of operations *)
 Inductive Operation :=
-  | Insert (i: nat) (p: nat) (e: ascii) (c : Z) (s : list nat)
-  | Remove (i: nat) (p: nat) (e: ascii) (c : Z) (s : list nat).
+  | Insert (i: nat) (p: nat) (e: ascii) (c : Z) (s : multiset)
+  | Remove (i: nat) (p: nat) (e: ascii) (c : Z) (s : multiset).
 
 Inductive OperationType := 
   | InsertOperation
@@ -68,7 +70,7 @@ Definition getOpS (op: Operation) := match op with
   | Remove i _ _ _ s => s
 end.
 
-Definition createOperation (type: OperationType) (i: nat) (p:nat) (e:ascii) (c:Z) (s:list nat) := match type with
+Definition createOperation (type: OperationType) (i: nat) (p:nat) (e:ascii) (c:Z) (s:multiset) := match type with
   | InsertOperation => (Insert i p e c s)
   | RemoveOperation => (Remove i p e c s)
 end.
@@ -96,7 +98,8 @@ Definition operation_eq_dec: forall a b:Operation, {a=b} + {a<>b}.
 intros.
 decide equality.
 all: decide equality.
-all: decide equality.
+all: try decide equality.
+1-2: apply m_t_nat_eq_dec.
 Defined.
 
 Module Import FreeGroupsSig.
@@ -126,13 +129,6 @@ Scheme Equality for OperationType.
 
 Definition Op_eqb  (a : Operation) (b: Operation) := 
   if (operation_eq_dec a b) then true else false.
-(*Definition Op_eqb (a : Operation) (b: Operation) := 
-  (eqOpType (getOperationType a) (getOperationType b)) &&
-  (Nat.eqb (getOpI a) (getOpI b)) &&
-  (Nat.eqb (getOpP a) (getOpP b)) &&
-  (Ascii.eqb (getOpE a) (getOpE b)) &&
-  (Z.eqb (getOpC a) (getOpC b)) &&
-  (list_beq nat Nat.eqb (getOpS a) (getOpS b)).*)
 
 Lemma Op_eqb_refl: ∀ op, Op_eqb op op = true.
   intros.
@@ -142,10 +138,17 @@ Lemma Op_eqb_refl: ∀ op, Op_eqb op op = true.
   - contradiction. 
 Qed.
 
+Lemma Op_eqb_eq: ∀ x y : Operation, (((Op_eqb x y) = true) → x = y).
+intros.
+unfold Op_eqb in H.
+destruct (operation_eq_dec x y) eqn:H_eq; auto.
+discriminate.
+Qed.
+
 Create HintDb HelperLemmas.
 Hint Resolve Op_eqb_refl : HelperLemmas.
 
-Eval compute in (Op_eqb (Insert 0 0 "a" 0 []) (Remove 0 0 "a" 0 [])).
+Eval compute in (Op_eqb (Insert 0 0 "a" 0 (ms_create_from_list [])) (Remove 0 0 "a" 0 (ms_create_from_list []))).
 
 Open Scope string.
 Definition applyOperation (str:string) (op:Operation) := match op with
@@ -162,7 +165,7 @@ Definition applyOperation (str:string) (op:Operation) := match op with
   end.
 Close Scope string.
 
-Eval compute in (applyOperation "test" (Insert 0 1 "-" 0 [])).
+Eval compute in (applyOperation "test" (Insert 0 1 "-" 0 (ms_create_from_list []))).
 
 (* ChangeSets *)
 Definition opList := list Operation.
@@ -173,9 +176,9 @@ Definition non_reduced := OperationGroup.non_reduced. (*opList -> Prop :=
 
 Definition reduced := OperationGroup.reduced.
 
-Record reducedOpList : Set := mkReducedOpList {
-  operations: opList
-  ; operations_reduced: reduced(operations)
+Record reducedOpList : Type := mkReducedOpList {
+  operations: opList; 
+  operations_reduced: reduced(operations)
 }.
 
 Definition singleOpListIsReduced := OperationGroup.single_letter_reduced.
@@ -256,22 +259,6 @@ Definition changeset_eqb (A B : ChangeSet) : bool :=
     | InvalidCSet, InvalidCSet => true
 end.
 
-Axiom ProofIrrelevanceForChangeSets: ∀ A B : ChangeSet, is_true (changeset_eqb A B) <-> A = B. 
-Hint Resolve ProofIrrelevanceForChangeSets : HelperLemmas.
-
-Infix "○" := squash (at level 60).
-
-Lemma squashWithInvalid1: ∀X, (X ○ ⦻) = ⦻.
-  intros.
-  unfold squash.
-  destruct X; auto.
-Qed.
-
-Lemma squashWithInvalid2: ∀X, (⦻ ○ X) = ⦻.
-  intros.
-  now unfold squash.
-Qed.
-
 Lemma list_neq_beq_refl: ∀(l: list nat), (list_beq nat Nat.eqb l l) = true.
 intros.
 unfold list_beq.
@@ -289,6 +276,56 @@ rewrite IHl.
 now rewrite Op_eqb_refl.
 Qed.
 Hint Resolve list_op_beq_refl : HelperLemmas.
+
+Lemma changeset_eqb_refl: ∀A, changeset_eqb A A = true.
+intros.
+unfold changeset_eqb.
+destruct A; auto.
+auto with HelperLemmas.
+Qed.
+Hint Resolve changeset_eqb_refl : HelperLemmas.
+
+Lemma ProofIrrelevanceForChangeSets: ∀ A B : ChangeSet, is_true (changeset_eqb A B) <-> A = B.
+intros.
+intuition.
+- unfold changeset_eqb in H.
+  destruct A.
+  + destruct B.
+    f_equal.
+    apply internal_list_dec_bl in H; auto.
+    * destruct ops.
+      destruct ops0.
+      simpl in H.
+      generalize operations_reduced1.
+      rewrite <-H.
+      intros.
+
+      replace operations_reduced2 with operations_reduced0; only 2: apply proof_irrelevance.
+      auto.
+    * apply Op_eqb_eq.
+    * cbv in H.
+      discriminate.
+  + destruct B.
+    * cbv in H.
+      discriminate.
+    * auto.
+- rewrite H.
+  apply changeset_eqb_refl.
+Qed.
+Hint Resolve ProofIrrelevanceForChangeSets : HelperLemmas.
+
+Infix "○" := squash (at level 60).
+
+Lemma squashWithInvalid1: ∀X, (X ○ ⦻) = ⦻.
+  intros.
+  unfold squash.
+  destruct X; auto.
+Qed.
+
+Lemma squashWithInvalid2: ∀X, (⦻ ○ X) = ⦻.
+  intros.
+  now unfold squash.
+Qed.
 
 Lemma cons_to_app: ∀(X:Type) (a : X) (l:list X), a::l = [a] ++ l.
 intros.
@@ -534,14 +571,14 @@ Close Scope CS.
 (* Helper function to create ChangeSets for ranges *)
 Definition InsertRange (i: nat) (p: nat) (t: string) := 
   (fst (fold_left (fun x y => (
-      (fst x) ○ (opToCs (Insert (i + (snd x)) (p + (snd x)) y 0 []) ), 
+      (fst x) ○ (opToCs (Insert (i + (snd x)) (p + (snd x)) y 0 (ms_create_from_list [])) ), 
       (snd x) + 1 )
     ) (list_ascii_of_string t) (⊘, 0))).
 
 
 Definition RemoveRange (i:nat) (p:nat) (l:nat) (str: string) :=
   (fst (fold_left (fun x y => (
-      (fst x) ○ (opToCs (Remove (i + (snd x)) p y 0 []) ), 
+      (fst x) ○ (opToCs (Remove (i + (snd x)) p y 0 (ms_create_from_list [])) ), 
       (snd x) + 1 )
     ) (list_ascii_of_string (substring p l str)) (⊘, 0))).
 
@@ -558,7 +595,7 @@ Definition testInsertCS := (InsertRange 0 6 "cruel ").
 Eval compute in (testInsertCS ○ testInsertCS⁻¹)%CS.
 
 
-Eval compute in (applyChangeSet "test" ((opToCs (Insert 0 1 "-" 0 [])) ○ (opToCs (Remove 0 2 "e" 0 [])))).
+Eval compute in (applyChangeSet "test" ((opToCs (Insert 0 1 "-" 0 (ms_create_from_list []))) ○ (opToCs (Remove 0 2 "e" 0 (ms_create_from_list []))))).
 
 Fixpoint removeFirst (n : nat) (l:list nat) := 
   match l with
@@ -606,9 +643,9 @@ Definition rebaseOperation (oA oB : option Operation) :=
                 else
                     (* These are different operations. Is this a canceled operation? *)
                     if (c_B =? 0)%Z then
-                        if (existsb (fun x:nat => x =? i_B) s_A) then
+                        if (ms_contains i_B s_A) then
                             (* Remove the scaffolding entry, but keep position *)
-                            (Some (createOperation opTypeA i_A p_A e_A c_A (removeFirst i_B s_A) ))
+                            (Some (createOperation opTypeA i_A p_A e_A c_A (ms_remove i_B s_A) ))
                         else
                             (* No scaffolding, so we shift position by one *)
                             (Some (createOperation opTypeA i_A (p_A + 1) e_A c_A s_A))
@@ -616,7 +653,7 @@ Definition rebaseOperation (oA oB : option Operation) :=
                         (* Canceled operations don't affect the scaffolding *)
                         (Some A)
         | Remove i_B p_B e_B c_B s_B =>
-            if (negb (p_A =? p_B)) && ((i_A =? i_B) || (existsb (fun x:nat => x =? i_B) s_A)) then
+            if (negb (p_A =? p_B)) && ((i_A =? i_B) || (ms_contains i_B s_A)) then
               None
             else
               if p_B <? p_A then
@@ -640,7 +677,7 @@ Definition rebaseOperation (oA oB : option Operation) :=
                       (* These are different operations. Is this a canceled operation? *)
                       if (c_B =? 0)%Z then
                           (* We add the ID to the scaffolding *)
-                          (Some (createOperation opTypeA i_A p_A e_A c_A (i_B::s_A)))
+                          (Some (createOperation opTypeA i_A p_A e_A c_A (ms_insert i_B s_A)))
                       else 
                           (* Canceled operations don't affect the scaffolding *)
                           (Some A)
@@ -690,9 +727,9 @@ end.
 Infix "↷" := rebaseChangeSet (at level 57, left associativity) : ChangeSet.
 
 
-Lemma removeInsert: ∀(i:nat) (s: list nat), (i :: (removeFirst i s)) = s.
+(*Lemma removeInsert: ∀(i:nat) (s: list nat), (i :: (removeFirst i s)) = s.
 give_up.
-Admitted.
+Admitted.*)
 
 Create HintDb solve_rebase.
 Hint Rewrite Nat.eqb_refl : solve_rebase.
@@ -700,9 +737,12 @@ Hint Rewrite Nat.ltb_irrefl : solve_rebase.
 Hint Rewrite Z.add_simpl_r : solve_rebase.
 Hint Rewrite andb_true_r : solve_rebase.
 Hint Rewrite orb_false_r : solve_rebase.
-Hint Rewrite removeInsert : solve_rebase.
+Hint Rewrite multiset_insert_remove : solve_rebase.
+Hint Rewrite multiset_remove_insert : solve_rebase.
+Hint Rewrite multiset_contains_insert : solve_rebase.
 Hint Rewrite Nat.add_sub : solve_rebase.
 Hint Rewrite Z.sub_add : solve_rebase.
+
 
 
 Check Nat.eq_dec.
@@ -790,7 +830,7 @@ Section distributivityProofs.
   all: try_solve.
 
   all: destruct (c0 =? 0)%Z eqn:H_cEq0.
-  all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
+  all: destruct (ms_contains i s0) eqn:H_iInS0.
   all: try rewrite H_iInS0.
 
   all: try_solve.
@@ -854,7 +894,7 @@ Section distributivityProofs.
   all: try_solve.
 
   all: destruct (c0 =? 0)%Z eqn:H_cEq0.
-  all: destruct (existsb (λ x : nat, x =? i) s0) eqn:H_iInS0.
+  all: destruct (ms_contains i s0) eqn:H_iInS0.
   all: try rewrite H_iInS0.
 
   all: try_solve.
@@ -1003,13 +1043,6 @@ all: destruct Y; autoChangeSetSimplification.
     rewrite OperationGroup.empty_str_is_left_id.
     2: { now apply invertIsReduced. }
     now rewrite OperationGroup.inverse_str_is_right_inverse.
-Qed.
-
-Lemma Op_eqb_eq: ∀ x y : Operation, (((Op_eqb x y) = true) → x = y).
-intros.
-unfold Op_eqb in H.
-destruct (operation_eq_dec x y) eqn:H_eq; auto.
-discriminate.
 Qed.
 
 Lemma nestedReductions: ∀X Y, OperationGroup.reduction (X ++ Y) = OperationGroup.reduction ((OperationGroup.reduction X) ++ (OperationGroup.reduction Y)).
