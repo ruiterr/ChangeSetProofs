@@ -2,11 +2,10 @@ From Coq Require Import Arith.Arith.
 From Coq Require Import Bool.Bool.
 Require Export Coq.Strings.String.
 
+From Coq Require Import Lists.List.
 From Coq Require Import Strings.Ascii.
 From Coq Require Import Strings.String.
 From Coq Require Import Logic.FunctionalExtensionality.
-From Coq Require Import Lists.List.
-From Coq Require Import List. Import ListNotations.
 From Coq Require Import Arith.PeanoNat.
 From Coq Require Import ZArith.Znat.
 From Coq Require Import Logic.ProofIrrelevance.
@@ -19,6 +18,7 @@ Require Import Lia.
 Require Import NatHelper.
 Require Import free_group.
 Require Import multiset.
+From Coq Require Import List. Import ListNotations.
 
 Require Import BinPos BinInt BinNat Pnat Nnat.
 
@@ -623,38 +623,41 @@ Definition rebaseOperation (oA oB : option Operation) :=
 
       match B with 
         | Insert i_B p_B e_B c_B s_B =>
-            if p_B <? p_A then
-                (*  Is this a canceled operation? *)
-                if (c_B =? 0)%Z  then
-                    (* All operations at a higher position are just shifted *)
-                    (Some (createOperation opTypeA i_A (p_A + 1) e_A c_A s_A))
-                else
-                    (* Canceled operations don't affect the position *)
-                    (Some A)
-            else if p_A <? p_B then
-                (* Operations at a lower position remain unchanged *)
-                (Some A)
-            else 
-                (* If operations are at the same position, we have to distinguish
-                   whether they are the same operation (based on their ID) *)
-                if i_A =? i_B then
-                    (* If this is the same operation, we have to increase the cancelation counter *)
-                    (Some (createOperation opTypeA i_A p_A e_A (c_A + 1) s_A))
-                else
-                    (* These are different operations. Is this a canceled operation? *)
-                    if (c_B =? 0)%Z then
-                        if (ms_contains i_B s_A) then
-                            (* Remove the scaffolding entry, but keep position *)
-                            (Some (createOperation opTypeA i_A p_A e_A c_A (ms_remove i_B s_A) ))
-                        else
-                            (* No scaffolding, so we shift position by one *)
-                            (Some (createOperation opTypeA i_A (p_A + 1) e_A c_A s_A))
-                    else 
-                        (* Canceled operations don't affect the scaffolding *)
-                        (Some A)
+            if (negb (p_A =? p_B)) && ((i_A =? i_B) || ((ms_contains i_B s_A) && (c_B =? 0)%Z)) then
+              (Some A)
+            else
+              if p_B <? p_A then
+                  (*  Is this a canceled operation? *)
+                  if (c_B =? 0)%Z  then
+                      (* All operations at a higher position are just shifted *)
+                      (Some (createOperation opTypeA i_A (p_A + 1) e_A c_A s_A))
+                  else
+                      (* Canceled operations don't affect the position *)
+                      (Some A)
+              else if p_A <? p_B then
+                  (* Operations at a lower position remain unchanged *)
+                  (Some A)
+              else 
+                  (* If operations are at the same position, we have to distinguish
+                     whether they are the same operation (based on their ID) *)
+                  if i_A =? i_B then
+                      (* If this is the same operation, we have to increase the cancelation counter *)
+                      (Some (createOperation opTypeA i_A p_A e_A (c_A + 1) s_A))
+                  else
+                      (* These are different operations. Is this a canceled operation? *)
+                      if (c_B =? 0)%Z then
+                          if (ms_contains i_B s_A) then
+                              (* Remove the scaffolding entry, but keep position *)
+                              (Some (createOperation opTypeA i_A p_A e_A c_A (ms_remove i_B s_A) ))
+                          else
+                              (* No scaffolding, so we shift position by one *)
+                              (Some (createOperation opTypeA i_A (p_A + 1) e_A c_A s_A))
+                      else 
+                          (* Canceled operations don't affect the scaffolding *)
+                          (Some A)
         | Remove i_B p_B e_B c_B s_B =>
-            if (negb (p_A =? p_B)) && ((i_A =? i_B) || (ms_contains i_B s_A)) then
-              None
+            if (negb (p_A =? p_B)) && ((i_A =? i_B) || ((ms_contains i_B s_A) && (c_B =? 0)%Z)) then
+              (Some A)
             else
               if p_B <? p_A then
                   (*  Is this a canceled operation? *)
@@ -1055,6 +1058,7 @@ Lemma nestedReductions: ∀X Y, OperationGroup.reduction (X ++ Y) = OperationGro
   apply OperationGroup.group_str_equiv_refl.
 Qed.
 
+Print Scopes.
 Lemma  splitOffLeftFromReduction: ∀A B a t, (reduced A) → (reduced B) → ((length A) ≥ (length B)) → A = (a::t) → (
   OperationGroup.reduction (A++B) = (a::(OperationGroup.reduction (t++B))) ∨ 
   ((length A) = (length B) ∧ OperationGroup.reduction (A++B) = [])).
@@ -3404,7 +3408,7 @@ Section distributivityProofsChangeSet2.
         now rewrite <-rebaseLeftDistibutivity with (A:=O') (B:=O0') (C:=B).
 
 Qed.
-
+ 
 Print Assumptions rebaseRightDistibutivity.
 
 Eval compute in (InsertRange 0 5 "test").
