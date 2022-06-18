@@ -1759,11 +1759,125 @@ induction X.
           lia.
 Qed.
 
-Lemma noErrorsDuringRebase: ∀A B, (A ↷ B)%OO = None → False.
-Admitted.
+Lemma noErrorsDuringRebase: ∀A B, (Some A ↷ Some B)%OO = None → False.
+intros.
+destruct A.
+all: destruct B.
+all: unfold rebaseOperation in H.
+all: contradict H.
+Ltac destructIf := try match goal with
+    | [ |- context[if ?X then _ else _ ] ] => 
+        destruct X;
+        try discriminate
+end.
 
-Lemma noErrorsDuringRebaseCS: ∀A B, (A ↷ B) ≠ ⦻.
-Admitted.
+all: repeat destructIf.
+Qed.
+
+Lemma noErrorsDuringRebaseCS: ∀A B, (A ≠ ⦻) → (B ≠ ⦻) → (A ↷ B) ≠ ⦻.
+intros.
+unfold rebaseChangeSet.
+destruct A; autoChangeSetSimplification.
+destruct B; autoChangeSetSimplification.
+destruct ops.
+destruct ops0.
+unfold operations.
+unfold operations_reduced.
+unfold rebaseChangeSetOps.
+induction operations0.
+- discriminate.
+- specialize IHoperations0 with (operations_reduced0 :=(tailIsReduced2 (a :: operations0) operations0 a eq_refl operations_reduced0)).
+  set (Y:=((fix rebaseChangeSetOps
+         (a0 : list Operation) (a_reduced : reduced a0) (b : ChangeSet) {struct a0} : ChangeSet :=
+         match a0 as a' return (a' = a0 → ChangeSet) with
+         | [] => match b with
+                 | CSet _ => λ _ : [] = a0, ⊘
+                 | ⦻ => λ _ : [] = a0, ⦻
+                 end
+         | opA :: Atail =>
+             λ x : opA :: Atail = a0,
+               match Atail with
+               | [] => rebaseOperationWithChangeSet opA b
+               | _ :: _ =>
+                   rebaseOperationWithChangeSet opA b
+                   ○ rebaseChangeSetOps Atail (tailIsReduced2 a0 Atail opA x a_reduced)
+                       ((opToCs opA⁻¹ ○ b) ○ rebaseOperationWithChangeSet opA b)
+               end
+         end eq_refl) operations0 (tailIsReduced2 (a :: operations0) operations0 a eq_refl operations_reduced0))) in *.
+  destruct IHoperations0; try autoChangeSetSimplification.
+  destruct operations0.
+  + unfold operations.
+    assert( ∀ a', ∃O, fold_left rebaseOperation (map (λ x : Operation, Some x) operations1) (Some a') = Some O). {
+      induction operations1.
+      * intros.
+        cbv.
+        now exists a'.
+      * intros.
+        unfold map.
+        unfold fold_left.
+        destruct ((Some a' ↷ Some a0)%OO) eqn:H_rebaseOp.
+        -- apply tailIsReduced in operations_reduced1 as H_reduced2.
+           specialize IHoperations1 with (operations_reduced1 := H_reduced2) (a':=o).
+           destruct IHoperations1; try autoChangeSetSimplification.
+           unfold fold_left in H1.
+           unfold map in H1.
+           rewrite H1.
+           now exists x.
+        -- now apply noErrorsDuringRebase in H_rebaseOp.
+    }
+    specialize H1 with (a':=a).
+    destruct H1.
+    rewrite H1.
+    now cbv.
+  + set (Y:=match operations0 with
+                    | [] =>
+                        rebaseOperationWithChangeSet o
+                          (CSet
+                             {|
+                               operations := operations1; operations_reduced := operations_reduced1
+                             |})
+                    | _ :: _ =>
+                        rebaseOperationWithChangeSet o
+                          (CSet
+                             {|
+                               operations := operations1; operations_reduced := operations_reduced1
+                             |})
+                        ○ (fix rebaseChangeSetOps
+                             (a : list Operation) (a_reduced : reduced a) (b : ChangeSet) {struct a} :
+                               ChangeSet :=
+                             match a as a' return (a' = a → ChangeSet) with
+                             | [] =>
+                                 match b with
+                                 | CSet _ => λ _ : [] = a, ⊘
+                                 | ⦻ => λ _ : [] = a, ⦻
+                                 end
+                             | opA :: Atail =>
+                                 λ x : opA :: Atail = a,
+                                   match Atail with
+                                   | [] => rebaseOperationWithChangeSet opA b
+                                   | _ :: _ =>
+                                       rebaseOperationWithChangeSet opA b
+                                       ○ rebaseChangeSetOps Atail
+                                           (tailIsReduced2 a Atail opA x a_reduced)
+                                           ((opToCs opA⁻¹ ○ b) ○ rebaseOperationWithChangeSet opA b)
+                                   end
+                             end eq_refl) operations0
+                            (tailIsReduced2 (o :: operations0) operations0 o eq_refl
+                               operations_reduced0)
+                            ((opToCs o⁻¹
+                              ○ CSet
+                                  {|
+                                    operations := operations1;
+                                    operations_reduced := operations_reduced1
+                                  |})
+                             ○ rebaseOperationWithChangeSet o
+                                 (CSet
+                                    {|
+                                      operations := operations1;
+                                      operations_reduced := operations_reduced1
+                                    |}))
+                    end).
+          Admitted.
 
 Lemma rightDistributivitySingleOperation: ∀a b c : Operation, (opToCs a) ↷ ((opToCs b) ○ (opToCs c)) = ((opToCs a) ↷ (opToCs b)) ↷ (opToCs c).
 intros.
