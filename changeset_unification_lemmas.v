@@ -57,6 +57,7 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
                                                              ((Some C) ↷ ((Some A) ↷ (Some B)) = (Some C))%OO.
   (*Axiom simplifyOperationResultReduced : ∀ A B A' B', (simplifyOperations A B) = Swap B' A' → A' ≠ (invert B').*)
   Axiom simplifyOperationResultReduced : ∀ A B, (simplifyOperations A B) = Keep → A ≠ (invert B).
+  Axiom simplifyOperationOppositesRemoved : ∀ A, (simplifyOperations (invert A) A) = Remove.
 
 End OperationSimplificationDef.
 
@@ -195,120 +196,13 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
         rewrite H2 in *.
         now rewrite e.
       * now inversion HeqA_orig.
-Qed.
+  Qed.
 
   Lemma simplifyOpList_idempotent: ∀A, (simplifyOpList (simplifyOpList A)) = (simplifyOpList A).
   intros.
   apply simplifyOpList_fixes_simplified.
   apply simplifyOpList_simplified.
   Qed.
-
-
-  (*Lemma simplified_implies_tail_simplified: ∀a T, (opList_simplified (a::T)) → (opList_simplified T).
-  intros.
-  unfold opList_simplified in H.
-  unfold simplifyOpList in H.
-  destruct T.
-  - now cbv.
-  - set (T':= (simplifyOpList T)).
-    unfold simplifyOpList in T'.
-    fold T' in H.
-    assert (∀x X Y, (insertOpInSimplifiedOpList x X) = (x :: Y) → X = Y). {
-      intros.
-      unfold insertOpInSimplifiedOpList in H0.
-      destruct X eqn:H_X.
-      - inversion H0.
-        auto.
-      - destruct (simplifyOperations x o0) eqn:H_simplifyOperations.
-        + inversion H0.
-          auto.
-        + inversion H0.*)
-          
-
-  (*unfold opList_simplified in H.
-  unfold simplifyOpList in H.*)
-  (*remember (length T) as lenT.
-  assert_nat ((length T) ≤ lenT) as H_ltLenT.
-  clear HeqlenT.
-  revert H_ltLenT.
-  revert H.
-  revert a.
-  revert T.
-  induction lenT.
-  - intros.
-    assert_nat(Datatypes.length T = 0) as HeqlenT.
-    apply length_zero_iff_nil in HeqlenT.
-    rewrite HeqlenT in *.
-    now cbv.
-  - intros.
-    destruct T.
-    + now cbv.
-    + unfold opList_simplified in H.
-      unfold simplifyOpList in H.
-      set (T':= (simplifyOpList T)).
-      unfold simplifyOpList in T'.
-      
-      fold T' in H.
-      specialize IHlenT with (T := T') (a:=o).
-      unfold insertOpInSimplifiedOpList at 1 in H.
-      destruct ((insertOpInSimplifiedOpList o T')) eqn:H_ops.
-      * discriminate H.
-      * destruct (simplifyOperations a o0) eqn:H_simplifyOps.
-        -- inversion H.
-           rewrite H1 in *. clear H1.
-           unfold insertOpInSimplifiedOpList in H_ops.
-           destruct T' eqn:H_T'.
-           ++ inversion H_ops.
-              rewrite H2 in H3.
-              discriminate.
-           ++ destruct (simplifyOperations o o2) eqn:H_simplify2.
-              ** 
-        --
-
-      fold T' in IHlenT.
-    rewrite IHT in H.
-  (*unfold opList_simplified.
-  unfold simplifyOpList.
-  remember (a::T) as L.
-  revert HeqL.
-  remember (length L) as lenL.
-  revert HeqlenL.
-  induction lenL.
-  - intros.
-    symmetry in HeqlenL.
-    apply length_zero_iff_nil in HeqlenL.
-    rewrite HeqlenL in *.
-    discriminate.
-  - intros.*)
-    
-  Admitted.*)
-
-  (*Lemma simplified_implies_head_eq_keep: ∀a b T, (opList_simplified (a::b::T)) → (simplifyOperations a b) = Keep ∧ (opList_simplified T).
-    intros.
-    remember (length T) as lenT.
-    assert_nat ((length T) ≤ lenT) as H_ltLenT.
-    clear HeqlenT.
-    revert H_ltLenT.
-    revert H.
-    revert a.
-    revert T.
-    induction lenT.
-    - intros.
-      assert_nat(Datatypes.length T = 0) as HeqlenT.
-      apply length_zero_iff_nil in HeqlenT.
-      rewrite HeqlenT in *.
-      split.
-      + unfold opList_simplified in H.
-        unfold simplifyOpList in H.
-        unfold insertOpInSimplifiedOpList in H.
-        destruct (simplifyOperations a b).
-        * easy.
-        * give_up.
-        * discriminate.
-      + now cbv.
-    - intros.
-
-  Admitted.*)
 
   Lemma simplified_implies_reduced: ∀A, (opList_simplified A) → (reduced A).
   intros.
@@ -332,52 +226,6 @@ Qed.
   apply simplifyOpList_simplified.
   Qed.
 
-  (*Lemma swapped_simplify_is_reduced: ∀(A B A' B': Operation) (tail tail2: opList), (simplifyOperations A B) = Swap B' A' → (reduced (tail)) → (tail = B::tail2) → (reduced (B'::A'::tail2)).
-  intros.
-  apply simplifyOperationResultReduced in H.
-  Admitted.
-
-  Lemma concat_reduced_if_list_reduced: ∀A tail l, (A::tail) = l → (reduced l) → reduced (A::tail).
-  intros.
-  rewrite H.
-  auto.
-  Qed.
-  Print concat_reduced_if_list_reduced.*)
-
-  (*Fixpoint simplifyOpList (ops : list Operation) (ops_reduced: (reduced ops)) : reducedOpList := 
-    match (ops) with
-      | [] => fun x => {| operations := ops; operations_reduced := ops_reduced |}
-      | A::tail => fun x => (
-        let simplifiedTail := (simplifyOpList tail (tailIsReduced2 ops tail A x ops_reduced)) in 
-        let tailOps := simplifiedTail.(operations) in
-        (match tailOps with
-          | [] => (fun y => {|
-              operations := [A];
-              operations_reduced := (single_letter_reduced A)
-            |})
-          | B::tail2 => (fun y =>
-            let simplifyResult := (simplifyOperations A B) in
-              match simplifyResult with 
-                | Keep => (* Return input unmodified *)
-                  (fun z => {| 
-                    operations := ops; 
-                    operations_reduced := ops_reduced 
-                  |})
-                | Swap B' A' => (* Return input unmodified *)
-                  (fun z => {| 
-                    operations := B':: A' :: tail2; 
-                    operations_reduced := (swapped_simplify_is_reduced A B A' B' tailOps tail2 z (operations_reduced simplifiedTail) y)
-                  |}) 
-                | Remove => (* Remove both entries at the head *)
-                  (fun z => {| 
-                    operations := tail2; 
-                    operations_reduced := (tailIsReduced2 tailOps tail2 B (symmetry y) (operations_reduced simplifiedTail)) 
-                  |}) 
-              end (eq_refl simplifyResult)
-            )
-        end (eq_refl tailOps)))
-    end eq_refl.*)
-
   Definition simplifyChangeSet (CS : ChangeSet) := 
     match CS with
       | CSet redOpList => CSet {|
@@ -386,3 +234,87 @@ Qed.
         |}
       | InvalidCSet => InvalidCSet
     end.
+
+  Notation "《 x 》" := (simplifyChangeSet x) (at level 40, no associativity, format "'《' x '》'").
+
+  (* Define an equivalence relation for the simplify operation *)
+  (*Inductive opLists_equivalent : opList -> opList -> Prop :=
+  | insert_opposite_pair: forall (S T:group_str) (a:alphabet),
+    group_str_equiv (S ++ T) (S ++ opposite a :: a :: T)
+  | group_str_equiv_refl: forall S:group_str, group_str_equiv S S
+  | group_str_equiv_sym: forall S T:group_str,
+    group_str_equiv S T -> group_str_equiv T S
+  | group_str_equiv_trans: forall S T U:group_str,
+    group_str_equiv S T -> group_str_equiv T U ->
+    group_str_equiv S U.*)
+
+  Lemma simplify_will_remove_opposites: ∀a A, (opList_simplified (a::A)) → simplifyOpList ((opposite a)::a::A) = simplifyOpList A.
+  intros.
+  unfold simplifyOpList at 1.
+  fold simplifyOpList.
+  remember (simplifyOpList A) as X.
+  destruct A.
+  - rewrite HeqX.
+    cbv.
+    now rewrite simplifyOperationOppositesRemoved.
+  - unfold insertOpInSimplifiedOpList at 1 2.
+    remember (a :: o :: A) as A'.
+    destruct H.
+    + discriminate.
+    + discriminate.
+    + inversion HeqA'.
+      rewrite H2 in *.
+      rewrite H3 in *.
+      rewrite H4 in *.
+      rewrite simplifyOpList_fixes_simplified with (A:=o::A) in HeqX; auto.
+      rewrite HeqX.
+      rewrite H.
+      now rewrite simplifyOperationOppositesRemoved.
+  Qed.
+
+  Lemma simplifyOpList_swaps_with_concat: ∀A B, simplifyOpList (A ++ B) =
+                                                simplifyOpList (simplifyOpList A ++ simplifyOpList B).
+  Admitted.
+
+  Lemma str_equiv_implies_same_reduction: ∀A B, A ~~ B → (simplifyOpList A) = (simplifyOpList B).
+  intros.
+  induction H.
+  - rewrite simplifyOpList_swaps_with_concat with (B:=opposite a :: a :: T).
+    specialize simplify_will_remove_opposites with (a:=a) (A:=T) as H_noOpposites.
+    autounfold in *.
+    rewrite H_noOpposites.
+    apply simplifyOpList_swaps_with_concat.
+  - auto.
+  - now rewrite IHgroup_str_equiv.
+  - rewrite IHgroup_str_equiv1.
+    now rewrite IHgroup_str_equiv2.
+  Qed.
+
+  Lemma simplifyOpList_reduces: ∀A, (simplifyOpList (reduction A)) = (simplifyOpList A).
+  intros.
+  apply str_equiv_implies_same_reduction.
+  apply reduction_equiv.
+  Qed.
+
+  Lemma simplify_swaps_with_squash: ∀A B, 《A ○ B》 = 《《A》 ○ 《B》》.
+  intros.
+  unfold simplifyChangeSet.
+  apply ProofIrrelevanceForChangeSets.
+  destruct A.
+  all: destruct B.
+  all: autoChangeSetSimplification.
+  simpl.
+  enough ((simplifyOpList (squashOpList (operations ops) (operations ops0))) = 
+          (simplifyOpList (squashOpList (simplifyOpList (operations ops)) (simplifyOpList (operations ops0))))).
+  + rewrite H.
+    apply list_op_beq_refl.
+  + unfold squashOpList.
+    unfold reduced_string_product.
+    do 2 rewrite simplifyOpList_reduces.
+    destruct ops.
+    destruct ops0.
+    unfold operations.
+    apply simplifyOpList_swaps_with_concat.
+  Qed.
+
+
