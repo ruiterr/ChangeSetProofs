@@ -58,6 +58,8 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
   (*Axiom simplifyOperationResultReduced : ∀ A B A' B', (simplifyOperations A B) = Swap B' A' → A' ≠ (invert B').*)
   Axiom simplifyOperationResultReduced : ∀ A B, (simplifyOperations A B) = Keep → A ≠ (invert B).
   Axiom simplifyOperationOppositesRemoved : ∀ A, (simplifyOperations (invert A) A) = Remove.
+  Axiom simplifyOperationRemovedImpliesOpposite: ∀A B, simplifyOperations A B = Remove → A = (invert B).
+  Axiom opposites_swap_to_opposites: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations (invert a) b' = Swap b (invert a').
 
 End OperationSimplificationDef.
 
@@ -248,28 +250,67 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     group_str_equiv S T -> group_str_equiv T U ->
     group_str_equiv S U.*)
 
-  Lemma simplify_will_remove_opposites: ∀a A, (opList_simplified (a::A)) → simplifyOpList ((opposite a)::a::A) = simplifyOpList A.
+  Lemma simplify_will_remove_opposites: ∀a A, simplifyOpList ((opposite a)::a::A) = simplifyOpList A.
   intros.
   unfold simplifyOpList at 1.
   fold simplifyOpList.
-  remember (simplifyOpList A) as X.
-  destruct A.
-  - rewrite HeqX.
+  revert a.
+  remember (simplifyOpList A) as Z.
+  specialize simplifyOpList_simplified with(A:=A) as H_ASimplified.
+  rewrite <-HeqZ in H_ASimplified.
+  clear HeqZ.
+  revert H_ASimplified.
+  revert A.
+  induction Z.
+  - intros.
     cbv.
     now rewrite simplifyOperationOppositesRemoved.
-  - unfold insertOpInSimplifiedOpList at 1 2.
-    remember (a :: o :: A) as A'.
-    destruct H.
-    + discriminate.
-    + discriminate.
-    + inversion HeqA'.
-      rewrite H2 in *.
-      rewrite H3 in *.
-      rewrite H4 in *.
-      rewrite simplifyOpList_fixes_simplified with (A:=o::A) in HeqX; auto.
-      rewrite HeqX.
-      rewrite H.
-      now rewrite simplifyOperationOppositesRemoved.
+  - intros.
+    remember (a::Z) as X.
+    unfold insertOpInSimplifiedOpList at 1 2.
+    destruct X eqn:H_X.
+    + now rewrite simplifyOperationOppositesRemoved.
+    + destruct (simplifyOperations a0 o) eqn:H_simplifyOperations.
+      * now rewrite simplifyOperationOppositesRemoved.
+      * apply opposites_swap_to_opposites in H_simplifyOperations.
+        fold OperationsGroupImpl.opposite in H_simplifyOperations.
+        fold OperationGroup.opposite in H_simplifyOperations.
+        rewrite H_simplifyOperations.
+        inversion HeqX.
+        fold insertOpInSimplifiedOpList.
+        inversion HeqX.
+        rewrite IHZ with (a:=A0); auto.
+        rewrite HeqX in H_ASimplified.
+        remember (a :: Z) as A'.
+        destruct H_ASimplified.
+        -- discriminate.
+        -- inversion HeqA'.
+            apply empty_oplist_simplified.
+        -- now inversion HeqA'.
+      * apply simplifyOperationRemovedImpliesOpposite in H_simplifyOperations.
+        assert ((opposite a0) = o). {
+          specialize opposite_involution with (a:=o) as H.
+          fold OperationsGroupImpl.opposite in H_simplifyOperations.
+          autounfold in *.
+          rewrite <-H.
+          rewrite <-H_simplifyOperations.
+          now unfold opposite.
+        }
+        rewrite H.
+        apply simplifyOpList_fixes_simplified in H_ASimplified as H_simplifyOpEq.
+        cbn in H_simplifyOpEq.
+        remember (o :: l) as Y.
+        destruct H_ASimplified.
+        -- discriminate.
+        -- now inversion HeqY.
+        -- assert ((simplifyOpList l) = l). {
+             inversion HeqY.
+             rewrite H3 in *.
+             rewrite simplifyOpList_fixes_simplified; auto.
+           }
+           rewrite H1 in H_simplifyOpEq.
+           unfold insertOpInSimplifiedOpList in H_simplifyOpEq.
+           assumption.
   Qed.
 
   Lemma simplifyOpList_swaps_with_concat: ∀A B, simplifyOpList (A ++ B) =
@@ -280,9 +321,7 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   intros.
   induction H.
   - rewrite simplifyOpList_swaps_with_concat with (B:=opposite a :: a :: T).
-    specialize simplify_will_remove_opposites with (a:=a) (A:=T) as H_noOpposites.
-    autounfold in *.
-    rewrite H_noOpposites.
+    rewrite simplify_will_remove_opposites.
     apply simplifyOpList_swaps_with_concat.
   - auto.
   - now rewrite IHgroup_str_equiv.
