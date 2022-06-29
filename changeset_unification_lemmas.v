@@ -333,6 +333,58 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   Qed.
 
   Lemma simplify_op_list_le_length: ∀ A, length (simplifyOpList A) ≤ length A.
+  intros.
+  remember (length A) as lenA.
+  rewrite HeqlenA.
+  assert_nat (length A ≤ lenA) as H_leLenA.
+  clear HeqlenA.
+  revert H_leLenA.
+  revert A.
+  induction lenA.
+  - intros.
+    assert_nat (Datatypes.length A = 0).
+    apply length_zero_iff_nil in H.
+    rewrite H in *.
+    simpl.
+    lia.
+  - destruct A; try (simpl;lia).
+    intros.
+    unfold simplifyOpList.
+    destruct A.
+    + simpl; lia.
+    + fold simplifyOpList.
+      assert ((insertOpInSimplifiedOpList o0 (simplifyOpList A)) = simplifyOpList (o0 :: A)). { now cbv. }
+      rewrite H.
+      remember (simplifyOpList (o0 :: A)) as Y.
+      destruct Y.
+      * simpl.
+        lia.
+      * unfold insertOpInSimplifiedOpList.
+        specialize IHlenA with (A:=Y) as H_IHY.
+        assert (Datatypes.length (simplifyOpList (o0 :: A)) ≤ lenA). { 
+          specialize IHlenA with (A:=o0 :: A). simpl in IHlenA. simpl in H_leLenA. rewrite  lia. }
+        assert (S (length Y) ≤ lenA). { rewrite <-HeqY in H0. simpl in H0. lia. }
+        assert (Datatypes.length (simplifyOpList Y) ≤ lenA). { 
+          apply H_IHY. 
+          specialize IHlenA with (A:=o0 :: A).
+          simpl in H_leLenA. 
+          lia.
+        }
+
+        destruct (simplifyOperations o o1); try (simpl; lia).
+
+        fold insertOpInSimplifiedOpList.
+        assert (insertOpInSimplifiedOpList A0 Y = simplifyOpList (A0::Y)). {
+          rewrite <-simplifyOpList_fixes_simplified with (A:=Y) at 1.
+          now cbv.
+          apply tail_of_simplify_simplified with (a:=o1) (A:=o0::A); auto.
+        }
+        rewrite H3.
+        remember (simplifyOpList (A0 :: Y)) as Z.
+        simpl.
+        assert (S (length Z) ≤ length Y). {
+          specialize IHlenA with (A:= A0::Y).
+          rewrite <-HeqZ in IHlenA.
   Admitted. 
  
   Lemma simplifyOpList_equiv: ∀ A, simplifyOpList A ~ A.
