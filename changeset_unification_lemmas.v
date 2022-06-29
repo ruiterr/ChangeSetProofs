@@ -322,12 +322,14 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   intro.
   unfold simplifyOpList.
   remember (length A) as lenA.
+  assert_nat (length A ≤ lenA) as HleLenA.
+  clear HeqlenA.
   (*assert_nat(lenA = length A) as H_lenA.*)
-  revert HeqlenA.
+  revert HleLenA.
   revert A.
   induction lenA.
   - intros.
-    assert_nat (length A= 0).
+    assert_nat (length A = 0).
     apply length_zero_iff_nil in H.
     rewrite H.
     reflexivity.
@@ -342,13 +344,13 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
       * specialize IHlenA with (A:=A).
         rewrite <-HeqsimplA in IHlenA.
         rewrite <-IHlenA.
-        2: { simpl in HeqlenA. lia. }
+        2: { simpl in HleLenA. lia. }
         now cbv.
       * unfold insertOpInSimplifiedOpList.
         assert (o0::simplA ~ A) as H_simplA. {
           rewrite HeqsimplA.
           apply IHlenA.
-          simpl in HeqlenA.
+          simpl in HleLenA.
           lia.
         }
         destruct (simplifyOperations o o0 ) eqn:H_simplifyOperations.
@@ -357,19 +359,23 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
            assert (insertOpInSimplifiedOpList A0 (simplifyOpList simplA) = simplifyOpList (A0:: simplA)). { now unfold simplifyOpList. }
 
            assert (opList_simplified simplA). {
+             specialize simplifyOpList_simplified with (A:=A) as H_simplified.
+             destruct H_simplified.
+             - discriminate.
+             - inversion HeqsimplA.
+               apply 
              give_up.
            }
            rewrite simplifyOpList_fixes_simplified in H; auto.
            rewrite H.
            rewrite IHlenA.
            2: { 
-             simpl in HeqlenA.
-             assert (length (simplifyOpList A) ≤ length A). { give_up. }
+             simpl in HleLenA.
+             assert (length (simplifyOpList A) ≤ length A) as simplifyOp_smaller_or_equal_length. { give_up. }
              assert (length (o0 :: simplA) = length (simplifyOpList A)). { now rewrite HeqsimplA. }
-             simpl in H2.
+             simpl in H1.
              simpl.
-             rewrite H2.
-             give_up.
+             lia.
            }
            apply opLists_equivalent_swap with (A:=[]) (B:=simplA) in H_simplifyOperations.
            simpl in H_simplifyOperations.
