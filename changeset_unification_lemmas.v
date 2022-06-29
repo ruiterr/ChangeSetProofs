@@ -317,35 +317,157 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   assumption.
   Qed.
 
-Lemma reduction_equiv: forall S:group_str,
-  reduction S ~~ S.
-Proof.
-intro.
-unfold reduction.
-induction S.
-simpl.
-reflexivity.
-simpl.
-remember (group_str_action S nil) as redS.
-destruct redS.
-simpl.
-apply cons_respects_group_str_equiv.
-assumption.
+  Lemma simplifyOpList_equiv: ∀ A, simplifyOpList A ~ A.
+  Proof.
+  intro.
+  unfold simplifyOpList.
+  remember (length A) as lenA.
+  (*assert_nat(lenA = length A) as H_lenA.*)
+  revert HeqlenA.
+  revert A.
+  induction lenA.
+  - intros.
+    assert_nat (length A= 0).
+    apply length_zero_iff_nil in H.
+    rewrite H.
+    reflexivity.
+  - intros.
+    fold simplifyOpList in *.
+    destruct A.
+    + now cbv.
+    + unfold simplifyOpList.
+      fold simplifyOpList.
+      remember (simplifyOpList A) as simplA.
+      destruct simplA.
+      * specialize IHlenA with (A:=A).
+        rewrite <-HeqsimplA in IHlenA.
+        rewrite <-IHlenA.
+        2: { simpl in HeqlenA. lia. }
+        now cbv.
+      * unfold insertOpInSimplifiedOpList.
+        assert (o0::simplA ~ A) as H_simplA. {
+          rewrite HeqsimplA.
+          apply IHlenA.
+          simpl in HeqlenA.
+          lia.
+        }
+        destruct (simplifyOperations o o0 ) eqn:H_simplifyOperations.
+        -- now rewrite H_simplA.
+        -- fold insertOpInSimplifiedOpList.
+           assert (insertOpInSimplifiedOpList A0 (simplifyOpList simplA) = simplifyOpList (A0:: simplA)). { now unfold simplifyOpList. }
 
-simpl.
-case alphabet_eq_dec.
-intro.
-transitivity (a :: a0 :: redS).
-rewrite e.
-pose proof (insert_opposite_pair nil redS a0).
-simpl in H.
-assumption.
-rewrite IHS.
-reflexivity.
-intro.
-rewrite IHS.
-reflexivity.
-Qed.
+           assert (opList_simplified simplA). {
+             give_up.
+           }
+           rewrite simplifyOpList_fixes_simplified in H; auto.
+           rewrite H.
+           rewrite IHlenA.
+           2: { 
+             simpl in HeqlenA.
+             assert (length (simplifyOpList A) ≤ length A). { give_up. }
+             assert (length (o0 :: simplA) = length (simplifyOpList A)). { now rewrite HeqsimplA. }
+             simpl in H2.
+             simpl.
+             rewrite H2.
+             give_up.
+           }
+           apply opLists_equivalent_swap with (A:=[]) (B:=simplA) in H_simplifyOperations.
+           simpl in H_simplifyOperations.
+           rewrite <-H_simplifyOperations.
+           now rewrite H_simplA.
+           (*rewrite <-IHA.
+           specialize opLists_equivalent_swap with (A:=[]) (B:=[]) (a:=a) (b:=o) (a':=A0) (b':=B) as H1.
+           simpl in H1.
+           symmetry.
+           apply H1; auto.*)
+    
+        -- rewrite <-H_simplA.
+
+           apply opLists_equivalent_remove with (A:=[]) (B:= simplA) in H_simplifyOperations.
+           simpl in H_simplifyOperations.
+           now rewrite <-H_simplifyOperations.
+    (*+ cbv in HeqsimplA.
+      case_eq A.
+      * intros. easy.
+      * intros.
+        rewrite H in HeqsimplA.
+        remember ((fix simplifyOpList (ops : list Operation) : list Operation :=
+                  match ops with
+                  | [] => ops
+                  | a :: tail =>
+                      (fix insertOpInSimplifiedOpList (a0 : Operation) (ops0 : list Operation) {struct ops0} : list Operation :=
+                         match ops0 with
+                         | [] => [a0]
+                         | b :: tail0 =>
+                             match simplifyOperations a0 b with
+                             | Keep => a0 :: ops0
+                             | Swap b' a' => b' :: insertOpInSimplifiedOpList a' tail0
+                             | Remove => tail0
+                             end
+                         end) a (simplifyOpList tail)
+                  end) l) as X.*)(*
+        assert (X =simplifyOpList l). { rewrite HeqX. now cbv. }
+        
+        destruct X; try discriminate.
+        destruct (simplifyOperations o o0) eqn:H_simplifyOperations.
+        -- discriminate.
+        -- discriminate.
+        -- specialize IHlenA with (A:=l).
+           rewrite <-IHlenA.
+           rewrite <-H0.
+           rewrite <-HeqsimplA.
+           apply opLists_equivalent_remove with (A:=[]) (B:=[]); auto.
+           rewrite H in HeqlenA.
+           simpl in HeqlenA.
+           lia.*)
+   + destruct (simplifyOperations a o ) eqn:H_simplifyOperations.
+      * now rewrite IHA.
+      * destruct simplA.
+        -- rewrite <-IHA.
+           specialize opLists_equivalent_swap with (A:=[]) (B:=[]) (a:=a) (b:=o) (a':=A0) (b':=B) as H1.
+           simpl in H1.
+           symmetry.
+           apply H1; auto.
+        -- destruct (simplifyOperations A0 o0 ) eqn:H_simplifyOperations2.
+          ++ rewrite <-IHA.
+             specialize opLists_equivalent_swap with (A:=[]) (B:=o0::simplA) (a:=a) (b:=o) (a':=A0) (b':=B) as H1.
+             simpl in H1.
+             symmetry.
+             apply H1; auto.
+          ++ give_up.
+          ++ rewrite <-IHA.
+             apply opLists_equivalent_swap with (A:=[]) (B:=o0 :: simplA) in H_simplifyOperations.
+             simpl in H_simplifyOperations.
+             rewrite H_simplifyOperations.
+
+             apply opLists_equivalent_remove with (A:=[B]) (B:= simplA) in H_simplifyOperations2.
+             simpl in H_simplifyOperations2.
+             now rewrite H_simplifyOperations2.
+
+        
+    setoid_rewrite IHA.
+  reflexivity.
+  simpl.
+  remember (group_str_action S nil) as redS.
+  destruct redS.
+  simpl.
+  apply cons_respects_group_str_equiv.
+  assumption.
+
+  simpl.
+  case alphabet_eq_dec.
+  intro.
+  transitivity (a :: a0 :: redS).
+  rewrite e.
+  pose proof (insert_opposite_pair nil redS a0).
+  simpl in H.
+  assumption.
+  rewrite IHS.
+  reflexivity.
+  intro.
+  rewrite IHS.
+  reflexivity.
+  Qed.
 
 Lemma string_action_takes_concat_to_composition:
   forall (S1 S2 S3:group_str),
