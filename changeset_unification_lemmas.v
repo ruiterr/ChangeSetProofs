@@ -240,15 +240,164 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   Notation "《 x 》" := (simplifyChangeSet x) (at level 40, no associativity, format "'《' x '》'").
 
   (* Define an equivalence relation for the simplify operation *)
-  (*Inductive opLists_equivalent : opList -> opList -> Prop :=
-  | insert_opposite_pair: forall (S T:group_str) (a:alphabet),
-    group_str_equiv (S ++ T) (S ++ opposite a :: a :: T)
-  | group_str_equiv_refl: forall S:group_str, group_str_equiv S S
-  | group_str_equiv_sym: forall S T:group_str,
-    group_str_equiv S T -> group_str_equiv T S
-  | group_str_equiv_trans: forall S T U:group_str,
-    group_str_equiv S T -> group_str_equiv T U ->
-    group_str_equiv S U.*)
+  Inductive opLists_equivalent : opList -> opList -> Prop :=
+  | opLists_equivalent_remove:   ∀ A B a b, 
+      (simplifyOperations a b) = Remove → opLists_equivalent (A ++ B) (A ++ a :: b :: B)
+  | opLists_equivalent_swap:     ∀ A B a b a' b',
+      (simplifyOperations a b) = Swap b' a' → opLists_equivalent (A ++ [a;b] ++ B) (A ++ [b'; a'] ++ B)
+  | opLists_equivalent_refl:     ∀ A, 
+      opLists_equivalent A A
+  | opLists_equivalent_sym:      ∀ A B, 
+      opLists_equivalent A B -> opLists_equivalent B A
+  | opLists_equivalent_trans:   ∀ A B C,
+      opLists_equivalent A B -> opLists_equivalent B C ->
+      opLists_equivalent A C.
+
+  Notation "S ~ T" := (opLists_equivalent S T) (at level 80).
+
+  Add Parametric Relation: opList opLists_equivalent
+    reflexivity proved by opLists_equivalent_refl
+    symmetry proved by opLists_equivalent_sym
+    transitivity proved by opLists_equivalent_trans
+    as opLists_equivalent_rel.
+
+  Create HintDb opListsEquivalence.
+  Hint Resolve opLists_equivalent_remove : opListsEquivalence.
+  Hint Resolve opLists_equivalent_swap : opListsEquivalence.
+  Hint Resolve opLists_equivalent_refl : opListsEquivalence.
+  Hint Resolve opLists_equivalent_sym : opListsEquivalence.
+  Hint Resolve opLists_equivalent_trans : opListsEquivalence.
+  Hint Extern 4 (_ ~ _) => apply opLists_equivalent_remove; auto : opListsEquivalence.
+
+  Lemma cons_respects_opLists_equivalent: ∀ a A B, A ~ B → (a :: A) ~ (a :: B).
+  Proof.
+  intros.
+  induction H; try auto with opListsEquivalence.
+  - pose proof (opLists_equivalent_remove (a :: A) B a0 b).
+    simpl in H0.
+    apply H0; auto.
+  - pose proof (opLists_equivalent_swap (a :: A) B a0 b a' b').
+    simpl in H0.
+    apply H0; auto.
+  - transitivity (a::B); assumption.
+  Qed.
+
+  Add Parametric Morphism: (@cons Operation) with signature
+    (@eq Operation) ==> (opLists_equivalent) ==> (opLists_equivalent) as
+    cons_opList_mor.
+  Proof.
+  intros.
+  apply cons_respects_opLists_equivalent.
+  assumption.
+  Qed.
+
+  Lemma concat_respects_opLists_equivalent: ∀ A A' B B', A ~ A' → B ~ B' → (A ++ B) ~ (A' ++ B').
+  Proof.
+  intros.
+  transitivity (A' ++ B).
+  induction H; try repeat rewrite app_ass; auto with opListsEquivalence; auto.
+  - transitivity (B0++B); auto.
+  - induction H0; try repeat rewrite app_ass; auto with opListsEquivalence; auto.
+    + specialize opLists_equivalent_remove with (A:=A'++A0) (B:=B) (a:=a) (b:=b) as H1; auto.
+      repeat rewrite app_ass in H1.
+      apply H1; auto.
+    + specialize opLists_equivalent_swap with (A:=A'++A0) (B:=B) (a:=a) (b:=b) (a':=a') (b':=b') as H1; auto.
+      repeat rewrite app_ass in H1.
+      apply H1; auto.
+    + transitivity (A' ++ B); auto.
+  Qed.
+
+  Add Parametric Morphism: (@app Operation) with signature
+    (opLists_equivalent) ==> (opLists_equivalent) ==> (opLists_equivalent) as
+    concat_opList_mor.
+  Proof.
+  intros.
+  apply concat_respects_opLists_equivalent.
+  assumption.
+  assumption.
+  Qed.
+
+Lemma reduction_equiv: forall S:group_str,
+  reduction S ~~ S.
+Proof.
+intro.
+unfold reduction.
+induction S.
+simpl.
+reflexivity.
+simpl.
+remember (group_str_action S nil) as redS.
+destruct redS.
+simpl.
+apply cons_respects_group_str_equiv.
+assumption.
+
+simpl.
+case alphabet_eq_dec.
+intro.
+transitivity (a :: a0 :: redS).
+rewrite e.
+pose proof (insert_opposite_pair nil redS a0).
+simpl in H.
+assumption.
+rewrite IHS.
+reflexivity.
+intro.
+rewrite IHS.
+reflexivity.
+Qed.
+
+Lemma string_action_takes_concat_to_composition:
+  forall (S1 S2 S3:group_str),
+    group_str_action S1 (group_str_action S2 S3) =
+    group_str_action (S1 ++ S2) S3.
+Proof.
+intros.
+induction S1.
+simpl.
+reflexivity.
+simpl.
+rewrite IHS1.
+reflexivity.
+Qed.
+
+Lemma equiv_strings_have_same_actions:
+  forall (S1 S2 T:group_str), reduced T ->
+  S1 ~~ S2 -> group_str_action S1 T =
+              group_str_action S2 T.
+Proof.
+intros.
+induction H0.
+rewrite <- string_action_takes_concat_to_composition.
+rewrite <- string_action_takes_concat_to_composition.
+assert (group_str_action T0 T =
+        group_str_action (opposite a :: a :: T0) T).
+simpl.
+rewrite opposites_give_inverse_actions.
+reflexivity.
+apply reduced_closed_under_str_action.
+assumption.
+rewrite <- H0.
+reflexivity.
+reflexivity.
+symmetry.
+assumption.
+transitivity (group_str_action T0 T).
+assumption.
+assumption.
+Qed.
+
+Corollary equiv_strings_have_same_reductions:
+  forall S T:group_str, S ~~ T ->
+    reduction S = reduction T.
+Proof.
+intros.
+unfold reduction.
+apply equiv_strings_have_same_actions.
+apply empty_str_reduced.
+assumption.
+Qed.
+
 
   Lemma simplify_will_remove_opposites: ∀a A, simplifyOpList ((opposite a)::a::A) = simplifyOpList A.
   intros.
