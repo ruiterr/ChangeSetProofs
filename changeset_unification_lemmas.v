@@ -361,15 +361,23 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
         lia.
       * unfold insertOpInSimplifiedOpList.
         specialize IHlenA with (A:=Y) as H_IHY.
-        assert (Datatypes.length (simplifyOpList (o0 :: A)) ≤ lenA). { 
-          specialize IHlenA with (A:=o0 :: A). simpl in IHlenA. simpl in H_leLenA. rewrite  lia. }
+        simpl in H_leLenA.
+        assert (Datatypes.length (simplifyOpList (o0 :: A)) ≤ S (length A)). { apply IHlenA. simpl. lia. }
+        assert (Datatypes.length (simplifyOpList (o0 :: A)) ≤ lenA). {
+          specialize IHlenA with (A:=o0 :: A). 
+          lia. 
+        }
         assert (S (length Y) ≤ lenA). { rewrite <-HeqY in H0. simpl in H0. lia. }
         assert (Datatypes.length (simplifyOpList Y) ≤ lenA). { 
-          apply H_IHY. 
-          specialize IHlenA with (A:=o0 :: A).
-          simpl in H_leLenA. 
           lia.
         }
+        assert (S (length Y) ≤ (length (simplifyOpList (o0 :: A)))). {
+          assert_nat (length (o1 :: Y) ≤ length (o1 :: Y)).
+          rewrite HeqY in H4 at 2.
+          simpl (Datatypes.length (o1 :: Y)) in H4.
+          lia.
+        }
+        assert_nat ((length Y) ≤ (length A)). 
 
         destruct (simplifyOperations o o1); try (simpl; lia).
 
@@ -379,13 +387,17 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
           now cbv.
           apply tail_of_simplify_simplified with (a:=o1) (A:=o0::A); auto.
         }
-        rewrite H3.
+        rewrite H6.
         remember (simplifyOpList (A0 :: Y)) as Z.
         simpl.
-        assert (S (length Z) ≤ length Y). {
+        assert ((length Z) ≤ S (length Y)). {
           specialize IHlenA with (A:= A0::Y).
           rewrite <-HeqZ in IHlenA.
-  Admitted. 
+          simpl (length (A0 :: Y)) in IHlenA.
+          lia.
+        }
+        lia.
+  Qed. 
  
   Lemma simplifyOpList_equiv: ∀ A, simplifyOpList A ~ A.
   Proof.
@@ -448,59 +460,22 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
            apply opLists_equivalent_remove with (A:=[]) (B:= simplA) in H_simplifyOperations.
            simpl in H_simplifyOperations.
            now rewrite <-H_simplifyOperations.
-Qed.
+  Qed.
 
-Lemma string_action_takes_concat_to_composition:
-  forall (S1 S2 S3:group_str),
-    group_str_action S1 (group_str_action S2 S3) =
-    group_str_action (S1 ++ S2) S3.
-Proof.
-intros.
-induction S1.
-simpl.
-reflexivity.
-simpl.
-rewrite IHS1.
-reflexivity.
-Qed.
-
-Lemma equiv_strings_have_same_actions:
-  forall (S1 S2 T:group_str), reduced T ->
-  S1 ~~ S2 -> group_str_action S1 T =
-              group_str_action S2 T.
-Proof.
-intros.
-induction H0.
-rewrite <- string_action_takes_concat_to_composition.
-rewrite <- string_action_takes_concat_to_composition.
-assert (group_str_action T0 T =
-        group_str_action (opposite a :: a :: T0) T).
-simpl.
-rewrite opposites_give_inverse_actions.
-reflexivity.
-apply reduced_closed_under_str_action.
-assumption.
-rewrite <- H0.
-reflexivity.
-reflexivity.
-symmetry.
-assumption.
-transitivity (group_str_action T0 T).
-assumption.
-assumption.
-Qed.
-
-Corollary equiv_strings_have_same_reductions:
-  forall S T:group_str, S ~~ T ->
-    reduction S = reduction T.
-Proof.
-intros.
-unfold reduction.
-apply equiv_strings_have_same_actions.
-apply empty_str_reduced.
-assumption.
-Qed.
-
+  Lemma simplify_takes_concat_to_composition:
+    ∀ A B,
+      simplifyOpList (A ++ (simplifyOpList (B))) =
+      simplifyOpList (A ++ B).
+  Proof.
+  intros.
+  induction A.
+  simpl.
+  rewrite simplifyOpList_idempotent.
+  reflexivity.
+  simpl.
+  rewrite IHA.
+  reflexivity.
+  Qed.
 
   Lemma simplify_will_remove_opposites: ∀a A, simplifyOpList ((opposite a)::a::A) = simplifyOpList A.
   intros.
@@ -565,9 +540,40 @@ Qed.
            assumption.
   Qed.
 
+  Lemma simplify_equal_for_swaps: ∀a b a' b' A, (simplifyOperations a b) = Swap b' a' → simplifyOpList ([a; b] ++ A) = simplifyOpList ([b'; a'] ++ A).
+  
+  Admitted.
+
+  Lemma equiv_opLists_have_same_simplification:
+    ∀ A B,
+    A ~ B -> simplifyOpList (A) =
+             simplifyOpList (B).
+  Proof.
+  intros.
+  induction H; auto with opListsEquivalence.
+  - rewrite <- simplify_takes_concat_to_composition with (A:=A) (B:=(a :: b :: B)).
+    apply simplifyOperationRemovedImpliesOpposite in H.
+    rewrite H.
+    fold OperationsGroupImpl.opposite.
+    fold OperationGroup.opposite.
+    rewrite simplify_will_remove_opposites.
+    rewrite simplify_takes_concat_to_composition with (A:=A) (B:=B).
+    reflexivity.
+  - rewrite <- simplify_takes_concat_to_composition with (A:=A) (B:=[b'; a']++B).
+    rewrite <-simplify_equal_for_swaps with (a:=a) (b:=b) (a':=a') (b':=b'); auto.
+    rewrite simplify_takes_concat_to_composition with (A:=A) (B:=[a; b]++B).
+    reflexivity.
+  - transitivity (simplifyOpList B); auto.
+  Qed.
+
   Lemma simplifyOpList_swaps_with_concat: ∀A B, simplifyOpList (A ++ B) =
                                                 simplifyOpList (simplifyOpList A ++ simplifyOpList B).
-  Admitted.
+  intros.
+  apply equiv_opLists_have_same_simplification.
+  rewrite simplifyOpList_equiv with (A:=A).
+  rewrite simplifyOpList_equiv with (A:=B).
+  reflexivity.
+  Qed.
 
   Lemma str_equiv_implies_same_reduction: ∀A B, A ~~ B → (simplifyOpList A) = (simplifyOpList B).
   intros.
