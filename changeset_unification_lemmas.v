@@ -541,6 +541,34 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   Qed.
 
   Lemma simplify_equal_for_swaps: ∀a b a' b' A, (simplifyOperations a b) = Swap b' a' → simplifyOpList ([a; b] ++ A) = simplifyOpList ([b'; a'] ++ A).
+  intros.
+  rewrite <-simplify_takes_concat_to_composition.
+  rewrite <-simplify_takes_concat_to_composition with (A:=[b';a']).
+  remember (simplifyOpList A) as Z.
+  specialize simplifyOpList_simplified with (A:=A) as H_Zsimplified.
+  rewrite <-HeqZ in H_Zsimplified.
+  rewrite <-app_comm_cons.
+  rewrite <-cons_to_app.
+  rewrite <-app_comm_cons.
+  rewrite <-cons_to_app.
+  unfold simplifyOpList.
+  fold simplifyOpList.
+  rewrite simplifyOpList_fixes_simplified; auto.
+  destruct Z.
+  - cbv.
+    rewrite H.
+    apply simplifyOperationsInvolutive in H.
+    rewrite H.
+    reflexivity.
+  - unfold insertOpInSimplifiedOpList.
+    destruct (simplifyOperations b o) eqn:H_simplifyOperations.
+    + rewrite H.
+      apply simplifyOperationsInvolutive in H.
+      destruct (simplifyOperations a' o) eqn:H_simplifyOperations2.
+      * now rewrite H.
+      * give_up.
+      *
+     
   
   Admitted.
 
