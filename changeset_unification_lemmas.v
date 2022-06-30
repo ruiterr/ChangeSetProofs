@@ -60,6 +60,7 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
   Axiom simplifyOperationOppositesRemoved : ∀ A, (simplifyOperations (invert A) A) = Remove.
   Axiom simplifyOperationRemovedImpliesOpposite: ∀A B, simplifyOperations A B = Remove → A = (invert B).
   Axiom opposites_swap_to_opposites: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations (invert a) b' = Swap b (invert a').
+  Axiom opposites_swap_to_opposites2: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations a' (invert b) = Swap (invert b') a.
 
 End OperationSimplificationDef.
 
@@ -332,6 +333,16 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   apply tail_simplified in H; auto.
   Qed.
 
+  Lemma tail_simplified2: ∀a A, opList_simplified (a::A) → opList_simplified A.
+  intros.
+  remember (a::A) as A'. 
+  destruct H.
+   - discriminate.
+   - inversion HeqA'.
+     apply empty_oplist_simplified.
+   - now inversion HeqA'. 
+  Qed.
+
   Lemma simplify_op_list_le_length: ∀ A, length (simplifyOpList A) ≤ length A.
   intros.
   remember (length A) as lenA.
@@ -539,6 +550,13 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
            unfold insertOpInSimplifiedOpList in H_simplifyOpEq.
            assumption.
   Qed.
+  
+  Lemma swap_inversion: ∀a b, (AlgebraSig.invert a) = b → a = (AlgebraSig.invert b).
+  Proof.
+  intros.
+  rewrite <-H.
+  now rewrite opInvertInvolution with (a:=a).
+  Qed.
 
   Lemma simplify_equal_for_swaps: ∀a b a' b' A, (simplifyOperations a b) = Swap b' a' → simplifyOpList ([a; b] ++ A) = simplifyOpList ([b'; a'] ++ A).
   intros.
@@ -554,22 +572,57 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   unfold simplifyOpList.
   fold simplifyOpList.
   rewrite simplifyOpList_fixes_simplified; auto.
-  destruct Z.
+  revert H.
+  revert a b a' b'.
+  clear HeqZ.
+  induction Z as [ | c Z' ].
   - cbv.
+    intros.
     rewrite H.
     apply simplifyOperationsInvolutive in H.
     rewrite H.
     reflexivity.
-  - unfold insertOpInSimplifiedOpList.
-    destruct (simplifyOperations b o) eqn:H_simplifyOperations.
+  - intros.
+    unfold insertOpInSimplifiedOpList.
+    destruct (simplifyOperations b c) as [ | c'' b'' | ] eqn:H_simplifyOperations.
     + rewrite H.
       apply simplifyOperationsInvolutive in H.
-      destruct (simplifyOperations a' o) eqn:H_simplifyOperations2.
+      destruct (simplifyOperations a' c) as [ | c'' a'' | ] eqn:H_simplifyOperations2.
       * now rewrite H.
-      * give_up.
-      *
-     
-  
+      * fold insertOpInSimplifiedOpList.
+        assert (simplifyOperations b' c'' = Keep). { give_up. }
+        now rewrite H0.
+      * destruct Z' as [|d Z''].
+        -- easy.
+        -- assert (simplifyOperations b' d = Keep). { give_up. }
+           now rewrite H0.
+    + fold insertOpInSimplifiedOpList.
+      assert (∃a''' c''', simplifyOperations a c'' = Swap c''' a'''). { give_up. }
+      destruct H0 as [a''' [c''' H0]].
+      assert (∃a_r c_r, simplifyOperations a' c = Swap c_r a_r). { give_up. }
+      destruct H1 as [a_r [c_r H1]].
+      assert (∃a_r2, simplifyOperations b' c_r = Swap c''' a_r2). { give_up. }
+      destruct H2 as [a_r2 H2].
+      assert (simplifyOperations a''' b'' = Swap a_r2 a_r). { give_up. }
+      rewrite H0.
+      rewrite H1.
+      unfold insertOpInSimplifiedOpList at 3.
+      rewrite H2.
+      f_equal.
+      apply IHZ'; auto.
+      now apply tail_simplified2 in H_Zsimplified.
+    + fold insertOpInSimplifiedOpList.
+      apply simplifyOperationsInvolutive in H as H_Keep_b'a'.
+      apply simplifyOperationRemovedImpliesOpposite in H_simplifyOperations.
+      rewrite H_simplifyOperations in H.
+      apply opposites_swap_to_opposites2 in H as H_simplifyOperationsa'c.
+      rewrite opInvertInvolution in H_simplifyOperationsa'c.
+      symmetry in H_simplifyOperations.
+      apply swap_inversion in H_simplifyOperations as H_cEqInvB.
+      rewrite H_simplifyOperationsa'c.
+      unfold insertOpInSimplifiedOpList at 2.
+      rewrite <-opInvertInvolution with (a:=b') at 1.
+      now rewrite simplifyOperationOppositesRemoved.
   Admitted.
 
   Lemma equiv_opLists_have_same_simplification:
