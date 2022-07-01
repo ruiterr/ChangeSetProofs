@@ -52,6 +52,8 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
   Axiom simplifyOperations_transitive: ∀a b c, sameSimplification a b b c → sameSimplification a b a c.
   Axiom simplifyOperations_swap_preserved_under_swap_to_right: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification c a c' a.
   Axiom simplifyOperations_swap_preserved_under_swap_to_left: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification a c a c'.
+  Axiom simplifyOperations_double_swap: ∀a b c a' b' c'' b'', simplifyOperations a b = Swap b' a' → simplifyOperations b c = Swap c'' b'' → ∃b''', simplifyOperations a' c = Swap c b'''.
+  Axiom simplifyOperations_right_argument_preserved_in_swap: ∀a b a' b', simplifyOperations a b = Swap b' a' → b = b'.
 
   Axiom simplifyOperations_keep_preserves_opposites: ∀a b, (simplifyOperations a b) = Keep → (simplifyOperations a (AlgebraSig.invert b)) = Keep.
   Axiom simplifyOperationRemoveIffOpposites : ∀ A B, (simplifyOperations A B) = Remove <-> A = (AlgebraSig.invert B).
@@ -653,9 +655,6 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
            unfold insertOpInSimplifiedOpList in H_simplifyOpEq.
            assumption.
   Qed.
-  
-  Axiom simplifyOperations_double_swap: ∀a b c a' b' c'' b'', simplifyOperations a b = Swap b' a' → simplifyOperations b c = Swap c'' b'' → ∃b''', simplifyOperations a' c = Swap c b'''.
-  Axiom simplifyOperations_right_argument_preserved_in_swap: ∀a b a' b', simplifyOperations a b = Swap b' a' → b = b'.
 
 
   Lemma simplify_equal_for_swaps: ∀a b a' b' A, (simplifyOperations a b) = Swap b' a' → simplifyOpList ([a; b] ++ A) = simplifyOpList ([b'; a'] ++ A).
@@ -723,96 +722,20 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
       apply simplifyOperations_right_argument_preserved_in_swap in H2 as H2_c_c_r2.
       rewrite <-H2_c_c_r2 in *.
 
- 
-      (*a b => b' a'
-      b c => c'' b''
-      a' c => c a'
+       assert (simplifyOperations a''' b'' = Swap b_r2 a_r). {
+         apply simplifyOperations_right_argument_preserved_in_swap in H as H2_b_b'.
+         rewrite <-H2_b_b' in *.
+         rewrite H_simplifyOperations in H2.
+         inversion H2.
+         rewrite <-H3 in *.
 
-      b' a => b' a
-
-      c a'' => c a''
-      b c => c'' b''
-
-      Axiom simplifyOperations_swap_preserved_under_swap_to_right: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification c a c' a.
-      Axiom simplifyOperations_swap_preserved_under_swap_to_left: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification a c a c'.
-
-      simplifyOperations b' a' = Keep
-
-      b' a' c => b' c a_r => c b_r a_r
-
-      simplifyOperations b b = Swap x' b'
-      simplifyOperations a' c = Swap c b''' => a:=b' c:=c
-      simplifyOperations b' c = Swap c a_r2
-      specialize simplifyOperations_double_swap with (1:=H) (2:=H_simplifyOperations) as H1.
-      destruct H1 as [a_r H1].
-
-      assert (∃a_r2, simplifyOperations b' c = Swap c a_r2). { give_up. }
-      destruct H2 as [a_r2 H2].
-
-      assert (∃a_r, simplifyOperations a' c = Swap c a_r). { 
-        specialize simplifyOperations_double_swap with (1:=H) (2:=H_simplifyOperations) as H3.
-        destruct H3 as [a_r H3].
-        exists a_r. 
-        assumption.
-      }
-        apply simplifyOperations_swap_preserved_under_swap_to_right with (a:=a)  in H as H_sameSimpl2; auto.
-
-        a > b
-        b > c
-        a > c
-
-        a c = Swap
-
-        give_up.
+      assert (∀a b c b_a a_b c_a a_c c_b b_c b_c_a_c a_c_b_c, simplifyOperations a b = Swap b_a a_b → simplifyOperations a c = Swap c_a a_c → simplifyOperations b c = Swap c_b b_c → 
+                                                              simplifyOperations a_b c = Swap b_c_a_c a_c_b_c → simplifyOperations a_c b_c = Swap b_c a_c_b_c) as simplifyOperations_swap_over_inverses. give_up.
+        
+        specialize simplifyOperations_swap_over_inverses with (1:=H) (2:=H_ac'') (3:=H_simplifyOperations) (4:=H1).
+        auto.
       }
 
-  Axiom simplifyOperations_transitive: ∀a b c, sameSimplification a b b c → sameSimplification a b a c.
-  Axiom simplifyOperations_swap_preserved_under_swap_to_right: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification c a c' a.
-  Axiom simplifyOperations_swap_preserved_under_swap_to_left: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification a c a c'.
-        
-      }
-      (*simplifyOperations a b = Swap b' a' 
-        simplifyOperations a c = Swap c' a'' 
-        simplifyOperations a' c = Swap c' a'' 
-
-
-      simplifyOperations a b = Swap b' a'      = a > b
-      simplifyOperations b c = Swap c'' b''    = b > c
-      
-      simplifyOperations a c'' = Swap c''' a'''      = a > c
-
-      simplifyOperations a' c = Swap c_r a_r         = a > c
-
-      simplifyOperations b' c_r = Swap c''' a_r2     = b > c
-      simplifyOperations a''' b'' = Swap a_r2 a_r    = a > b*)
-
-
-      (*destruct H0 as [a''' [c''' H0]].*)
-      assert (∃a_r c_r, simplifyOperations a' c = Swap c_r a_r). { give_up. }
-      destruct H1 as [a_r [c_r H1]].
-      assert (∃a_r2, simplifyOperations b' c_r = Swap c''' a_r2). { give_up. }
-      destruct H2 as [a_r2 H2].*)
-
-      a b c => a c b''  => c a''' b'' => c b_r2 a_r
-      b' a' c => b' c a_r => c b_r2 a_r
-
-      assert (simplifyOperations a''' b'' = Swap b_r2 a_r). {
-        
-        apply 
-        a b => b'' a''       ==>  x <-> a, x <-> b''
-        a c => c a'''        ==>  c <-> x => a''' <-> x
-        b c => c b''
-
-        Axiom simplifyOperations_double_swap: ∀a b c a' b' c'' b'', simplifyOperations a b = Swap b' a' → simplifyOperations b c = Swap c'' b'' → ∃b''', simplifyOperations a' c = Swap c b'''.
-  Axiom simplifyOperations_swap_preserved_under_swap_to_right: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification c a c' a.
-  Axiom simplifyOperations_swap_preserved_under_swap_to_left: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification a c a c'.
-
-        apply simplifyOperations_swap_preserved_under_swap_to_right with (a:=b'') in H_ac'' as H3.
-
-      b'' x => swap
-        
-        give_up. 
-      }*)
       rewrite H_ac''.
       rewrite H1.
       unfold insertOpInSimplifiedOpList at 3.
@@ -905,3 +828,74 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   Qed.
 
 
+      (*a b => b' a'
+      b c => c'' b''
+      a' c => c a'
+
+      b' a => b' a
+
+      c a'' => c a''
+      b c => c'' b''
+
+      Axiom simplifyOperations_swap_preserved_under_swap_to_right: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification c a c' a.
+      Axiom simplifyOperations_swap_preserved_under_swap_to_left: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification a c a c'.
+
+      simplifyOperations b' a' = Keep
+
+      b' a' c => b' c a_r => c b_r a_r
+
+      simplifyOperations b b = Swap x' b'
+      simplifyOperations a' c = Swap c b''' => a:=b' c:=c
+      simplifyOperations b' c = Swap c a_r2
+      specialize simplifyOperations_double_swap with (1:=H) (2:=H_simplifyOperations) as H1.
+      destruct H1 as [a_r H1].
+
+      assert (∃a_r2, simplifyOperations b' c = Swap c a_r2). { give_up. }
+      destruct H2 as [a_r2 H2].
+
+      assert (∃a_r, simplifyOperations a' c = Swap c a_r). { 
+        specialize simplifyOperations_double_swap with (1:=H) (2:=H_simplifyOperations) as H3.
+        destruct H3 as [a_r H3].
+        exists a_r. 
+        assumption.
+      }
+        apply simplifyOperations_swap_preserved_under_swap_to_right with (a:=a)  in H as H_sameSimpl2; auto.
+
+        a > b
+        b > c
+        a > c
+
+        a c = Swap
+
+        give_up.
+      }
+
+  Axiom simplifyOperations_transitive: ∀a b c, sameSimplification a b b c → sameSimplification a b a c.
+  Axiom simplifyOperations_swap_preserved_under_swap_to_right: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification c a c' a.
+  Axiom simplifyOperations_swap_preserved_under_swap_to_left: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification a c a c'.
+        
+      }
+      (*simplifyOperations a b = Swap b' a' 
+        simplifyOperations a c = Swap c' a'' 
+        simplifyOperations a' c = Swap c' a'' 
+
+
+      simplifyOperations a b = Swap b' a'      = a > b
+      simplifyOperations b c = Swap c'' b''    = b > c
+      
+      simplifyOperations a c'' = Swap c''' a'''      = a > c
+
+      simplifyOperations a' c = Swap c_r a_r         = a > c
+
+      simplifyOperations b' c_r = Swap c''' a_r2     = b > c
+      simplifyOperations a''' b'' = Swap a_r2 a_r    = a > b*)
+
+
+      (*destruct H0 as [a''' [c''' H0]].*)
+      assert (∃a_r c_r, simplifyOperations a' c = Swap c_r a_r). { give_up. }
+      destruct H1 as [a_r [c_r H1]].
+      assert (∃a_r2, simplifyOperations b' c_r = Swap c''' a_r2). { give_up. }
+      destruct H2 as [a_r2 H2].*)
+
+      (*a b c => a c b''  => c a''' b'' => c b_r2 a_r
+      b' a' c => b' c a_r => c b_r2 a_r*)
