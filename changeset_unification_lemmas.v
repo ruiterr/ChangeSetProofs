@@ -656,6 +656,14 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
            assumption.
   Qed.
 
+  (*a_r = a ↷ b ↷ c
+  a_r' = a ↷ c ↷ (b ↷ c)*)
+  Lemma simplifyOperations_swap_over_inverses: ∀a b c b_a a_b c_a a_c c_b b_c c_a_b a_b_c, simplifyOperations a b = Swap b_a a_b → simplifyOperations a c = Swap c_a a_c → simplifyOperations b c = Swap c_b b_c → 
+                                                              simplifyOperations a_b c = Swap c_a_b a_b_c → simplifyOperations a_c b_c = Swap b_c a_b_c.
+  intros.
+
+  Admitted.
+
 
   Lemma simplify_equal_for_swaps: ∀a b a' b' A, (simplifyOperations a b) = Swap b' a' → simplifyOpList ([a; b] ++ A) = simplifyOpList ([b'; a'] ++ A).
   intros.
@@ -728,10 +736,11 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
          rewrite H_simplifyOperations in H2.
          inversion H2.
          rewrite <-H3 in *.
+      (*a b c => a c b''  => c a''' b'' => c b_r2 a_r'
+      b' a' c => b' c a_r => c b_r2 a_r*)
 
-      assert (∀a b c b_a a_b c_a a_c c_b b_c b_c_a_c a_c_b_c, simplifyOperations a b = Swap b_a a_b → simplifyOperations a c = Swap c_a a_c → simplifyOperations b c = Swap c_b b_c → 
-                                                              simplifyOperations a_b c = Swap b_c_a_c a_c_b_c → simplifyOperations a_c b_c = Swap b_c a_c_b_c) as simplifyOperations_swap_over_inverses. give_up.
-        
+      (*a_r = a ↷ b ↷ c
+      a_r' = a ↷ c ↷ (b ↷ c)*)
         specialize simplifyOperations_swap_over_inverses with (1:=H) (2:=H_ac'') (3:=H_simplifyOperations) (4:=H1).
         auto.
       }
@@ -755,7 +764,7 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
       unfold insertOpInSimplifiedOpList at 2.
       rewrite <-opInvertInvolution with (a:=b') at 1.
       now rewrite simplifyOperationOppositesRemoved.
-  Admitted.
+  Qed.
 
   Lemma equiv_opLists_have_same_simplification:
     ∀ A B,

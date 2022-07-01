@@ -89,6 +89,20 @@ Module InsertRemoveOperationDefinition <: OperationSimplificationDef InsertRemov
   all: now cbn.
   Qed.
 
+  Lemma updatePositionCancel: ∀ a, (getOpP a) > 0 → (updateOpPosition (updateOpPosition a (-1)) 1) = (updateOpPosition (updateOpPosition a 1) (-1)).
+  intros.
+  unfold getOpP in H.
+  destruct a.
+  all: (
+    cbn; simpl; auto;
+    assert_nat(p = p - 1 + 1) as H_p;
+    assert_nat(p = p + 1 - 1) as H_p';
+    rewrite <-H_p;
+    rewrite <-H_p';
+    easy
+   ).
+  Qed.
+
   Definition simplifyOperations (A:Operation) (B:Operation) := 
     if Op_eqb (InsertRemoveOperationDefinition.invert A) B then
       Remove
@@ -175,5 +189,51 @@ Module InsertRemoveOperationDefinition <: OperationSimplificationDef InsertRemov
       exists (updateOpPosition (updateOpPosition a (-1)) (-1)).
       easy.
   Admitted.
+  
+  Lemma simplifyOperations_swap_over_inverses: ∀a b c b_a a_b c_a a_c c_b b_c c_a_b a_b_c, simplifyOperations a b = Swap b_a a_b → simplifyOperations a c = Swap c_a a_c → simplifyOperations b c = Swap c_b b_c → 
+                                                              simplifyOperations a_b c = Swap c_a_b a_b_c → simplifyOperations a_c b_c = Swap b_c a_b_c.
+  intros.
+  apply simplifyOperations_right_argument_preserved_in_swap in H as H'. rewrite <-H' in *. clear H'.
+  apply simplifyOperations_right_argument_preserved_in_swap in H0 as H'. rewrite <-H' in *. clear H'.
+  apply simplifyOperations_right_argument_preserved_in_swap in H1 as H'. rewrite <-H' in *. clear H'.
+  apply simplifyOperations_right_argument_preserved_in_swap in H2 as H'. rewrite <-H' in *. clear H'.
 
+  unfold simplifyOperations in *.
+  destruct (Op_eqb (a⁻¹)%O b) eqn:H_invab; try discriminate.
+  destruct (Op_eqb (b⁻¹)%O c) eqn:H_invbc; try discriminate.
+  destruct (getOpP a <=? getOpP b) eqn:H_paGtpb; try discriminate.
+  destruct (getOpP b <=? getOpP c) eqn:H_pbGtpc; try discriminate.
+  assert (Op_eqb (a_c⁻¹)%O b_c = false). { give_up. }
+  rewrite H3 in *.
+  assert (Op_eqb (a_b⁻¹)%O c = false). { give_up. }
+  rewrite H4 in *.
+  assert (Op_eqb (a⁻¹)%O c = false). { give_up. }
+  rewrite H5 in *.
+  destruct (getOpP a <=? getOpP c) eqn:H_paGtpc; try discriminate.
+  destruct (getOpP a_b <=? getOpP c) eqn:H_pabGtpc; try discriminate.
+  destruct c.
+  all: inversion H0.
+  all: specialize updatePositionPlus with (a:=a) as H8.
+  all: specialize updatePositionMinus with (a:=a) as H8'.
+  all: destruct b eqn:H_b.
+  all: rewrite <-H_b in *.
+  all: (
+    inversion H1;
+    unfold getOperationType in *;
+    specialize updatePositionPlus with (a:=b) as H10;
+    specialize updatePositionMinus with (a:=b) as H11;
+    try assert_nat (getOpP (updateOpPosition a 1) <=? getOpP (updateOpPosition b 1) = false) as H_finalComparison;
+    try assert_nat (getOpP (updateOpPosition a (-1)) <=? getOpP (updateOpPosition b (-1)) = false) as H_finalComparison2;
+    try rewrite H_finalComparison;
+    try rewrite H_finalComparison2;
+    rewrite H_b at 1;
+    rewrite H_b in H at 1;
+    cbn;
+    inversion H2;
+    inversion H;
+    try assert_nat ((getOpP a) > 0);
+    try rewrite updatePositionCancel; auto;
+    easy
+  ).
+  Admitted.
   destruct (getOpP a <=? getOpP b); try discriminate.
