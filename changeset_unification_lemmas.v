@@ -38,29 +38,25 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
 
   Parameter simplifyOperations : Operation -> Operation -> simplificationOperationResult.
   Axiom simplifyOperationsInvolutive : ∀ A B A' B', (simplifyOperations A B) = (Swap B' A') → (simplifyOperations B' A') = Keep.
-  Axiom simplifyOperationsSwapStable : ∀ A B C A' A'' B' C', 
-          (simplifyOperations B C) = Keep →
-          (simplifyOperations A B) = Swap B' A' →
-          (simplifyOperations A' C) = Swap C' A'' →
-          (simplifyOperations B' C') = Keep.
-
-  Axiom simplifyOperationsSwapStable2 : ∀ A B C X A' X', 
-             (simplifyOperations A B = Keep) →
-             (simplifyOperations B C = Keep) →
-             (simplifyOperations X A = Swap A' X') →
-             (simplifyOperations A' C) = Keep.
 
 
   Axiom simplifyOperationsSwapCompatibleWithRebase : ∀ A B A' B' C, (simplifyOperations A B) = (Swap A' B') → 
                                                                  ((Some C) ↷ ((Some A) ↷ (Some B)) = (Some C) ↷ ((Some A') ↷ (Some B')))%OO.
   Axiom simplifyOperationsRemoveCompatibleWithRebase : ∀ A B C, (simplifyOperations A B) = Remove → 
                                                              ((Some C) ↷ ((Some A) ↷ (Some B)) = (Some C))%OO.
-  (*Axiom simplifyOperationResultReduced : ∀ A B A' B', (simplifyOperations A B) = Swap B' A' → A' ≠ (invert B').*)
-  Axiom simplifyOperationResultReduced : ∀ A B, (simplifyOperations A B) = Keep → A ≠ (invert B).
-  Axiom simplifyOperationOppositesRemoved : ∀ A, (simplifyOperations (invert A) A) = Remove.
-  Axiom simplifyOperationRemovedImpliesOpposite: ∀A B, simplifyOperations A B = Remove → A = (invert B).
-  Axiom opposites_swap_to_opposites: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations (invert a) b' = Swap b (invert a').
-  Axiom opposites_swap_to_opposites2: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations a' (invert b) = Swap (invert b') a.
+  Inductive sameSimplification: Operation → Operation → Operation → Operation → Prop := 
+    | sameSimplificationKeep: ∀a b A B, simplifyOperations a b = Keep → simplifyOperations A B = Keep → sameSimplification a b A B
+    | sameSimplificationSwap (b' a' B' A': Operation): ∀a b a' b' A B A' B', simplifyOperations a b = Swap b' a' → simplifyOperations A B = Swap B' A' → sameSimplification a b A B
+    | sameSimplificationRemove: ∀a b A B, simplifyOperations a b = Remove → simplifyOperations A B = Remove → sameSimplification a b A B.
+
+  Axiom simplifyOperations_transitive: ∀a b c, sameSimplification a b b c → sameSimplification a b a c.
+  Axiom simplifyOperations_swap_preserved_under_swap_to_right: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification c a c' a.
+  Axiom simplifyOperations_swap_preserved_under_swap_to_left: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification a c a c'.
+
+  Axiom simplifyOperations_keep_preserves_opposites: ∀a b, (simplifyOperations a b) = Keep → (simplifyOperations a (AlgebraSig.invert b)) = Keep.
+  Axiom simplifyOperationRemoveIffOpposites : ∀ A B, (simplifyOperations A B) = Remove <-> A = (AlgebraSig.invert B).
+  Axiom opposites_swap_to_opposites: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations (AlgebraSig.invert a) b' = Swap b (AlgebraSig.invert a').
+  Axiom opposites_swap_to_opposites2: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations a' (AlgebraSig.invert b) = Swap (AlgebraSig.invert b') a.
 
 End OperationSimplificationDef.
 
@@ -74,6 +70,113 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
 
   Import Algebra.GroupLemmas.
   Import OperationGroup.
+
+  (* Some additional lemmas on the behaviour of the swap function *)
+  Lemma swap_inversion: ∀a b, (AlgebraSig.invert a) = b → a = (AlgebraSig.invert b).
+  Proof.
+  intros.
+  rewrite <-H.
+  now rewrite opInvertInvolution with (a:=a).
+  Qed.
+
+  Lemma resolveSameSimplificationKeep: ∀a b A B, simplifyOperations a b = Keep → (sameSimplification a b A B) → simplifyOperations A B = Keep.
+  intros.
+  destruct H0.
+  - assumption.
+  - rewrite H in H0. discriminate.
+  - rewrite H in H0. discriminate.
+  Qed. 
+
+  Lemma resolveSameSimplificationSwap: ∀a b A B a' b', simplifyOperations a b = Swap b' a' →  (sameSimplification a b A B) →  ∃A' B',simplifyOperations A B = Swap B' A'.
+  intros.
+  destruct H0.
+  - rewrite H in H0. discriminate.
+  - exists A'0. exists B'0. assumption.
+  - rewrite H in H0. discriminate.
+  Qed. 
+
+  Lemma resolveSameSimplificationRemove: ∀a b A B, simplifyOperations a b = Remove → (sameSimplification a b A B) → simplifyOperations A B = Remove.
+  intros.
+  destruct H0.
+  - rewrite H in H0. discriminate.
+  - rewrite H in H0. discriminate.
+  - assumption.
+  Qed.
+
+  Lemma sameSimplificationSymmetric: ∀a b A B, (sameSimplification a b A B) → (sameSimplification A B a b).
+  intros.
+  destruct H.
+  - apply sameSimplificationKeep; auto.
+  - apply sameSimplificationSwap with (a':=A'0) (b':=B'0) (A':=a'0) (B':=b'0); auto.
+  - apply sameSimplificationRemove; auto.
+  Qed.
+
+  Lemma sameSimplificationTransitive: ∀a1 b1 a2 b2 a3 b3, (sameSimplification a1 b1 a2 b2) → (sameSimplification a2 b2 a3 b3) → (sameSimplification a1 b1 a3 b3).
+  intros.
+  destruct H.
+  - apply resolveSameSimplificationKeep in H0; auto. apply sameSimplificationKeep; auto.
+  - apply resolveSameSimplificationSwap with (A:=a3) (B:=b3) in H1; auto. 
+    destruct H1 as [A'1 [B'1 H3]].
+    apply sameSimplificationSwap with (a':=a'0) (b':=b'0) (A':=A'1) (B':=B'1); auto.
+  - apply resolveSameSimplificationRemove in H0; auto. apply sameSimplificationRemove; auto.
+  Qed.
+
+  Lemma simplifyOperationsSwapStable: ∀a b c a' b' c'' a'', simplifyOperations a b = Swap b' a' →
+                                                             simplifyOperations b c = Keep →
+                                                             simplifyOperations a' c = Swap c'' a'' →
+                                                             simplifyOperations b' c'' = Keep.
+  intros.
+  apply simplifyOperations_swap_preserved_under_swap_to_right  with (a:=c) in H as H2.
+  apply simplifyOperations_swap_preserved_under_swap_to_left  with (a:=b') in H1 as H3.
+  apply resolveSameSimplificationKeep in H2; auto.
+  apply resolveSameSimplificationKeep in H3; auto.
+  Qed.
+
+  Lemma simplifyOperationsSwapStable2 : ∀ a b c x a' x', 
+             (simplifyOperations a b = Keep) →
+             (simplifyOperations b c = Keep) →
+             (simplifyOperations x a = Swap a' x') →
+             (simplifyOperations a' c) = Keep.
+  intros.
+  apply simplifyOperations_swap_preserved_under_swap_to_right with (a:=c) in H1 .
+  apply sameSimplificationKeep with (A:=b) (B:=c) in H as H3; auto.
+  apply simplifyOperations_transitive in H3.
+  apply resolveSameSimplificationKeep in H3; auto.
+  apply resolveSameSimplificationKeep in H1; auto.
+  Qed.
+
+  Lemma simplifyOperationRemovedImpliesOpposite: ∀A B, simplifyOperations A B = Remove → A = (AlgebraSig.invert B).
+  apply simplifyOperationRemoveIffOpposites.
+  Qed.
+
+  Lemma simplifyOperationResultReduced : ∀ A B, (simplifyOperations A B) = Keep → A ≠ (AlgebraSig.invert B).
+  intros.
+  intuition.
+  apply simplifyOperationRemoveIffOpposites in H0.
+  rewrite H in H0.
+  discriminate.
+  Qed.
+
+  Lemma simplifyOperationOppositesRemoved : ∀ A, (simplifyOperations (AlgebraSig.invert A) A) = Remove.
+  intros.
+  now apply <-simplifyOperationRemoveIffOpposites.
+  Qed.
+
+  Lemma simplifyOperationsRemoveStable: ∀ a b c d,  simplifyOperations a b = Keep →
+                                                    simplifyOperations b c = Remove →
+                                                    simplifyOperations c d = Keep →
+                                                    simplifyOperations a d = Keep.
+  intros.
+  apply simplifyOperationRemovedImpliesOpposite in H0.
+  rewrite H0 in H.
+  fold OperationsGroupImpl.opposite in H.
+  fold OperationGroup.opposite in H.
+  apply simplifyOperations_keep_preserves_opposites in H.
+  rewrite opposite_involution in H.
+  apply sameSimplificationKeep with (A:=c) (B:=d) in H as H2; auto.
+  apply simplifyOperations_transitive in H2.
+  apply resolveSameSimplificationKeep with (a:=a) (b:=c); auto.
+  Qed.
 
 
   (* Simplification algorithm, basically based on insertion sort *)
@@ -146,7 +249,7 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
         ++ rewrite <-H1 in *.
            rewrite H_X in *.
            apply operation_with_keep_can_be_added_to_simplfied; auto.
-           apply simplifyOperationsSwapStable with (A:=a0) (B:=a1) (C:=b) (A':=A0) (A'':=A1) (B':=B) (C':=B0); auto.
+           apply simplifyOperationsSwapStable with (a:=a0) (b:=a1) (c:=b) (a':=A0) (a'':=A1) (b':=B) (c'':=B0); auto.
            apply IHA.
            rewrite <-H2; auto.
         ++ rewrite H_X.
@@ -161,7 +264,7 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
               clear H_O.
               rewrite H3 in *.
               rewrite H1 in *.
-              apply simplifyOperationsSwapStable2 with (X:=a0) (A:=a) (B:=b) (X':=A0); auto.
+              apply simplifyOperationsSwapStable2 with (x:=a0) (a:=a) (b:=b) (x':=A0); auto.
      * inversion HeqA'.
        assumption.
   Qed.
@@ -551,155 +654,6 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
            assumption.
   Qed.
   
-  Lemma swap_inversion: ∀a b, (AlgebraSig.invert a) = b → a = (AlgebraSig.invert b).
-  Proof.
-  intros.
-  rewrite <-H.
-  now rewrite opInvertInvolution with (a:=a).
-  Qed.
-
-
-
-  Inductive sameSimplification: Operation → Operation → Operation → Operation → Prop := 
-    | sameSimplificationKeep: ∀a b A B, simplifyOperations a b = Keep → simplifyOperations A B = Keep → sameSimplification a b A B
-    | sameSimplificationSwap (b' a' B' A': Operation): ∀a b a' b' A B A' B', simplifyOperations a b = Swap b' a' → simplifyOperations A B = Swap B' A' → sameSimplification a b A B
-    | sameSimplificationRemove: ∀a b A B, simplifyOperations a b = Remove → simplifyOperations A B = Remove → sameSimplification a b A B.
-
-  Lemma resolveSameSimplificationKeep: ∀a b A B, simplifyOperations a b = Keep → (sameSimplification a b A B) → simplifyOperations A B = Keep.
-  intros.
-  destruct H0.
-  - assumption.
-  - rewrite H in H0. discriminate.
-  - rewrite H in H0. discriminate.
-  Qed. 
-
-  Lemma resolveSameSimplificationSwap: ∀a b A B a' b', simplifyOperations a b = Swap b' a' →  (sameSimplification a b A B) →  ∃A' B',simplifyOperations A B = Swap B' A'.
-  intros.
-  destruct H0.
-  - rewrite H in H0. discriminate.
-  - exists A'0. exists B'0. assumption.
-  - rewrite H in H0. discriminate.
-  Qed. 
-
-  Lemma resolveSameSimplificationRemove: ∀a b A B, simplifyOperations a b = Remove → (sameSimplification a b A B) → simplifyOperations A B = Remove.
-  intros.
-  destruct H0.
-  - rewrite H in H0. discriminate.
-  - rewrite H in H0. discriminate.
-  - assumption.
-  Qed.
-
-  Lemma sameSimplificationSymmetric: ∀a b A B, (sameSimplification a b A B) → (sameSimplification A B a b).
-  intros.
-  destruct H.
-  - apply sameSimplificationKeep; auto.
-  - apply sameSimplificationSwap with (a':=A'0) (b':=B'0) (A':=a'0) (B':=b'0); auto.
-  - apply sameSimplificationRemove; auto.
-  Qed.
-
-  Lemma sameSimplificationTransitive: ∀a1 b1 a2 b2 a3 b3, (sameSimplification a1 b1 a2 b2) → (sameSimplification a2 b2 a3 b3) → (sameSimplification a1 b1 a3 b3).
-  intros.
-  destruct H.
-  - apply resolveSameSimplificationKeep in H0; auto. apply sameSimplificationKeep; auto.
-  - apply resolveSameSimplificationSwap with (A:=a3) (B:=b3) in H1; auto. 
-    destruct H1 as [A'1 [B'1 H3]].
-    apply sameSimplificationSwap with (a':=a'0) (b':=b'0) (A':=A'1) (B':=B'1); auto.
-  - apply resolveSameSimplificationRemove in H0; auto. apply sameSimplificationRemove; auto.
-  Qed.
-
-
-  Axiom simplifyOperations_keep_preserves_other_simplifications: ∀a b c, simplifyOperations a b = Keep → sameSimplification a c b c.
-  Axiom simplifyOperations_swap_preserves_other_simplifications_left: ∀a b c a' b', simplifyOperations a b = Swap b' a' → sameSimplification a c a' c.
-  Axiom simplifyOperations_swap_preserves_other_simplifications_right: ∀a b c a' b', simplifyOperations a b = Swap b' a' → sameSimplification b c b' c.
-  Axiom simplifyOperations_opposites_have_same_simplification_left: ∀a b, sameSimplification a b (opposite a) b.
-  Axiom simplifyOperations_opposites_have_same_simplification_right: ∀a b, sameSimplification a b a (opposite b).
-  Axiom simplifyOperations_keep_symmetric: ∀a b, simplifyOperations a b = Keep → simplifyOperations b a = Keep.
-
-  Lemma simplifyOperationsSwapStable3: ∀a b c a' b' c'' a'', simplifyOperations a b = Swap b' a' →
-                                                             simplifyOperations b c = Keep →
-                                                             simplifyOperations a' c = Swap c'' a'' →
-                                                             simplifyOperations b' c'' = Keep.
-  intros.
-  apply simplifyOperations_swap_preserves_other_simplifications_right with (c:=c) in H.
-  apply simplifyOperations_swap_preserves_other_simplifications_right with (c:=b') in H1.
-  apply resolveSameSimplificationKeep in H; auto.
-  apply simplifyOperations_keep_symmetric in H.
-  apply resolveSameSimplificationKeep in H1; auto.
-  apply simplifyOperations_keep_symmetric.
-  auto.
-  Qed.
-
-
-  Lemma simplifyOperationsRemoveStable: ∀ a b c d,  simplifyOperations a b = Keep →
-                                                    simplifyOperations b c = Remove →
-                                                    simplifyOperations c d = Keep →
-                                                    simplifyOperations a d = Keep.
-  intros.
-  apply simplifyOperationRemovedImpliesOpposite in H0.
-  rewrite H0 in H.
-  fold OperationsGroupImpl.opposite in H.
-  fold OperationGroup.opposite in H.
-  specialize simplifyOperations_opposites_have_same_simplification_right with (a:=a) (b:=opposite c) as H_opposites.
-  apply resolveSameSimplificationKeep in H_opposites; auto.
-  rewrite opposite_involution in H_opposites.
-  apply simplifyOperations_keep_preserves_other_simplifications with (c:=d) in H_opposites as H3.
-  apply sameSimplificationSymmetric in H3.
-  apply resolveSameSimplificationKeep with (a:=c) (b:=d); auto.
-  Qed.
-
-  Lemma simplifyOperationsSwapStable : ∀ A B C A' A'' B' C', 
-          (simplifyOperations B C) = Keep →
-          (simplifyOperations A B) = Swap B' A' →
-          (simplifyOperations A' C) = Swap C' A'' →
-          (simplifyOperations B' C') = Keep.
-  intros.
-  apply simplifyOperations_swap_preserves_other_simplifications_right with (c:=C) in H0.
-  apply simplifyOperations_swap_preserves_other_simplifications_right with (c:=B') in H1.
-  apply resolveSameSimplificationKeep in H0; auto.
-  apply simplifyOperations_keep_symmetric in H0.
-
-  apply resolveSameSimplificationKeep in H1; auto.
-  now apply simplifyOperations_keep_symmetric in H1.
-  Qed.
-
-  Lemma simplifyOperationsSwapStable2 : ∀ A B C X A' X', 
-             (simplifyOperations A B = Keep) →
-             (simplifyOperations B C = Keep) →
-             (simplifyOperations X A = Swap A' X') →
-             (simplifyOperations A' C) = Keep.
-  intros.
-  apply simplifyOperations_swap_preserves_other_simplifications_right with (c:=B) in H1.
-  apply resolveSameSimplificationKeep in H1; auto.
-  apply simplifyOperations_keep_preserves_other_simplifications with (c:=C) in H1.
-  apply sameSimplificationSymmetric in H1.
-  apply resolveSameSimplificationKeep in H1; auto.
-  Qed.
-
-  Axiom simplifyOperationRemoveIffOpposites : ∀ A B, (simplifyOperations A B) = Remove <-> A = (AlgebraSig.invert B).
-  Lemma simplifyOperationRemovedImpliesOpposite: ∀A B, simplifyOperations A B = Remove → A = (AlgebraSig.invert B).
-  apply simplifyOperationRemoveIffOpposites.
-  Qed.
-
-  Lemma simplifyOperationResultReduced : ∀ A B, (simplifyOperations A B) = Keep → A ≠ (AlgebraSig.invert B).
-  intros.
-  intuition.
-  apply simplifyOperationRemoveIffOpposites in H0.
-  rewrite H in H0.
-  discriminate.
-  Qed.
-
-  Lemma simplifyOperationOppositesRemoved : ∀ A, (simplifyOperations (AlgebraSig.invert A) A) = Remove.
-  intros.
-  now apply <-simplifyOperationRemoveIffOpposites.
-  Qed.
-
-  Lemma opposites_swap_to_opposites: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations (AlgebraSig.invert a) b' = Swap b (AlgebraSig.invert a').
-  intros.
-  specialize simplifyOperations_opposites_have_same_simplification_left with (a:=a) (b:=b) as H0.
-
-  Axiom opposites_swap_to_opposites2: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations a' (AlgebraSig.invert b) = Swap (AlgebraSig.invert b') a.
-
-
   Lemma simplify_equal_for_swaps: ∀a b a' b' A, (simplifyOperations a b) = Swap b' a' → simplifyOpList ([a; b] ++ A) = simplifyOpList ([b'; a'] ++ A).
   intros.
   rewrite <-simplify_takes_concat_to_composition.
@@ -732,7 +686,7 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
       destruct (simplifyOperations a' c) as [ | c'' a'' | ] eqn:H_simplifyOperations2.
       * now rewrite H_simplifyOperations_b'a'.
       * fold insertOpInSimplifiedOpList.
-        rewrite simplifyOperationsSwapStable3 with (a:=a) (b:=b) (c:=c) (a':=a') (c'':=c'') (a'':=a''); auto.
+        rewrite simplifyOperationsSwapStable with (a:=a) (b:=b) (c:=c) (a':=a') (c'':=c'') (a'':=a''); auto.
       * destruct Z' as [|d Z''].
         -- easy.
         -- rewrite simplifyOperationsRemoveStable with (b:=a') (c:=c); auto.
