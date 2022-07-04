@@ -832,24 +832,24 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     apply simplifyOpList_swaps_with_concat.
   Qed.
 
-  Definition rebaseOperationWithOpList (op: Operation) (ops: opList) (ops_reduced: reduced ops) := 
-    match rebaseOperationWithChangeSet op (CSet {|operations:=ops; operations_reduced:= ops_reduced|}) with
-      | CSet result => operations result
-      | InvalidCSet => []
+  Definition rebaseOperationWithOpList (a: Operation) (ops: opList) := 
+    match (fold_left rebaseOperation ((map (λ x: Operation, Some x)) ops) (Some a)) with
+      | Some op => [op]
+      | None => []
     end.
 
-  (*Lemma cons_respects_opLists_equivalent: ∀ a A B, A ~ B → (a :: A) ~ (a :: B).
-  Proof.
-  intros.
-  induction H; try auto with opListsEquivalence.
-  - pose proof (opLists_equivalent_remove (a :: A) B a0 b).
-    simpl in H0.
-    apply H0; auto.
-  - pose proof (opLists_equivalent_swap (a :: A) B a0 b a' b').
-    simpl in H0.
-    apply H0; auto.
-  - transitivity (a::B); assumption.
-  Qed.*)
+  Fixpoint rebaseOpListWithOpList (A B : opList) {struct A}:= 
+    match A with
+      | [] => []
+      | opA::Atail =>
+          match Atail with
+          | nil => (rebaseOperationWithOpList opA B)
+          | _ =>
+             let R1 := (rebaseOperationWithOpList opA B) in 
+             let R2 := (rebaseOpListWithOpList Atail (squashOpList (inverse_str [opA]) (squashOpList B R1) )) in 
+             (squashOpList R1 R2)
+          end
+  end.
 
   Lemma fold_left_no_error: ∀ A a, ∃ y, fold_left rebaseOperation (map (λ x : Operation, Some x) A) (Some a) = Some y.
       induction A.
@@ -866,6 +866,155 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
         + apply noErrorsDuringRebase in H_reb. contradiction H_reb.
   Qed.
 
+  Lemma rebaseOperationWithOpList_equal_to_rebaseOperationWithChangeSet: ∀a A, 
+    ∃ red, (rebaseOperationWithChangeSet a (CSet A)) = (CSet {|
+      operations := rebaseOperationWithOpList a (operations A);
+      operations_reduced := red;
+  |}).
+  intros.
+  unfold rebaseOperationWithChangeSet.
+  unfold rebaseOperationWithOpList.
+  specialize fold_left_no_error with (a:=a) (A:=operations A) as H_noError.
+  destruct H_noError.
+  rewrite H.
+  exists (single_letter_reduced x).
+  now cbv.
+  Qed.
+
+  Lemma simplify_squash: ∀A B redA redB,
+    CSet {|operations:=A; operations_reduced:=redA |} ○ CSet {|operations:=B; operations_reduced:=redB |} =
+    CSet {|operations:=squashOpList A B ; 
+           operations_reduced:=squashIsReduced A B redA redB |}.
+    intros.
+    now cbv.
+  Qed.
+
+  Lemma rebaseOpListWithOpList_equal_to_rebaseChangeSetOps: ∀A A_reduced B, 
+    ∃ red, (rebaseChangeSetOps A A_reduced (CSet B)) = (CSet {|
+      operations := rebaseOpListWithOpList A (operations B);
+      operations_reduced := red;
+  |}).
+  intros.
+  
+  Ltac rewrite_rebase_operations :=
+    match goal with 
+    |- context [rebaseOperationWithChangeSet ?O (CSet ?X)] => 
+      let H_rewrite := (fresh) in 
+      let idCset := (fresh "red") in 
+      specialize rebaseOperationWithOpList_equal_to_rebaseOperationWithChangeSet with (a:=O) (A:=X) as H_rewrite;
+      destruct H_rewrite as (idCset & H_rewrite);
+      rewrite H_rewrite;
+      clear H_rewrite
+   end.
+  Ltac simplify :=
+    repeat rewrite_rebase_operations;
+    repeat rewrite simplify_squash;
+    unfold opToCs;
+    unfold invert;
+    unfold operations;
+    unfold operations_reduced.
+
+  remember (length A) as lenA.
+  assert_nat(length A ≤ lenA) as H_lenA.
+  clear HeqlenA.
+  revert H_lenA.
+  revert A_reduced.
+  revert A.
+  induction lenA.
+  all: (
+    intros;
+    destruct A;
+    simpl in H_lenA; 
+    try lia
+  ).
+  - exists empty_str_reduced.
+    now cbv.
+  - simpl.
+    exists empty_str_reduced.
+    now cbv. 
+  - destruct A.
+    + rewrite_rebase_operations.
+      now exists red.
+    + destruct A.
+      * rewrite squashAssociative.
+        destruct B.
+        repeat simplify.
+        now match goal with 
+        |- context [{| operations := _; operations_reduced:= ?R |}] => exists R
+        end.
+      * fold rebaseChangeSetOps.
+        fold rebaseOpListWithOpList.
+        destruct A.
+        -- do 2 rewrite squashAssociative.
+           destruct B.
+           repeat simplify.
+           
+            now match goal with 
+            |- context [{| operations := _; operations_reduced:= ?R |}] => exists R
+            end.
+        -- do 2 rewrite squashAssociative.
+           destruct B.
+           repeat simplify.
+           
+            now match goal with 
+            |- context [{| operations := _; operations_reduced:= ?R |}] => exists R
+            end.
+
+           set (z:=squashOpList (rebaseOperationWithOpList o (let (operations0, _) := B in operations0))
+      (squashOpList
+         (rebaseOperationWithOpList o0
+            (squashOpList (inverse_str [o]) (squashOpList (let (operations0, _) := B in operations0) (rebaseOperationWithOpList o (let (operations0, _) := B in operations0)))))
+         (rebaseOperationWithOpList o1
+            (squashOpList
+               (squashOpList (inverse_str [o0])
+                  (squashOpList (inverse_str [o]) (squashOpList (let (operations0, _) := B in operations0) (rebaseOperationWithOpList o (let (operations0, _) := B in operations0)))))
+               (rebaseOperationWithOpList o0
+                  (squashOpList (inverse_str [o]) (squashOpList (let (operations0, _) := B in operations0) (rebaseOperationWithOpList o (let (operations0, _) := B in operations0))))))))).
+            now match goal with 
+            |- context [{| operations := _; operations_reduced:= ?R |}] => exists R
+            end.
+          give_up.
+        --
+        simpl.
+        unfold squash.
+        cbv delta [squash].
+        unfold rebaseOperationWithChangeSet.
+        set (z:=(squashOpList (inverse_str [o0]) (squashOpList (operations B) (rebaseOperationWithOpList o (operations B))))).
+        unfold squash.
+        specialize rebaseOperationWithOpList_equal_to_rebaseOperationWithChangeSet with (a:=o) (A:=z) as H.
+        destruct H.
+        rewrite H.
+        exists x.
+  fold rebaseOpListWithOpList.
+  reflexivity.
+  specialize fold_left_no_error with (a:=a) (A:=operations A) as H_noError.
+  destruct H_noError.
+  rewrite H.
+  exists (single_letter_reduced x).
+  now cbv.
+  Qed.
+  
+  (*Definition rebaseOperationWithOpList (op: Operation) (ops: opList) := 
+    match rebaseOperationWithChangeSet op (CSet {|operations:=(reduction ops); operations_reduced:= (reduction_is_reduced ops)|}) with
+      | CSet result => operations result
+      | InvalidCSet => []
+    end.*)
+
+  (*Lemma cons_respects_opLists_equivalent: ∀ a A B, A ~ B → (a :: A) ~ (a :: B).
+  Proof.
+  intros.
+  induction H; try auto with opListsEquivalence.
+  - pose proof (opLists_equivalent_remove (a :: A) B a0 b).
+    simpl in H0.
+    apply H0; auto.
+  - pose proof (opLists_equivalent_swap (a :: A) B a0 b a' b').
+    simpl in H0.
+    apply H0; auto.
+  - transitivity (a::B); assumption.
+  Qed.*)
+
+
+
   Lemma remove_inverses_from_fold_left_rebaseOperation: ∀ y a0 B, fold_left rebaseOperation
       (map (λ x : Operation, Some x) (a0 :: (a0⁻¹)%O :: B)) (Some y) = fold_left rebaseOperation
       (map (λ x : Operation, Some x) B) (Some y). 
@@ -881,14 +1030,17 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
             + apply noErrorsDuringRebase in H_reb. contradiction H_reb.
   Qed.
 
-  Lemma rebaseOperationWithChangeSet_equiv: ∀a A A' A_reduced A'_reduced, A ~ A' → 
-                                            rebaseOperationWithOpList a A A_reduced ~ 
-                                            rebaseOperationWithOpList a A' A'_reduced.
+  Lemma rebaseOperationWithChangeSet_equiv: ∀a A A', A ~ A' →
+                                            rebaseOperationWithOpList a A ~ 
+                                            rebaseOperationWithOpList a A'.
   intros.
-  unfold rebaseOperationWithOpList.
-  unfold rebaseOperationWithChangeSet.
-  unfold operations.
-  induction H.
+  induction H; auto with opListsEquivalence.
+  3: transitivity (rebaseOperationWithOpList a B); auto.
+  all: (
+    unfold rebaseOperationWithOpList;
+    unfold rebaseOperationWithChangeSet;
+    unfold operations
+  ).
   - do 2 rewrite map_app.
     do 2 rewrite fold_left_app.
     apply simplifyOperationRemoveIffOpposites in H.
@@ -908,7 +1060,7 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
 
     simpl.
     now rewrite simplifyOperationsSwapCompatibleWithRebase with (1:=H).
-  - 
+  Qed.
 
 
         
