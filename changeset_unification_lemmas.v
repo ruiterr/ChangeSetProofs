@@ -41,7 +41,7 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
 
 
   Axiom simplifyOperationsSwapCompatibleWithRebase : ∀ A B A' B' C, (simplifyOperations A B) = (Swap A' B') → 
-                                                                 ((Some C) ↷ ((Some A) ↷ (Some B)) = (Some C) ↷ ((Some A') ↷ (Some B')))%OO.
+                                                                 ((Some C) ↷ (Some A) ↷ (Some B) = (Some C) ↷ (Some A') ↷ (Some B'))%OO.
   Axiom simplifyOperationsRemoveCompatibleWithRebase : ∀ A B C, (simplifyOperations A B) = Remove → 
                                                              ((Some C) ↷ ((Some A) ↷ (Some B)) = (Some C))%OO.
   Inductive sameSimplification: Operation → Operation → Operation → Operation → Prop := 
@@ -900,7 +900,17 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     specialize fold_left_no_error with (a:=a) (A:=A) as H_fold.
     destruct H_fold. rewrite H0.
     now rewrite remove_inverses_from_fold_left_rebaseOperation.
+  - do 4 rewrite map_app.
+    do 4 rewrite fold_left_app.
+
+    specialize fold_left_no_error with (a:=a) (A:=A) as H_fold.
+    destruct H_fold. rewrite H0.
+
+    simpl.
+    now rewrite simplifyOperationsSwapCompatibleWithRebase with (1:=H).
   - 
+
+
         
         simpl.
    now rewrite H0.
