@@ -55,6 +55,11 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
   Axiom simplifyOperations_double_swap: ∀a b c a' b' c'' b'', simplifyOperations a b = Swap b' a' → simplifyOperations b c = Swap c'' b'' → ∃b''', simplifyOperations a' c = Swap c b'''.
   Axiom simplifyOperations_right_argument_preserved_in_swap: ∀a b a' b', simplifyOperations a b = Swap b' a' → b = b'.
 
+  (*a_r = a ↷ b ↷ c
+  a_r' = a ↷ c ↷ (b ↷ c)*)
+  Axiom simplifyOperations_swap_over_inverses: ∀a b c b_a a_b c_a a_c c_b b_c c_a_b a_b_c, simplifyOperations a b = Swap b_a a_b → simplifyOperations a c = Swap c_a a_c → simplifyOperations b c = Swap c_b b_c → 
+                                                              simplifyOperations a_b c = Swap c_a_b a_b_c → simplifyOperations a_c b_c = Swap b_c a_b_c.
+
   Axiom simplifyOperations_keep_preserves_opposites: ∀a b, (simplifyOperations a b) = Keep → (simplifyOperations a (AlgebraSig.invert b)) = Keep.
   Axiom simplifyOperationRemoveIffOpposites : ∀ A B, (simplifyOperations A B) = Remove <-> A = (AlgebraSig.invert B).
   Axiom opposites_swap_to_opposites: ∀a b a' b', simplifyOperations a b = Swap b' a' → simplifyOperations (AlgebraSig.invert a) b' = Swap b (AlgebraSig.invert a').
@@ -656,15 +661,6 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
            assumption.
   Qed.
 
-  (*a_r = a ↷ b ↷ c
-  a_r' = a ↷ c ↷ (b ↷ c)*)
-  Lemma simplifyOperations_swap_over_inverses: ∀a b c b_a a_b c_a a_c c_b b_c c_a_b a_b_c, simplifyOperations a b = Swap b_a a_b → simplifyOperations a c = Swap c_a a_c → simplifyOperations b c = Swap c_b b_c → 
-                                                              simplifyOperations a_b c = Swap c_a_b a_b_c → simplifyOperations a_c b_c = Swap b_c a_b_c.
-  intros.
-
-  Admitted.
-
-
   Lemma simplify_equal_for_swaps: ∀a b a' b' A, (simplifyOperations a b) = Swap b' a' → simplifyOpList ([a; b] ++ A) = simplifyOpList ([b'; a'] ++ A).
   intros.
   rewrite <-simplify_takes_concat_to_composition.
@@ -835,7 +831,6 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     unfold operations.
     apply simplifyOpList_swaps_with_concat.
   Qed.
-
 
       (*a b => b' a'
       b c => c'' b''
