@@ -1006,6 +1006,49 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     now rewrite simplifyOperationsSwapCompatibleWithRebase with (1:=H).
   Qed.
 
+  Add Parametric Morphism: (@rebaseOperationWithOpList) with signature
+    (@eq Operation) ==> (opLists_equivalent) ==> (opLists_equivalent) as
+    revaseOperationWithOpList_mor.
+  intros.
+  apply rebaseOperationWithChangeSet_equiv.
+  assumption.
+  Qed.
+
+  Add Parametric Morphism: (@squashOpList) with signature
+    (@opLists_equivalent) ==> (opLists_equivalent) ==> (opLists_equivalent) as
+    squashOpList_mor.
+  intros.
+  rewrite <-simplifyOpList_equiv with (A:=squashOpList x x0).
+  rewrite <-simplifyOpList_equiv with (A:=squashOpList y y0).
+  unfold squashOpList.
+  unfold reduced_string_product.
+  do 2 rewrite simplifyOpList_reduces.
+  do 2 rewrite simplifyOpList_equiv.
+  rewrite H.
+  rewrite H0.
+  reflexivity.
+  Qed.
+
+  Lemma rebaseOperationWithChangeSet_param2_equiv: ∀A B B', B ~ B' →
+                                                   rebaseOpListWithOpList A B ~ 
+                                                   rebaseOpListWithOpList A B'.
+  intros.
+  revert H.
+  revert B.
+  revert B'.
+  induction A.
+  - reflexivity.
+  - intros.
+    unfold rebaseOpListWithOpList.
+    fold rebaseOpListWithOpList.
+    
+    destruct A.
+    + now rewrite H.
+    + rewrite H at 1.
+      rewrite IHA with (B':=(squashOpList (inverse_str [a]) (squashOpList B' (rebaseOperationWithOpList a B')))).
+      reflexivity.
+      * now repeat rewrite H.
+  Qed.
 
         
         simpl.
