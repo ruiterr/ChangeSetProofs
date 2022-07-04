@@ -832,6 +832,79 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     apply simplifyOpList_swaps_with_concat.
   Qed.
 
+  Definition rebaseOperationWithOpList (op: Operation) (ops: opList) (ops_reduced: reduced ops) := 
+    match rebaseOperationWithChangeSet op (CSet {|operations:=ops; operations_reduced:= ops_reduced|}) with
+      | CSet result => operations result
+      | InvalidCSet => []
+    end.
+
+  (*Lemma cons_respects_opLists_equivalent: ∀ a A B, A ~ B → (a :: A) ~ (a :: B).
+  Proof.
+  intros.
+  induction H; try auto with opListsEquivalence.
+  - pose proof (opLists_equivalent_remove (a :: A) B a0 b).
+    simpl in H0.
+    apply H0; auto.
+  - pose proof (opLists_equivalent_swap (a :: A) B a0 b a' b').
+    simpl in H0.
+    apply H0; auto.
+  - transitivity (a::B); assumption.
+  Qed.*)
+
+  Lemma fold_left_no_error: ∀ A a, ∃ y, fold_left rebaseOperation (map (λ x : Operation, Some x) A) (Some a) = Some y.
+      induction A.
+      - cbv.
+        intros.
+        now exists a.
+      - rewrite map_cons.
+        simpl.
+        intros.
+        destruct (Some a0 ↷ Some a)%OO eqn:H_reb.
+        + destruct IHA with (a:=o).
+          rewrite H.
+          now exists x.
+        + apply noErrorsDuringRebase in H_reb. contradiction H_reb.
+  Qed.
+
+  Lemma remove_inverses_from_fold_left_rebaseOperation: ∀ y a0 B, fold_left rebaseOperation
+      (map (λ x : Operation, Some x) (a0 :: (a0⁻¹)%O :: B)) (Some y) = fold_left rebaseOperation
+      (map (λ x : Operation, Some x) B) (Some y). 
+        intros.
+        do 2 rewrite map_cons.
+        simpl.
+        specialize rebaseOperatrionRightDistibutivity with (A:=y) (B:=a0) as H_duplicates.
+        replace (Some (a0⁻¹)%O) with ((Some a0)⁻¹)%OO. 2: { now cbv. }
+        destruct H_duplicates.
+        - now rewrite H.
+        - destruct ( (Some y) ↷ (Some a0))%OO eqn:H_reb.
+            + apply noErrorsDuringRebase in H. contradiction H.
+            + apply noErrorsDuringRebase in H_reb. contradiction H_reb.
+  Qed.
+
+  Lemma rebaseOperationWithChangeSet_equiv: ∀a A A' A_reduced A'_reduced, A ~ A' → 
+                                            rebaseOperationWithOpList a A A_reduced ~ 
+                                            rebaseOperationWithOpList a A' A'_reduced.
+  intros.
+  unfold rebaseOperationWithOpList.
+  unfold rebaseOperationWithChangeSet.
+  unfold operations.
+  induction H.
+  - do 2 rewrite map_app.
+    do 2 rewrite fold_left_app.
+    apply simplifyOperationRemoveIffOpposites in H.
+    symmetry in H.
+    apply swap_inversion in H.
+    rewrite H.
+
+
+    specialize fold_left_no_error with (a:=a) (A:=A) as H_fold.
+    destruct H_fold. rewrite H0.
+    now rewrite remove_inverses_from_fold_left_rebaseOperation.
+  - 
+        
+        simpl.
+   now rewrite H0.
+        
       (*a b => b' a'
       b c => c'' b''
       a' c => c a'
