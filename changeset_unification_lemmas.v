@@ -1050,9 +1050,146 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
       * now repeat rewrite H.
   Qed.
 
-        
-        simpl.
-   now rewrite H0.
+  Add Parametric Morphism: (@squashOpList) with signature
+    (@group_str_equiv) ==> (group_str_equiv) ==> (group_str_equiv) as
+    squashOpList_reduced_mor.
+  intros.
+  (*rewrite <-simplifyOpList_equiv with (A:=squashOpList x x0).
+  rewrite <-simplifyOpList_equiv with (A:=squashOpList y y0).
+  unfold squashOpList.
+  unfold reduced_string_product.
+  do 2 rewrite simplifyOpList_reduces.
+  do 2 rewrite simplifyOpList_equiv.
+  rewrite H.
+  rewrite H0.
+  reflexivity.*)
+  give_up.
+  Admitted.
+
+  Lemma reduced_str_empty: ∀ A,  reduced_string_product [] A = reduction A.
+  intros.
+  unfold reduced_string_product.
+  simpl.
+  reflexivity.
+  Qed.
+
+
+  (*Lemma rebaseOperationWithChangeSet_param2_reduced_equiv: ∀A B B', B ~~ B' →
+                                                            rebaseOpListWithOpList A B ~~ 
+                                                            rebaseOpListWithOpList A B'.
+  intros.
+  revert H.
+  revert B.
+  revert B'.
+  induction A.
+  - reflexivity.
+  - intros.
+    unfold rebaseOpListWithOpList.
+    fold rebaseOpListWithOpList.
+    
+    destruct A.
+    + now rewrite H.
+    + rewrite H at 1.
+      rewrite IHA with (B':=(squashOpList (inverse_str [a]) (squashOpList B' (rebaseOperationWithOpList a B')))).
+      reflexivity.
+      * now repeat rewrite H.
+  Qed.*)
+  Lemma rebaseOpList_app: ∀ A B C, rebaseOpListWithOpList (A++B) C ~ (squashOpList (rebaseOpListWithOpList A C) (rebaseOpListWithOpList B (squashOpList (inverse_str A) (squashOpList C (rebaseOpListWithOpList A C))))).
+  (*intros.
+  revert C.
+  induction A.
+  - intros.
+    simpl ([] ++ B).
+    simpl ((rebaseOpListWithOpList [] C)).
+    unfold squashOpList.
+    repeat rewrite reduced_str_empty.
+    simpl.
+    rewrite reduced_str_empty.
+    simpl.
+  - intros.
+    rewrite <-app_comm_cons.
+    unfold rebaseOpListWithOpList at 1.
+    fold rebaseOpListWithOpList.
+    destruct (A++B) eqn:H_A_B.
+    + apply app_eq_nil in H_A_B.
+      destruct H_A_B as (H_A & H_B).
+      rewrite H_A.
+      rewrite H_B.
+      exists [].
+      simpl (rebaseOpListWithOpList [] []).
+      unfold squashOpList.
+      rewrite reduced_string_product_equiv_to_concat.
+      simpl.
+      now rewrite <-app_nil_end.
+    + set (X':=(squashOpList (inverse_str [a]) (squashOpList C (rebaseOperationWithOpList a C)))).
+      specialize IHA with (C:=X').
+      destruct IHA.
+      exists X'.
+      rewrite H.
+      unfold rebaseOpListWithOpList at 3.
+      fold rebaseOpListWithOpList.
+      fold X'.
+      destruct A.
+      * give_up.
+      * destruct A.
+        ++ give_up.
+        ++ *)
+  Admitted.
+
+
+  (*Lemma rebaseChangeSet_equiv: ∀ A A' B, A ~~ A' → rebaseOpListWithOpList A B ~~ rebaseOpListWithOpList A' B.
+  intros.
+  revert B.
+  induction H.
+  - give_up. 
+  - unfold rebaseOpListWithOpList.
+    fold rebaseOpListWithOpList.
+    destruct A.
+    + give_up.
+    + intros.
+      unfold rebaseOpListWithOpList.
+      fold rebaseOpListWithOpList.
+      destruct A.
+      * give_up.
+      * rewrite <-IHA.
+        unfold rebaseOpListWithOpList.
+        fold rebaseOpListWithOpList.*)
+
+  Lemma rebase_opposite_eqiv: ∀a B C, (rebaseOpListWithOpList B C) ~ (rebaseOpListWithOpList ((opposite a)::a::B) C).
+  Admitted.
+  
+  Lemma rebase_swap_eqiv: ∀a b a' b' C, simplifyOperations a b = Swap b' a' → (rebaseOpListWithOpList [a; b] C) ~ (rebaseOpListWithOpList [b'; a'] C).
+  Admitted.
+
+  Lemma rebase_invert_eqiv: ∀a b a' b', simplifyOperations a b = Swap b' a' → (inverse_str [a; b]) ~ (inverse_str [b'; a']).
+  Admitted.
+
+  Lemma rebaseOpListWithOpList_equiv: ∀A A' B B', A ~ A' → B ~ B' →
+                                                  rebaseOpListWithOpList A B ~ 
+                                                  rebaseOpListWithOpList A' B'.
+  intros.
+  rewrite rebaseOperationWithChangeSet_param2_equiv with (B:=B') (B':=B). 2: symmetry; assumption.
+  
+  induction H; auto with opListsEquivalence.
+  - do 2 rewrite rebaseOpList_app.
+    apply simplifyOperationRemoveIffOpposites in H.
+    rewrite H.
+    set (Z:=(squashOpList (inverse_str A) (squashOpList B (rebaseOpListWithOpList A B)))).
+    rewrite <-rebase_opposite_eqiv.
+    reflexivity.
+  - repeat rewrite rebaseOpList_app.
+    set (Z':=  (squashOpList (inverse_str A) (squashOpList B (rebaseOpListWithOpList A B)))).
+    rewrite rebase_swap_eqiv with (1:=H) at 1.
+    rewrite rebaseOperationWithChangeSet_param2_equiv with 
+      (B:=(squashOpList (inverse_str [a; b]) (squashOpList Z' (rebaseOpListWithOpList [a; b] Z')))) 
+      (B':=(squashOpList (inverse_str [b'; a']) (squashOpList Z' (rebaseOpListWithOpList [b'; a'] Z')))).
+    reflexivity.
+    rewrite rebase_invert_eqiv with (1:=H).
+    rewrite rebase_swap_eqiv with (1:=H).
+    reflexivity.
+  - transitivity (rebaseOpListWithOpList B0 B); assumption.
+  Qed.
+  
         
       (*a b => b' a'
       b c => c'' b''
