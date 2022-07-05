@@ -1154,11 +1154,42 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
       * rewrite <-IHA.
         unfold rebaseOpListWithOpList.
         fold rebaseOpListWithOpList.*)
+  Definition makeReducedCS (ops: opList) := CSet {| 
+    operations := simplifyOpList ops;
+    operations_reduced := simplifyOpList_reduced ops
+  |}.
+
+  Lemma squashOpList_app_equiv: ∀ A B, (squashOpList A B) ~ A++B.
+  intros.
+  rewrite <-simplifyOpList_equiv with (A:=squashOpList A B).
+  unfold squashOpList.
+  unfold reduced_string_product.
+  rewrite simplifyOpList_reduces.
+  rewrite simplifyOpList_equiv with (A:=A++B).
+  reflexivity.
+  Qed.
+  (*Lemma rebase_rebaseOperationWithOpList_rebaseCS_equiv: rebaseOperationWithOpList a (a0 :: C) ~ (opToCS A) ↷ 
 
   Lemma rebase_opposite_eqiv: ∀a B C, (rebaseOpListWithOpList B C) ~ (rebaseOpListWithOpList ((opposite a)::a::B) C).
-  Admitted.
+  Admitted.*)
   
   Lemma rebase_swap_eqiv: ∀a b a' b' C, simplifyOperations a b = Swap b' a' → (rebaseOpListWithOpList [a; b] C) ~ (rebaseOpListWithOpList [b'; a'] C).
+  intros.
+  unfold rebaseOpListWithOpList.
+  rewrite <-simplifyOpList_equiv with (A:=C).
+  remember (simplifyOpList C) as C'.
+  specialize simplifyOpList_simplified with (A:=C) as H_C'simplified.
+  rewrite <-HeqC' in H_C'simplified.
+  clear HeqC'.
+  clear C.
+  repeat rewrite squashOpList_app_equiv.
+
+  unfold inverse_str.
+  repeat rewrite app_nil_l.
+  induction C'.
+  - give_up.
+  - rewrite cons_to_app.
+    rewrite <-app_assoc.
   Admitted.
 
   Lemma rebase_invert_eqiv: ∀a b a' b', simplifyOperations a b = Swap b' a' → (inverse_str [a; b]) ~ (inverse_str [b'; a']).
