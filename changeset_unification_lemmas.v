@@ -1280,7 +1280,16 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     remember ( (((Some b ↷ Some (opposite a)) ↷ Some c0) ↷ (Some a ↷ Some c0)%OO)%OO ) as b0.
     symmetry in Heqb0.
     destruct b0 as [b0|].
-    2: { give_up. }
+    2: { 
+      set (x:=(Some a ↷ Some c0)%OO) in *.
+      destruct x eqn:H_x; try (apply noErrorsDuringRebase in H_x; contradiction).
+      set (x':=(Some b ↷ Some (opposite a))%OO) in *.
+      destruct x' eqn:H_x'; try (apply noErrorsDuringRebase in H_x'; contradiction).
+      set (x'':=(Some o0 ↷ Some c0)%OO) in *.
+      destruct x'' eqn:H_x''; try (apply noErrorsDuringRebase in H_x''; contradiction).
+      apply noErrorsDuringRebase in Heqb0.
+      contradiction.
+    }
 
     rewrite rebase_pair_equiv with (a0:=a0) (b0:=b0); auto.
 
@@ -1293,8 +1302,16 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     remember ( (((Some a' ↷ Some (opposite b')) ↷ Some c0) ↷ (Some b' ↷ Some c0)%OO)%OO ) as a'0.
     symmetry in Heqa'0.
     destruct a'0 as [a'0|].
-    2: { give_up. }
-
+    2: { 
+      set (x:=(Some b' ↷ Some c0)%OO) in *.
+      destruct x eqn:H_x; try (apply noErrorsDuringRebase in H_x; contradiction).
+      set (x':=(Some a' ↷ Some (opposite b'))%OO) in *.
+      destruct x' eqn:H_x'; try (apply noErrorsDuringRebase in H_x'; contradiction).
+      set (x'':=(Some o0 ↷ Some c0)%OO) in *.
+      destruct x'' eqn:H_x''; try (apply noErrorsDuringRebase in H_x''; contradiction).
+      apply noErrorsDuringRebase in Heqa'0.
+      contradiction.
+    }
 
     rewrite rebase_pair_equiv with (a0:=b'0) (b0:=a'0); auto.
     assert (simplifyOperations a0 b0 = Swap b'0 a'0) as H_simplifyOperations2. { (*Here the magic happens*) give_up. }
