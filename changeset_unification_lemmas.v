@@ -1248,6 +1248,14 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   now inversion H0.
   Qed.
 
+  Lemma rebaseSwap: ∀ a b a' b' a0 b0 c0 a'0 b'0, simplifyOperations a b = Swap b' a' →
+                                                  (Some a ↷ Some c0)%OO = Some a0 →
+                                                  (Some b ↷ Some (opposite a) ↷ Some c0 ↷ (Some a ↷ Some c0))%OO = Some b0 →
+                                                  (Some b' ↷ Some c0)%OO = Some b'0 →
+                                                  (Some a' ↷ Some (opposite b') ↷ Some c0 ↷ (Some b' ↷ Some c0))%OO = Some a'0 →
+                                                  simplifyOperations a0 b0 = Swap b'0 a'0.
+  Admitted.
+
   Lemma rebase_swap_eqiv: ∀a b a' b' C, simplifyOperations a b = Swap b' a' → (rebaseOpListWithOpList [a; b] C) ~ (rebaseOpListWithOpList [b'; a'] C).
   intros.
 
@@ -1314,7 +1322,7 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     }
 
     rewrite rebase_pair_equiv with (a0:=b'0) (b0:=a'0); auto.
-    assert (simplifyOperations a0 b0 = Swap b'0 a'0) as H_simplifyOperations2. { (*Here the magic happens*) give_up. }
+    specialize rebaseSwap with (1:=H) (2:=Heqa0) (3:=Heqb0) (4:=Heqb'0) (5:=Heqa'0) as H_simplifyOperations2.
 
     specialize (IHlenC) with (C:=C) (2:=H_simplifyOperations2).
 
@@ -1327,8 +1335,7 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     apply IHlenC.
     simpl in HeqlenC.
     lia.
-Admitted.
-
+  Qed.
 
   Lemma rebase_swap_eqiv: ∀a b a' b' C, simplifyOperations a b = Swap b' a' → (rebaseOpListWithOpList [a; b] C) ~ (rebaseOpListWithOpList [b'; a'] C).
   intros.
