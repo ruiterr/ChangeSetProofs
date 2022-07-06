@@ -1178,11 +1178,141 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   auto.
   Qed.
 
-  (*Lemma rebase_rebaseOperationWithOpList_rebaseCS_equiv: rebaseOperationWithOpList a (a0 :: C) ~ (opToCS A) ↷ 
+  (*Lemma rebase_rebaseOperationWithOpList_rebaseCS_equiv: rebaseOperationWithOpList a (a0 :: C) ~ (opToCS A) ↷ *)
 
   Lemma rebase_opposite_eqiv: ∀a B C, (rebaseOpListWithOpList B C) ~ (rebaseOpListWithOpList ((opposite a)::a::B) C).
-  Admitted.*)
+  Admitted.
   
+  Lemma opposites_empty_equiv: ∀a, [opposite a; a] ~ []. 
+  intros.
+  specialize opLists_equivalent_remove with (A:=[]) (B:=[]) as H.
+  simpl in H.
+  rewrite <-H.
+  reflexivity.
+  apply simplifyOperationRemoveIffOpposites.
+  now cbv.
+  Qed.
+
+  Lemma rebase_pair_equiv: ∀a b a0 b0 c0 C,   (Some a ↷ Some c0)%OO = Some a0 → 
+                                                 (((Some b ↷ Some (opposite a)) ↷ Some c0) ↷ (Some a ↷ Some c0)%OO)%OO = Some b0 → 
+                                                 (rebaseOpListWithOpList [a; b] (c0::C) ) ~ rebaseOperationWithOpList a0 C ++ rebaseOperationWithOpList b0 (opposite a0 :: C ++ rebaseOperationWithOpList a0 C).
+  intros.
+  unfold rebaseOpListWithOpList.
+  repeat rewrite squashOpList_app_equiv.
+
+  unfold inverse_str.
+  repeat rewrite app_nil_l.
+
+  rewrite cons_to_app.
+  rewrite <-app_assoc.
+  repeat rewrite <-cons_to_app.
+
+  Ltac rewriteRebaseOperationWithOpList op1 op2 :=
+    let rebasedName := (fresh "X") in
+    let rebasedNameEqn := (fresh "H_eq" op1) in
+    let rebasedNameDestructEqn := (fresh "X3") in
+    let newName := (fresh op1) in
+    remember (Some op1 ↷ Some op2)%OO as rebasedName eqn:rebasedNameEqn;
+    symmetry in rebasedNameEqn;
+    destruct rebasedName as [newName|];
+    only 2: ( apply noErrorsDuringRebase in rebasedNameEqn; contradiction );
+    rewrite rebaseOperationWithOpList_cons with (c:=newName) (1:=rebasedNameEqn); auto.
+
+  rewriteRebaseOperationWithOpList a c0.
+
+  assert (∀ x o : Operation, x :: c0 :: C ~ x :: c0 :: o :: (opposite o) :: C) as H_insert_opposites. {
+    intros.
+    rewrite cons_to_app.
+    rewrite cons_to_app with (a:=c0).
+    rewrite cons_to_app with (l:=c0 :: o :: opposite o :: C).
+    rewrite cons_to_app with (l:= o :: opposite o :: C).
+    apply opLists_equivalent_remove with (A:=[x]++[c0]) (B:=C).
+    specialize opInvertInvolution with (a:=o) as H_inv.
+    unfold opposite.
+    unfold OperationsGroupImpl.opposite.
+    rewrite <-H_inv.
+    rewrite H_inv at 2.
+    apply simplifyOperationOppositesRemoved.
+  }
+
+  do 2 rewrite app_comm_cons.
+  rewrite H_insert_opposites with (x:=opposite a) (o:=a1).
+  repeat rewrite <-app_comm_cons.
+
+
+  rewriteRebaseOperationWithOpList b (opposite a).
+  rewriteRebaseOperationWithOpList b1 c0.
+  rewriteRebaseOperationWithOpList b2 a1.
+
+  inversion H.
+  now inversion H0.
+  Qed.
+
+  Lemma rebase_swap_eqiv: ∀a b a' b' C, simplifyOperations a b = Swap b' a' → (rebaseOpListWithOpList [a; b] C) ~ (rebaseOpListWithOpList [b'; a'] C).
+  intros.
+
+  remember (length C) as lenC.
+  revert H.
+  revert a b a' b'.
+  revert HeqlenC.
+  revert C.
+  induction lenC.
+  - intros.
+    unfold rebaseOpListWithOpList.
+    repeat rewrite squashOpList_app_equiv.
+
+    unfold inverse_str.
+    repeat rewrite app_nil_l.
+    destruct C; try ( simpl in HeqlenC; lia).
+    cbn.
+    do 2 rewrite opposites_empty_equiv.
+    cbn.
+    apply opLists_equivalent_swap with (A:=[]) (B:=[]).
+    auto.
+  - intros.
+    destruct C as [|c0 C]. 1: {simpl  in HeqlenC. lia. }
+
+    remember ((Some a ↷ Some c0)%OO) as a0.
+    symmetry in Heqa0.
+    destruct a0 as [a0|].
+    2: { apply noErrorsDuringRebase in Heqa0. contradiction. } 
+
+    remember ( (((Some b ↷ Some (opposite a)) ↷ Some c0) ↷ (Some a ↷ Some c0)%OO)%OO ) as b0.
+    symmetry in Heqb0.
+    destruct b0 as [b0|].
+    2: { give_up. }
+
+    rewrite rebase_pair_equiv with (a0:=a0) (b0:=b0); auto.
+
+
+    remember ((Some b' ↷ Some c0)%OO) as b'0.
+    symmetry in Heqb'0.
+    destruct b'0 as [b'0|].
+    2: { apply noErrorsDuringRebase in Heqb'0. contradiction. } 
+
+    remember ( (((Some a' ↷ Some (opposite b')) ↷ Some c0) ↷ (Some b' ↷ Some c0)%OO)%OO ) as a'0.
+    symmetry in Heqa'0.
+    destruct a'0 as [a'0|].
+    2: { give_up. }
+
+
+    rewrite rebase_pair_equiv with (a0:=b'0) (b0:=a'0); auto.
+    assert (simplifyOperations a0 b0 = Swap b'0 a'0) as H_simplifyOperations2. { (*Here the magic happens*) give_up. }
+
+    specialize (IHlenC) with (C:=C) (2:=H_simplifyOperations2).
+
+    unfold rebaseOpListWithOpList in IHlenC.
+    repeat rewrite squashOpList_app_equiv in IHlenC.
+    unfold inverse_str in IHlenC.
+    repeat rewrite app_nil_l in IHlenC.
+    rewrite <-cons_to_app in IHlenC.
+    rewrite <-cons_to_app in IHlenC.
+    apply IHlenC.
+    simpl in HeqlenC.
+    lia.
+Admitted.
+
+
   Lemma rebase_swap_eqiv: ∀a b a' b' C, simplifyOperations a b = Swap b' a' → (rebaseOpListWithOpList [a; b] C) ~ (rebaseOpListWithOpList [b'; a'] C).
   intros.
   unfold rebaseOpListWithOpList.
@@ -1261,7 +1391,9 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
       rewrite H_eqb1.
       auto.
     }
-    Lemma rebase_pair_forward: ∀a b a' b' a0 b0 C, (Some a' ↷ Some (opposite b'))%OO = Some a'0 → (Some b1 ↷ Some a0)%OO = Some b2 → (rebaseOpListWithOpList [a; b] C) ~ rebaseOperationWithOpList a0 C ++ rebaseOperationWithOpList b0 (opposite a0 :: C ++ rebaseOperationWithOpList a0 C).
+    Lemma rebase_pair_forward: ∀a b a' b' a0 b0 C, (Some a' ↷ Some (opposite b'))%OO = Some a0 → 
+                                                   (((Some b ↷ Some (opposite a)) ↷ Some c0) ↷ (Some a ↷ Some c0)%OO)%OO = Some b0 → 
+                                                   (rebaseOpListWithOpList [a; b] C) ~ rebaseOperationWithOpList a0 C ++ rebaseOperationWithOpList b0 (opposite a0 :: C ++ rebaseOperationWithOpList a0 C).
 
     assert (simplifyOperations a0 b2 = Swap b'0 a'2) as H_swappedSimplifyOperations. { give_up. }
     rewrite IHlenC with (2:=H_swappedSimplifyOperations) (C:=C).
