@@ -1254,6 +1254,15 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     rewriteRebaseOperationWithOpList a'0 c0.
     rewriteRebaseOperationWithOpList a'1 b'0.
 
+    assert ( (((Some b ↷ Some (opposite a)) ↷ Some c0) ↷ (Some a ↷ Some c0)%OO)%OO = Some b2 ). {
+      rewrite H_eqb.
+      rewrite H_eqb0.
+      rewrite H_eqa.
+      rewrite H_eqb1.
+      auto.
+    }
+    Lemma rebase_pair_forward: ∀a b a' b' a0 b0 C, (Some a' ↷ Some (opposite b'))%OO = Some a'0 → (Some b1 ↷ Some a0)%OO = Some b2 → (rebaseOpListWithOpList [a; b] C) ~ rebaseOperationWithOpList a0 C ++ rebaseOperationWithOpList b0 (opposite a0 :: C ++ rebaseOperationWithOpList a0 C).
+
     assert (simplifyOperations a0 b2 = Swap b'0 a'2) as H_swappedSimplifyOperations. { give_up. }
     rewrite IHlenC with (2:=H_swappedSimplifyOperations) (C:=C).
     2: { simpl in HeqlenC. lia. }
