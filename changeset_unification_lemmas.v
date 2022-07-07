@@ -42,6 +42,12 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
 
   Axiom simplifyOperationsSwapCompatibleWithRebase : ∀ A B A' B' C, (simplifyOperations A B) = (Swap A' B') → 
                                                                  ((Some C) ↷ (Some A) ↷ (Some B) = (Some C) ↷ (Some A') ↷ (Some B'))%OO.
+  Axiom rebaseSwap: ∀ a b a' b' a0 b0 c0 a'0 b'0, simplifyOperations a b = Swap b' a' →
+                                                  (Some a ↷ Some c0)%OO = Some a0 →
+                                                  (Some b ↷ Some (AlgebraSig.invert a) ↷ Some c0 ↷ (Some a ↷ Some c0))%OO = Some b0 →
+                                                  (Some b' ↷ Some c0)%OO = Some b'0 →
+                                                  (Some a' ↷ Some (AlgebraSig.invert b') ↷ Some c0 ↷ (Some b' ↷ Some c0))%OO = Some a'0 →
+                                                  simplifyOperations a0 b0 = Swap b'0 a'0.
   Axiom simplifyOperationsRemoveCompatibleWithRebase : ∀ A B C, (simplifyOperations A B) = Remove → 
                                                              ((Some C) ↷ ((Some A) ↷ (Some B)) = (Some C))%OO.
   Inductive sameSimplification: Operation → Operation → Operation → Operation → Prop := 
@@ -1214,14 +1220,6 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     * rewrite opposite_involution. auto.
   Qed.
 
-  Lemma rebaseSwap: ∀ a b a' b' a0 b0 c0 a'0 b'0, simplifyOperations a b = Swap b' a' →
-                                                  (Some a ↷ Some c0)%OO = Some a0 →
-                                                  (Some b ↷ Some (opposite a) ↷ Some c0 ↷ (Some a ↷ Some c0))%OO = Some b0 →
-                                                  (Some b' ↷ Some c0)%OO = Some b'0 →
-                                                  (Some a' ↷ Some (opposite b') ↷ Some c0 ↷ (Some b' ↷ Some c0))%OO = Some a'0 →
-                                                  simplifyOperations a0 b0 = Swap b'0 a'0.
-  Admitted.
-
   Lemma rebase_swap_eqiv: ∀a b a' b' C, simplifyOperations a b = Swap b' a' → (rebaseOpListWithOpList [a; b] C) ~ (rebaseOpListWithOpList [b'; a'] C).
   intros.
 
@@ -1437,7 +1435,9 @@ Lemma rebaseOpList_left_distributivity: ∀ A B C, rebaseOpListWithOpList (A++B)
     reflexivity.
   - transitivity (rebaseOpListWithOpList B0 B); assumption.
   Qed.
-  
+
+
+End SimplificationLemmas.
         
       (*a b => b' a'
       b c => c'' b''
