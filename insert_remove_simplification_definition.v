@@ -426,6 +426,28 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   apply rewriteOpRebaseToCs; auto.
   Qed.
 
+  Axiom simplifyOperationsSwapCompatibleWithRebase : ∀ A B A' B' C, (simplifyOperations A B) = (Swap B' A') → 
+                                                                 ((Some C) ↷ (Some A) ↷ (Some B) = (Some C) ↷ (Some B') ↷ (Some A'))%OO.
+
+  Lemma simplifyOperationsPositionOffset: ∀a b a', simplifyOperations a b = Swap b a' → (getOperationType b = InsertOperation ∧ getOpP a' > (getOpP b) + 1) ∨
+                                                                                        (getOperationType b = RemoveOperation ∧ getOpP a' ≥ getOpP b).
+  intros.
+  unfold simplifyOperations in H.
+  destruct (Op_eqb (a⁻¹)%O) eqn:H_abNotInverses; try discriminate.
+  destruct (getOpP a <=? getOpP b) eqn:H_not_pALepB; try discriminate.
+  destruct (getOperationType b) eqn:H_operationType.
+  1: left.
+  2: right.
+  all: (
+    split; auto;
+    inversion H;
+    unfold getOpP in *;
+    destruct b; try discriminate;
+    destruct a; simpl;
+    solve_nat
+  ).
+  Qed.
+
   Lemma rebaseOperation_leftAssociativity: ∀a b c a', simplifyOperations a b = Swap b a' → (Some a' ↷ Some (b⁻¹)%O ↷ Some c ↷ (Some b ↷ Some c)%OO = (Some a' ↷ Some c))%OO.
   intros.
   unfold Operation in *.
@@ -433,6 +455,38 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   assert (simplifyOperations a b = Swap b a') as H1'. auto.
   unfold simplifyOperations in H.
   
+  specialize simplifyOperationsPositionOffset with (1:=H) as H_a'Cmpb.
+  destruct H_a'Cmpb as [[H_bInsert H_a'Gtb] | [H_bRemove H_a'Geb]].
+  - assert (getOpP a' > getOpP b + 1) as H_a'GtbInv; auto.
+    rewrite inverse_has_same_P with (a:=b) in H_a'GtbInv.
+    set (x':=(Some a' ↷ Some (b⁻¹)%O)%OO).
+    destruct x' as [x|  ] eqn:H_x'.
+    assert (getOpP x = getOpP a' - 1) as H_xGtb. give_up.
+    destruct (getOpP x ?= getOpP c) eqn:H_xCmpC.
+    + apply nat_compare_eq in H_xCmpC.
+      assert_nat (getOpP c > getOpP b) as H_cGtb.
+      specialize ops_unmodified_by_larger_op_in_rebase with (1:=H_cGtb) as H0.
+      unfold Operation in *. rewrite H0 in *. clear H0.
+      set (y := (Some x ↷ Some c)%OO).
+      destruct y as [y'|] eqn:H_y. 2: { apply noErrorsDuringRebase in H_y; contradiction. }
+      assert (getOpP y' ≥ getOpP c). give_up.
+      give_up.
+    + apply nat_compare_Lt_lt in H_xCmpC.
+      unfold Operation.
+      specialize ops_unmodified_by_larger_op_in_rebase with (a:=x) (b:=c) as H_xc. unfold Operation in H_xc. rewrite H_xc. clear H_xc. 2: lia.
+      assert_nat (getOpP x > getOpP b).
+      assert_nat (getOpP c > getOpP b).
+      specialize ops_unmodified_by_larger_op_in_rebase with (a:=b) (b:=c) as H_bc. unfold Operation in H_bc. rewrite H_bc. clear H_bc. 2: lia.
+      
+      unfold Operation in *.
+      rewrite <-H_x'.
+      unfold x'.
+  Admitted.
+      (*assert_nat (getOpP a' < getOpP c).
+      specialize ops_unmodified_by_larger_op_in_rebase with (a:=a') (b:=c) as H_a'c. unfold Operation in H_a'c. rewrite H_a'c. clear H_a'c. 2: lia.
+      
+      
+    
   assert (getOpP a' >= getOpP b). {
     destruct (Op_eqb (a⁻¹)%O) eqn:H_abNotInverses; try discriminate.
     destruct (getOpP a <=? getOpP b) eqn:H_not_pALepB; try discriminate.
@@ -472,7 +526,7 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
     specialize ops_unmodified_by_larger_op_in_rebase with (1:=H_a'Gtb).*)
 
 
-  Ltac convertRebaseToCs a1 b1 :=
+  (*Ltac convertRebaseToCs a1 b1 :=
     let H1 := (fresh "H_rebA") in
     let H2 := (fresh "H_rebB") in
     let x := (fresh "x") in
@@ -493,7 +547,7 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
     symmetry.
     specialize rebaseLeftDistibutivity with (A:=opToCs b) (B:=opToCs a') (C:=opToCs c) as H_leftDistrib.
     repeat rewrite rebaseRightDistibutivity in H_leftDistrib.
-  Admitted.
+  Admitted.*)
     (*apply rebaseLeftDistibutivity.
 
   specialize convertRebaseToCs with (a:=a) (b:= (b⁻¹)%O) as H_reb1. destruct H_reb1. destruct H as ( H_reb1A & H_reb1b ). rewrite H_reb1A.
@@ -531,6 +585,45 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
 
 (*  ((invertOperationOption ((Some A) ↷  (Some B)))  = (invertOperationOption (Some A)) ↷ (invertOperationOption (Some A)) ↷ (Some B) ↷ ((Some A) ↷ (Some B)) *)
 
+  Definition A := Insert 0 2 "x" 0 (ms_create_from_list []).
+  Definition B := InsertRemoveOperationDefinition.Insert 1 1 "y" 0 (ms_create_from_list []).
+  Definition A' := Insert 0 3 "x" 0 (ms_create_from_list []).
+  Eval compute in simplifyOperations A B = Swap B A'.
+  Definition C := InsertRemoveOperationDefinition.Remove 2 3 "z" 0 (ms_create_from_list []).
+
+  Lemma eqSwap: simplifyOperations A B = Swap B A'.
+  cbv.
+  auto.
+  Qed.
+
+  Definition A0 :=  (Some A ↷ Some C)%OO.
+  Definition B0 :=  (Some B ↷ Some (InsertRemoveOperationDefinition.invert A) ↷ Some C ↷ (Some A ↷ Some C))%OO.
+  Definition B'0 :=  (Some B ↷ Some C)%OO.
+  Definition A'0 :=  (Some A' ↷ Some (InsertRemoveOperationDefinition.invert B) ↷ Some C ↷ (Some B ↷ Some C))%OO.
+
+
+  Lemma test: ∀A0_ B0_ B'0_ A'0_, A0 = Some A0_ → B0 = Some B0_ → B'0 = Some B'0_ → A'0 = Some A'0_ → simplifyOperations A0_ B0_ = Swap B'0_ A'0_.
+  intros.
+  cbv in H.
+  cbv in H0.
+  cbv in H1.
+  cbv in H2.
+  inversion H.
+  inversion H0.
+  inversion H1.
+  inversion H2.
+  
+  cbv.
+  auto.
+  Definition X1 := (Some A' ↷ Some C)%OO.
+  Definition X2 := (Some A' ↷ Some (B⁻¹)%O ↷ Some C ↷ (Some B ↷ Some C))%OO.
+
+  Eval compute in X1 = X2.
+  Eval compute in (Some A ↷ Some (B⁻¹)%O ↷ Some C ↷ (Some B ↷ Some C))%OO.
+
+
+  Check A.
+  
   Lemma rebaseSwap: ∀ a b a' b' a0 b0 c0 a'0 b'0, simplifyOperations a b = Swap b' a' →
                                                   (Some a ↷ Some c0)%OO = Some a0 →
                                                   (Some b ↷ Some (InsertRemoveOperationDefinition.invert a) ↷ Some c0 ↷ (Some a ↷ Some c0))%OO = Some b0 →

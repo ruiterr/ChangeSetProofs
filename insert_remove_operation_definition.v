@@ -214,16 +214,16 @@ give_up.
 Admitted.*)
 
 Create HintDb solve_rebase.
-Hint Rewrite Nat.eqb_refl : solve_rebase.
-Hint Rewrite Nat.ltb_irrefl : solve_rebase.
-Hint Rewrite Z.add_simpl_r : solve_rebase.
-Hint Rewrite andb_true_r : solve_rebase.
-Hint Rewrite orb_false_r : solve_rebase.
-Hint Rewrite multiset_insert_remove : solve_rebase.
-Hint Rewrite multiset_remove_insert : solve_rebase.
-Hint Rewrite multiset_contains_insert : solve_rebase.
-Hint Rewrite Nat.add_sub : solve_rebase.
-Hint Rewrite Z.sub_add : solve_rebase.
+#[export] Hint Rewrite Nat.eqb_refl : solve_rebase.
+#[export] Hint Rewrite Nat.ltb_irrefl : solve_rebase.
+#[export] Hint Rewrite Z.add_simpl_r : solve_rebase.
+#[export] Hint Rewrite andb_true_r : solve_rebase.
+#[export] Hint Rewrite orb_false_r : solve_rebase.
+#[export] Hint Rewrite multiset_insert_remove : solve_rebase.
+#[export] Hint Rewrite multiset_remove_insert : solve_rebase.
+#[export] Hint Rewrite multiset_contains_insert : solve_rebase.
+#[export] Hint Rewrite Nat.add_sub : solve_rebase.
+#[export] Hint Rewrite Z.sub_add : solve_rebase.
 
 
 
@@ -458,7 +458,7 @@ Definition RemoveRange (i:nat) (p:nat) (l:nat) (str: string) :=
     ) (list_ascii_of_string (substring p l str)) (⊘, 0))).
 
 
-Eval compute in (InsertRange 0 5 "test").
+(*Eval compute in (InsertRange 0 5 "test").
 Eval compute in (RemoveRange 0 2 2 "test").
  
 Eval compute in (applyChangeSet "Hello World" (InsertRange 0 6 "cruel ")).
@@ -499,6 +499,6 @@ Definition RebasedChangesFromClient3 := (nth 0 rebasedChangesClient3 ⦻) ○ (n
 Eval compute in applyChangeSet "" (BaseChange ○ ChangesFromClient1 ○ RebasedChangesFromClient2 ○ RebasedChangesFromClient3).
 
 Definition rebasedWithInverse := (rebaseChangeSets [RebasedChangesFromClient2; RebasedChangesFromClient3] (ChangesFromClient1⁻¹)).
-Eval compute in applyChangeSet "" (BaseChange ○ (nth 0 rebasedWithInverse ⦻) ○ (nth 1 rebasedWithInverse ⦻)).
+Eval compute in applyChangeSet "" (BaseChange ○ (nth 0 rebasedWithInverse ⦻) ○ (nth 1 rebasedWithInverse ⦻)).*)
 
 

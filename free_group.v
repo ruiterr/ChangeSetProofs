@@ -665,5 +665,5 @@ End MyFirstGroup.
 Module MyGroup := FreeGroups MyFirstGroup.
 From Coq Require Import List. Import ListNotations.
 
-Eval compute in (MyFirstGroup.alphabet_eq_dec MyFirstGroup.Op MyFirstGroup.Op).
-Eval compute in (MyGroup.reduced_string_product [ MyFirstGroup.Op ; MyFirstGroup.Op ] [MyFirstGroup.Op_inv; MyFirstGroup.Op]).
+(*Eval compute in (MyFirstGroup.alphabet_eq_dec MyFirstGroup.Op MyFirstGroup.Op).
+Eval compute in (MyGroup.reduced_string_product [ MyFirstGroup.Op ; MyFirstGroup.Op ] [MyFirstGroup.Op_inv; MyFirstGroup.Op]).*)

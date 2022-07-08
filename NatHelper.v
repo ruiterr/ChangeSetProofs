@@ -5,12 +5,16 @@ Require Coq.Structures.OrdersFacts.
 Require Import Unicode.Utf8.
 Require Import Lia.
 
-Hint Rewrite Nat.eqb_eq : nat_bool.
-Hint Rewrite Nat.eqb_neq : nat_bool.
-Hint Rewrite Nat.ltb_nlt : nat_bool.
-Hint Rewrite Nat.ltb_lt : nat_bool.
-Hint Rewrite Nat.leb_nle : nat_bool.
-Hint Rewrite Nat.leb_le : nat_bool.
+#[export] Hint Rewrite Nat.eqb_eq : nat_bool.
+#[export] Hint Rewrite Nat.eqb_neq : nat_bool.
+#[export] Hint Rewrite Nat.ltb_nlt : nat_bool.
+#[export] Hint Rewrite Nat.ltb_lt : nat_bool.
+#[export] Hint Rewrite Nat.leb_nle : nat_bool.
+#[export] Hint Rewrite Nat.leb_le : nat_bool.
+(*#[export] Hint Rewrite nat_compare_eq using easy : nat_bool.
+#[export] Hint Rewrite nat_compare_Gt_gt using easy : nat_bool.
+#[export] Hint Rewrite nat_compare_Lt_lt using easy : nat_bool.*)
+
 
 Lemma bool_eq_symmetry_true: ∀ (b:bool), true = b -> b = true.
 auto.

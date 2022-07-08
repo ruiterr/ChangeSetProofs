@@ -192,7 +192,9 @@ assert (this0 = this1). {
             }
             rewrite H_findSecond in H.
             discriminate.
-         - assert_nat (p0_k < p_k) as H_p_kGt_p0.
+         - 
+           rewrite_nat.
+            assert_nat (p0_k < p_k) as H_p_kGt_p0.
             specialize H with (y:=p0_k).
 
             assert ((find (elt:=nat) p0_k {| this := (p0_k, p0_v) :: this1; sorted := sorted1 |}) = Some p0_v) as H_findFirst. { 

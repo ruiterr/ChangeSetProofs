@@ -40,8 +40,8 @@ Module Type OperationSimplificationDef (AlgebraSig : SingleOperationAlgebraSig).
   Axiom simplifyOperationsInvolutive : ∀ A B A' B', (simplifyOperations A B) = (Swap B' A') → (simplifyOperations B' A') = Keep.
 
 
-  Axiom simplifyOperationsSwapCompatibleWithRebase : ∀ A B A' B' C, (simplifyOperations A B) = (Swap A' B') → 
-                                                                 ((Some C) ↷ (Some A) ↷ (Some B) = (Some C) ↷ (Some A') ↷ (Some B'))%OO.
+  Axiom simplifyOperationsSwapCompatibleWithRebase : ∀ A B A' B' C, (simplifyOperations A B) = (Swap B' A') → 
+                                                                 ((Some C) ↷ (Some A) ↷ (Some B) = (Some C) ↷ (Some B') ↷ (Some A'))%OO.
   Axiom rebaseSwap: ∀ a b a' b' a0 b0 c0 a'0 b'0, simplifyOperations a b = Swap b' a' →
                                                   (Some a ↷ Some c0)%OO = Some a0 →
                                                   (Some b ↷ Some (AlgebraSig.invert a) ↷ Some c0 ↷ (Some a ↷ Some c0))%OO = Some b0 →

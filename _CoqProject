@@ -1,7 +1,5 @@
--R . ChangeSets
+-R . Top
 NatHelper.v
-move_semantics.v
-basicOperationChangeSets.v
 multiset.v
 free_group.v
 single_operation_algebra.v
