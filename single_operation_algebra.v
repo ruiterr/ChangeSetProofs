@@ -2508,6 +2508,18 @@ Qed.
  
 Print Assumptions rebaseRightDistibutivity.
 End distributivityProofsChangeSet2.
+
+  Ltac resolveRebaseNotNone H :=
+    contradict H;
+    autounfold in *;
+    repeat match goal with 
+      |- context[(Some ?x1 ↷ Some ?x2)%OO] => 
+        let X := (fresh "X") in 
+        let X_eq:= (fresh "H_X") in 
+        set (X:=(Some ((x1):ops.Operation) ↷ Some ((x2):ops.Operation))%OO) in *;
+        destruct X eqn:X_eq; try (apply ops.noErrorsDuringRebase in X_eq; contradiction)
+    end;
+    discriminate.
 End SingleOperationAlgebra.
 
 

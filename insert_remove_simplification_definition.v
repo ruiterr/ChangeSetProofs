@@ -331,6 +331,7 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
                                                    (Some b  ↷ Some c)%OO = Some b0 →
                                                    ((Some a' ↷ Some b) ↷ Some c)%OO = Some a'0 →
                                                    simplifyOperations a0 b0 = Swap b0 a'0.
+  intros.
   Admitted.
 
   (*Lemma rebaseWithAInverse2: ∀ a b a', simplifyOperations a b = Swap b a' → (Some a ↷ Some (b⁻¹)%O)%OO = Some b.
@@ -448,7 +449,7 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   ).
   Qed.
 
-  Lemma rebaseOperation_leftAssociativity: ∀a b c a', simplifyOperations a b = Swap b a' → (Some a' ↷ Some (b⁻¹)%O ↷ Some c ↷ (Some b ↷ Some c)%OO = (Some a' ↷ Some c))%OO.
+  Lemma rebaseOperation_leftAssociativity: ∀a b c a', simplifyOperations a b = Swap b a' → (Some a' ↷ Some (b⁻¹)%O ↷ Some c ↷ (Some b ↷ Some c)%OO = (Some a' ↷ Some b ↷ Some c))%OO.
   intros.
   unfold Operation in *.
 
@@ -597,9 +598,9 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   Qed.
 
 
-  (*Definition A0 :=  (Some A ↷ Some C)%OO.
+  Definition A0 :=  (Some A ↷ Some C)%OO.
   Definition B'0 :=  (Some B ↷ Some C)%OO.
-  Definition A''0 :=  ((Some A' ↷ Some B) ↷ Some C)%OO.
+  Definition A''0 :=  (Some A' ↷ (Some C ↷ Some B))%OO.
 
   Lemma test: ∀A0_ B'0_ A''0_, A0 = Some A0_ → B'0 = Some B'0_ → A''0 = Some A''0_ → simplifyOperations A0_ B'0_ = Swap B'0_ A''0_.
   intros.
@@ -613,7 +614,7 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   cbv.
   auto.
  
-H_simplifyOperationsRebasedWithC : simplifyOperations a0 b'0 = Swap b'0 a''0
+(*H_simplifyOperationsRebasedWithC : simplifyOperations a0 b'0 = Swap b'0 a''0
 
 H0 : (Some a ↷ Some c0)%OO = Some a0
 H1 : (Some b ↷ Some c0 ↷ (Some a ↷ Some c0))%OO = Some b0
@@ -671,7 +672,7 @@ H_simplifyOperationsRebasedWithC : simplifyOperations a0 b'0 = Swap b'0 a''0*)
   remember ( (Some a' ↷ Some b) ↷ Some c0)%OO as a''0.
   destruct a''0 as [a''0|].
   all: symmetry in Heqa''0.
-  (*2: {apply noErrorsDuringRebase in Heqa''0. contradiction. }*)
+  2: { resolveRebaseNotNone Heqa''0. }
   rewrite rebaseWithAInverse1 with (1:=H) in *.
 
   specialize swapAfterRebase with (1:=H) (2:=H0) (3:=H2) (4:=Heqa''0) (c:=c0) as H_simplifyOperationsRebasedWithC; auto.

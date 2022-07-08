@@ -1140,18 +1140,6 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
   now inversion H0.
   Qed.
 
-  Ltac resolveRebaseNotNone H :=
-    contradict H;
-    autounfold in *;
-    repeat match goal with 
-      |- context[(Some ?x1 ↷ Some ?x2)%OO] => 
-        let X := (fresh "X") in 
-        let X_eq:= (fresh "H_X") in 
-        set (X:=(Some ((x1):Operation) ↷ Some ((x2):Operation))%OO) in *;
-        destruct X eqn:X_eq; try (apply noErrorsDuringRebase in X_eq; contradiction)
-    end;
-    discriminate.
-
   Lemma rebase_opposite_eqiv: ∀a C, (rebaseOpListWithOpList [(opposite a); a] C) ~ [].
   intros.
 
