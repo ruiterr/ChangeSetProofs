@@ -329,7 +329,7 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   Lemma swapAfterRebase: ∀ a b a' a0 b0 a'0 c, simplifyOperations a b = Swap b a' → 
                                                    (Some a  ↷ Some c)%OO = Some a0 →
                                                    (Some b  ↷ Some c)%OO = Some b0 →
-                                                   (Some a' ↷ Some c)%OO = Some a'0 →
+                                                   ((Some a' ↷ Some b) ↷ Some c)%OO = Some a'0 →
                                                    simplifyOperations a0 b0 = Swap b0 a'0.
   Admitted.
 
@@ -583,7 +583,7 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
 
   Qed.*)
 
-(*  ((invertOperationOption ((Some A) ↷  (Some B)))  = (invertOperationOption (Some A)) ↷ (invertOperationOption (Some A)) ↷ (Some B) ↷ ((Some A) ↷ (Some B)) *)
+  (* ((invertOperationOption ((Some A) ↷  (Some B)))  = (invertOperationOption (Some A)) ↷ (invertOperationOption (Some A)) ↷ (Some B) ↷ ((Some A) ↷ (Some B)) *)
 
   Definition A := Insert 0 2 "x" 0 (ms_create_from_list []).
   Definition B := InsertRemoveOperationDefinition.Insert 1 1 "y" 0 (ms_create_from_list []).
@@ -596,7 +596,40 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   auto.
   Qed.
 
-  Definition A0 :=  (Some A ↷ Some C)%OO.
+
+  (*Definition A0 :=  (Some A ↷ Some C)%OO.
+  Definition B'0 :=  (Some B ↷ Some C)%OO.
+  Definition A''0 :=  ((Some A' ↷ Some B) ↷ Some C)%OO.
+
+  Lemma test: ∀A0_ B'0_ A''0_, A0 = Some A0_ → B'0 = Some B'0_ → A''0 = Some A''0_ → simplifyOperations A0_ B'0_ = Swap B'0_ A''0_.
+  intros.
+  cbv in H.
+  cbv in H0.
+  cbv in H1.
+  inversion H.
+  inversion H0.
+  inversion H1.
+  
+  cbv.
+  auto.
+ 
+H_simplifyOperationsRebasedWithC : simplifyOperations a0 b'0 = Swap b'0 a''0
+
+H0 : (Some a ↷ Some c0)%OO = Some a0
+H1 : (Some b ↷ Some c0 ↷ (Some a ↷ Some c0))%OO = Some b0
+H2 : (Some b ↷ Some c0)%OO = Some b'0
+H3 : (Some a' ↷ Some (b⁻¹)%O ↷ Some c0 ↷ (Some b ↷ Some c0))%OO = Some a'0
+a''0 : Operation
+Heqa''0 : (Some a' ↷ Some c0)%OO = Some a''0
+H_simplifyOperationsRebasedWithC : simplifyOperations a0 b'0 = Swap b'0 a''0*)
+
+  Definition X1 := (Some A' ↷ Some B ↷ Some C)%OO.
+  Definition X2 := (Some A' ↷ Some (B⁻¹)%O ↷ Some C ↷ (Some B ↷ Some C))%OO.
+
+  Eval compute in X1 = X2.
+  Eval compute in (Some A ↷ Some (B⁻¹)%O ↷ Some C ↷ (Some B ↷ Some C))%OO.
+
+  (*Definition A0 :=  (Some A ↷ Some C)%OO.
   Definition B0 :=  (Some B ↷ Some (InsertRemoveOperationDefinition.invert A) ↷ Some C ↷ (Some A ↷ Some C))%OO.
   Definition B'0 :=  (Some B ↷ Some C)%OO.
   Definition A'0 :=  (Some A' ↷ Some (InsertRemoveOperationDefinition.invert B) ↷ Some C ↷ (Some B ↷ Some C))%OO.
@@ -622,7 +655,7 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   Eval compute in (Some A ↷ Some (B⁻¹)%O ↷ Some C ↷ (Some B ↷ Some C))%OO.
 
 
-  Check A.
+  Check A.*)
   
   Lemma rebaseSwap: ∀ a b a' b' a0 b0 c0 a'0 b'0, simplifyOperations a b = Swap b' a' →
                                                   (Some a ↷ Some c0)%OO = Some a0 →
@@ -635,10 +668,10 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   rewrite <-H_b' in *.
   clear H_b' b'.
 
-  remember (Some a' ↷ Some c0)%OO as a''0.
+  remember ( (Some a' ↷ Some b) ↷ Some c0)%OO as a''0.
   destruct a''0 as [a''0|].
   all: symmetry in Heqa''0.
-  2: {apply noErrorsDuringRebase in Heqa''0. contradiction. }
+  (*2: {apply noErrorsDuringRebase in Heqa''0. contradiction. }*)
   rewrite rebaseWithAInverse1 with (1:=H) in *.
 
   specialize swapAfterRebase with (1:=H) (2:=H0) (3:=H2) (4:=Heqa''0) (c:=c0) as H_simplifyOperationsRebasedWithC; auto.
