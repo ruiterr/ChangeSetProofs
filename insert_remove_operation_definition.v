@@ -415,17 +415,18 @@ intros.
 now cbv.
 Qed.
 
+Ltac destructIf := try match goal with
+    | [ |- context[if ?X then _ else _ ] ] => 
+        destruct X;
+        try discriminate
+end.
+
 Lemma noErrorsDuringRebase: ∀A B, (Some A ↷ Some B)%OO = None → False.
 intros.
 destruct A.
 all: destruct B.
 all: unfold rebaseOperation in H.
 all: contradict H.
-Ltac destructIf := try match goal with
-    | [ |- context[if ?X then _ else _ ] ] => 
-        destruct X;
-        try discriminate
-end.
 
 all: repeat destructIf.
 Qed.

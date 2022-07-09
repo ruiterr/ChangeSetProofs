@@ -326,12 +326,122 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   Qed.*)
   Admitted.
 
-  Lemma swapAfterRebase: ∀ a b a' a0 b0 a'0 c, simplifyOperations a b = Swap b a' → 
+  Lemma swap_updatePositionWithRebase: ∀a b (z:Z), ∃x, (z=1 ∨ z = -1)%Z → (Some a ↷ Some b)%OO = Some x ∧
+                                                                         (Some (updateOpPosition a z) ↷ Some (updateOpPosition b z))%OO = Some (updateOpPosition x 1).
+  intros.
+  Admitted.
+
+  Lemma rebaseWithSmallerOperation: ∀a b, getOpP b < getOpP a →
+                                            ∃z:Z,
+                                            (getOperationType b = InsertOperation →  z = (1)%Z) ∧
+                                            (getOperationType b = RemoveOperation →  z = (-1)%Z) ∧
+                                            (
+                                              ((Some a  ↷ Some b)%OO = Some (updateOpPosition a z)) ∨
+                                              ((Some a  ↷ Some b)%OO = Some a)
+                                            ).
+  intros.
+  unfold rebaseOperation.
+  destruct b.
+  1: exists (1)%Z.
+  2: exists (-1)%Z.
+
+ 
+  all: (
+    split; try (now cbv);
+    split; try (now cbv);
+    simpl in H;
+    destruct (negb (getOpP a =? p) && ((getOpI a =? i) || ms_contains i (getOpS a) && (c =? 0)%Z)); try (right; easy);
+    assert_nat (p <? getOpP a = true); rewrite H0;
+    destruct (c =? 0)%Z;
+    ( left; destruct a; now cbv ) + ( right; easy )
+  ).
+  Qed.
+
+  Lemma rebaseWithInsertPGeP: ∀a b a', getOperationType b = InsertOperation → 
+                                       (Some a  ↷ Some b)%OO = Some a' →
+                                       getOpP a' ≥ getOpP a.
+  Admitted.
+
+  Lemma swapAfterRebase: ∀ a b a' a0 b0 a'0 c c', simplifyOperations a b = Swap b a' → 
+                                                  simplifyOperations c b = Swap b c' → 
                                                    (Some a  ↷ Some c)%OO = Some a0 →
                                                    (Some b  ↷ Some c)%OO = Some b0 →
-                                                   ((Some a' ↷ Some b) ↷ Some c)%OO = Some a'0 →
+                                                   (Some a' ↷ Some c')%OO = Some a'0 →
                                                    simplifyOperations a0 b0 = Swap b0 a'0.
   intros.
+  assert (simplifyOperations a b = Swap b a') as H1'. auto.
+  unfold simplifyOperations in H.
+  unfold simplifyOperations in H0.
+  
+  destruct (Op_eqb (a⁻¹)%O) eqn:H_abNotInverses; try discriminate.
+  destruct (Op_eqb (c⁻¹)%O) eqn:H_cbNotInverses; try discriminate.
+  destruct (getOpP a <=? getOpP b) eqn:H_not_pALepB; try discriminate.
+  destruct (getOpP c <=? getOpP b) eqn:H_not_pCLepB; try discriminate.
+
+  rewrite ops_unmodified_by_larger_op_in_rebase in H2; try solve_nat.
+  
+  destruct (getOperationType b) eqn:opTypeB.
+  - inversion H.
+    inversion H0.
+    rewrite <-H5 in *.
+    rewrite <-H6 in *.
+
+    specialize swap_updatePositionWithRebase with (a:=a) (b:=c) (z:=(1)%Z) as H_swapUpdate.
+    destruct H_swapUpdate as [x [H_x H_swapUpdate]]. lia.
+    rewrite H_swapUpdate in H3.
+
+    destruct c.
+    + assert (getOpP a0 ≥ getOpP a). {
+        specialize rebaseWithInsertPGeP with (2:=H1) as H_a'0Gta.
+        apply H_a'0Gta; now cbv.
+      }
+      unfold simplifyOperations.
+      assert (Op_eqb (a0⁻¹)%O b0=false) as H_notInverses. give_up.
+      rewrite H_notInverses.
+      inversion H2.
+      rewrite H8 in *.
+      assert_nat (getOpP a0 <=? getOpP b0 = false) as H_notSmaller.
+      rewrite H_notSmaller.
+      rewrite opTypeB.
+      inversion H3.
+      rewrite H_x in H1.
+      now inversion H1.
+    + unfold simplifyOperations.
+      
+   (* specialize rebaseWithSmallerOperation with (a:=a) (b:=c) as H_shiftInA.
+    assert (getOpP a0 > getOpP b0). {
+      unfold rebaseOperation in H1.
+      unfold rebaseOperation in H2.
+      destruct c eqn:H_c.
+      destruct (getOpP a =? p) eqn:H_pAweqpC.
+      - simpl in H1. 
+        assert_nat (p <? getOpP a = false). rewrite H4 in H1. simpl in H1.
+
+      Ltac destructIf H tactic := try match (type of H) with
+          | context[if ?X then _ else _ ]  => 
+              idtac X;
+              let newH := (fresh "H_dest") in
+              destruct X eqn:newH;
+              try tactic
+      end.
+
+      Ltac trySolve := 
+        inversion H1;
+        inversion H2;
+      lia.
+      eauto 6.
+
+      destructIf H1 trySolve.
+      trySolve.
+      
+      destruct (negb (getOpP a =? p) && ((getOpI a =? i) || ms_contains i (getOpS a) && (c =? 0)%Z)).
+
+
+    assert (getOpP (updateOpPosition a 1) > getOpP b). {
+      destruct a; destruct b.
+      all: cbn; cbn in H_not_pALepB; solve_nat.
+    }
+    rewrite ops_unmodified_by_larger_op_in_rebase.*)
   Admitted.
 
   (*Lemma rebaseWithAInverse2: ∀ a b a', simplifyOperations a b = Swap b a' → (Some a ↷ Some (b⁻¹)%O)%OO = Some b.
@@ -587,10 +697,10 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   (* ((invertOperationOption ((Some A) ↷  (Some B)))  = (invertOperationOption (Some A)) ↷ (invertOperationOption (Some A)) ↷ (Some B) ↷ ((Some A) ↷ (Some B)) *)
 
   Definition A := Insert 0 2 "x" 0 (ms_create_from_list []).
-  Definition B := InsertRemoveOperationDefinition.Insert 1 1 "y" 0 (ms_create_from_list []).
-  Definition A' := Insert 0 3 "x" 0 (ms_create_from_list []).
+  Definition B := InsertRemoveOperationDefinition.Remove 1 1 "y" 0 (ms_create_from_list []).
+  Definition A' := Insert 0 1 "x" 0 (ms_create_from_list []).
   Eval compute in simplifyOperations A B = Swap B A'.
-  Definition C := InsertRemoveOperationDefinition.Remove 2 3 "z" 0 (ms_create_from_list []).
+  Definition C := InsertRemoveOperationDefinition.Remove 2 1 "z" 0 (ms_create_from_list []).
 
   Lemma eqSwap: simplifyOperations A B = Swap B A'.
   cbv.
@@ -628,7 +738,7 @@ H_simplifyOperationsRebasedWithC : simplifyOperations a0 b'0 = Swap b'0 a''0*)
   Definition X2 := (Some A' ↷ Some (B⁻¹)%O ↷ Some C ↷ (Some B ↷ Some C))%OO.
 
   Eval compute in X1 = X2.
-  Eval compute in (Some A ↷ Some (B⁻¹)%O ↷ Some C ↷ (Some B ↷ Some C))%OO.
+  Eval compute in (Some A ↷ Some (B⁻¹)%O ↷ Some C ↷ (Some B ↷ Some C))%OO.*)
 
   (*Definition A0 :=  (Some A ↷ Some C)%OO.
   Definition B0 :=  (Some B ↷ Some (InsertRemoveOperationDefinition.invert A) ↷ Some C ↷ (Some A ↷ Some C))%OO.
