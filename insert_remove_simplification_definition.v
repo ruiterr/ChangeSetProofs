@@ -71,8 +71,13 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
     if Op_eqb (InsertRemoveOperationDefinition.invert A) B then
       Remove
     else
-      if (getOpP A) <=? (getOpP B) then
+      if (getOpP A) <? (getOpP B) then
         Keep
+      else if (getOpP A) =? (getOpP B) then
+        match A, B with
+          | Insert _ _ _ _ _, InsertRemoveOperationDefinition.Remove _ _ _ _ _=> Swap B A
+          | _, _ => Keep
+        end
       else
         match (getOperationType B) with
           | InsertOperation =>
@@ -91,9 +96,13 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   intros.
   unfold simplifyOperations in H.
   destruct (Op_eqb (a⁻¹)%O b); try discriminate.
-  destruct (getOpP a <=? getOpP b); try discriminate.
-  destruct (getOperationType b).
-  all: now inversion H.
+  destruct (getOpP a <? getOpP b) eqn:H_aLtB; try discriminate.
+  destruct (getOpP a =? getOpP b); try discriminate.
+  - destruct a.
+    + destruct b; try discriminate. now inversion H.
+    + discriminate.
+  - destruct (getOperationType b).
+    all: now inversion H.
   Qed.
 
   Lemma simplifyOperations_swap_preserved_under_swap_to_right: ∀a b c b' c', simplifyOperations b c = Swap c' b' → sameSimplification c a c' a.
@@ -700,13 +709,15 @@ Module InsertRemoveOperationSimplificationDefinition <: OperationSimplificationD
   Definition B := InsertRemoveOperationDefinition.Remove 1 1 "y" 0 (ms_create_from_list []).
   Definition A' := Insert 0 1 "x" 0 (ms_create_from_list []).
   Eval compute in simplifyOperations A B = Swap B A'.
-  Definition C := InsertRemoveOperationDefinition.Remove 2 1 "z" 0 (ms_create_from_list []).
+  Definition C := InsertRemoveOperationDefinition.Remove 1 1 "z" 0 (ms_create_from_list []).
 
   Lemma eqSwap: simplifyOperations A B = Swap B A'.
   cbv.
   auto.
   Qed.
 
+  Eval compute in ([Some A ↷ Some C; Some B ↷ Some C])%OO.
+  Eval compute in ([Some B ↷ Some C; Some A' ↷ Some C])%OO.
 
   Definition A0 :=  (Some A ↷ Some C)%OO.
   Definition B'0 :=  (Some B ↷ Some C)%OO.

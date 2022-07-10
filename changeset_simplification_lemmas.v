@@ -1274,6 +1274,8 @@ Module SimplificationLemmas (simplificationDef: OperationSimplificationDef) (Alg
     }
 
     rewrite rebase_pair_equiv with (a0:=b'0) (b0:=a'0); auto.
+    (*assert (simplifyOperations a0 b0 = Keep) as H_keep. give_up.*)
+    
     specialize rebaseSwap with (1:=H) (2:=Heqa0) (3:=Heqb0) (4:=Heqb'0) (5:=Heqa'0) as H_simplifyOperations2.
 
     specialize (IHlenC) with (C:=C) (2:=H_simplifyOperations2).
