@@ -55,6 +55,7 @@ class Op:
             newParamValues[paramIndex] = list(newParamValues[paramIndex])
             if op == "push":
                 newParamValues[paramIndex].append(value)
+                newParamValues[paramIndex].sort()
             if op == "pop":
                 newParamValues[paramIndex].pop()
             if op == "remove":
@@ -244,32 +245,35 @@ class InsertRule(Rule):
         i_A = A.getParam('i')
         p_A = A.getParam('p')
         s_A = A.getParam('s')
+        s2_A = A.getParam('s2')
         c_A = A.getParam('c')
-        e_A = A.getParam('e')
         i_B = B.getParam('i')
         p_B = B.getParam('p')
         s_B = B.getParam('s')
+        s2_B = B.getParam('s2')
         c_B = B.getParam('c')
-        e_B = B.getParam('e')
 
-        if str(inv(B)) in e_A:
+        #if str(inv(B)) in e_A:
             #print ("Canceling error")
-            return createRule(grid, InsertRule, A, B, A.modifyParam('e', str(inv(B)),'remove'), operations)
+        #    return createRule(grid, InsertRule, A, B, A.modifyParam('e', str(inv(B)),'remove'), operations)
 
         # Invalid operations are ignored in rebases
-        if len(e_B) > 0:
-            return createRule(grid, RemoveRule, A, B, A, operations)
+        #if len(e_B) > 0:
+        #    return createRule(grid, RemoveRule, A, B, A, operations)
 
         # broken operations do get extended with all rebased operations
-        if len(e_A) > 0:
-            return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
+        #if len(e_A) > 0:
+        #    return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
 
         if i_A == i_B and (p_A != p_B):
-            return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
+        #    return None
+            return createRule(grid, RemoveRule, A, B, A, operations)
+        if i_B in s_A and p_A != p_B and c_B == 0 and i_A != i_B:
+            return createRule(grid, InsertRule, A, B, A, operations)
 
-        if i_B in s_A and p_A != p_B:
-            # Non matching scaffolding encountered
-            return createRule(grid, InsertRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
+        #if i_B in s_A and p_A != p_B:
+        #    # Non matching scaffolding encountered
+        #    return createRule(grid, InsertRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
 
         #if i_A == i_B and (len(s_A) != 0 or len(s_B) != 0):
         #    return None
@@ -280,7 +284,8 @@ class InsertRule(Rule):
         #if len(s_B) != 0:
         #if len(s_B) != 0:
         #    return None
-        #if i_B in s_A and p_A == p_B+1:
+
+        #if i_B in s_A and p_A != p_B:
             # Keep unchanged
             #return createRule(grid, InsertRule, A, B, A, operations)
             #return createRule(grid, InsertRule, A, B, A.modifyParam('s', i_B, 'remove'), operations)
@@ -315,9 +320,13 @@ class InsertRule(Rule):
                         # Remove the scaffolding entry, but keep position
                         return createRule(grid, InsertRule, A, B, A.modifyParam('s', i_B, 'remove'), operations)
                     else:
-                        # No scaffolding, so we shift position by one
-                        return createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
-
+                        if len(s_A) > len(s_B):
+                            # We add the ID to the scaffolding, but keep the position
+                            return createRule(grid, InsertRule, A, B, A.modifyParam('s2', i_B, 'push'), operations)
+                        else:
+                            # We shift position by one
+                            return createRule(grid, InsertRule, A, B, A.modifyParam('p', 1), operations)
+                            
         return None
 foundValues = set()
 
@@ -337,18 +346,22 @@ class RemoveRule(Rule):
         i_A = A.getParam('i')
         p_A = A.getParam('p')
         s_A = A.getParam('s')
+        s2_A = A.getParam('s2')
         c_A = A.getParam('c')
-        e_A = A.getParam('e')
         i_B = B.getParam('i')
         p_B = B.getParam('p')
         s_B = B.getParam('s')
+        s2_B = B.getParam('s2')
         c_B = B.getParam('c')
-        e_B = B.getParam('e')
         
         #if i_A == i_B and (len(s_A) != 0 or len(s_B) != 0):
         #    return None
-       # if i_A == i_B and (c_A != 0 or c_B != 0):
-       #     return None
+        if i_A == i_B and (p_A != p_B):
+            #return None
+            return createRule(grid, RemoveRule, A, B, A, operations)
+
+        if i_B in s_A and p_A != p_B and c_B == 0 and i_A != i_B:
+            return createRule(grid, InsertRule, A, B, A, operations)
 
        #     return createRule(grid, RemoveRule, A, B, A.modifyParam('e2', str(p_B), 'push'), operations)
        #     return None
@@ -356,32 +369,39 @@ class RemoveRule(Rule):
         #    return None
         #if len(s_B) != 0:
         #    return None
-        if str(inv(B)) in e_A:
-            #print ("Canceling error")
-            return createRule(grid, InsertRule, A, B, A.modifyParam('e', str(inv(B)),'remove'), operations)
+        #if str(inv(B)) in e_A:
+        #    #print ("Canceling error")
+        #    return createRule(grid, InsertRule, A, B, A.modifyParam('e', str(inv(B)),'remove'), operations)
 
         # Invalid operations are ignored in rebases
-        if len(e_B) > 0:
-            return createRule(grid, RemoveRule, A, B, A, operations)
+        #if len(e_B) > 0:
+        #    return createRule(grid, RemoveRule, A, B, A, operations)
 
         # broken operations do get extended with all rebased operations
-        if len(e_A) > 0:
-            return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
+        #if len(e_A) > 0:
+        #    return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
 
-        if i_A == i_B and (p_A != p_B):
-            return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
+        #if i_A == i_B and (p_A != p_B):
+        #    return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
 
-        if i_B in s_A and p_A != p_B:
+
+        #if i_B in s_A and p_A == p_B+1 and c_A == 0 and c_B == 0 and i_A != i_B and len(s_B) == 0 and len(s_A) == 1:
+            #return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
+            #return createRule(grid, RemoveRule, A, B, A.modifyParam('c', -1), operations)
+
+        #    return None
+            
+        #if i_B in s_A and p_A != p_B:
+        #    return None
             #opIndex = 0 if i_B == 'i' else 1
 
             #newValue = 10 * opIndex + p_B
-            foundValues.add(str(B))
+            #foundValues.add(str(B))
             
-            return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
+            #return createRule(grid, RemoveRule, A, B, A.modifyParam('e', str(B), 'push'), operations)
             # Keep unchanged
             #return createRule(grid, InsertRule, A, B, A, operations)
             #return createRule(grid, RemoveRule, A, B, A.modifyParam('s', i_B, 'push'), operations)
-            #return None
         #if p_A != p_B:
         #    return None
         
@@ -408,8 +428,12 @@ class RemoveRule(Rule):
                     # Canceled operations don't affect the scaffolding
                     return createRule(grid, RemoveRule, A, B, A, operations)
                 else:
-                    # We add the ID to the scaffolding
-                    return createRule(grid, RemoveRule, A, B, A.modifyParam('s', i_B, 'push'), operations)
+                    if i_B in s2_A:
+                        # Remove the scaffolding entry, but keep position
+                        return createRule(grid, RemoveRule, A, B, A.modifyParam('s2', i_B, 'remove'), operations)
+                    else:
+                        # We add the ID to the scaffolding
+                        return createRule(grid, RemoveRule, A, B, A.modifyParam('s', i_B, 'push'), operations)
 
 class ShiftRightRule(Rule):
 
@@ -428,8 +452,8 @@ class ShiftRightRule(Rule):
 
 #rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
 # rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, InsertRule, RemoveRule]
-#rules = [Rule1, InsertRule, RemoveRule]
-rules = [Rule6, InsertRule, RemoveRule]
+rules = [Rule1, InsertRule, RemoveRule]
+#rules = [Rule1, Rule3, InsertRule, RemoveRule]
 #rules = [InsertRule, RemoveRule]
 #rules = [Rule1, Rule2, Rule3, Rule4, Rule5, Rule6, ShiftRightRule]
 #rules = [Rule1, Rule3]
@@ -560,7 +584,7 @@ def backtrackingSearch(operations, extraOps, knownEntries, rules, solutionsToFin
     
 #%% Define Operations
 class O:
-    I = Op('I', 'R', ['i', 'p', 's', 'c', 'e','e2'], ["i", 0, [], 0, [], []])
+    I = Op('I', 'R', ['i', 'p', 's', 'c', 's2'], ["i", 0, [], 0, []])
     R = I.inv()
 
 
@@ -570,23 +594,35 @@ for i in ["i", "j"]:
     for p in [-1, 0, 1]:
         I2 = I1.modifyParam('p', p)
         R2 = R1.modifyParam('p', p)
-        for s in [[], ["i"], ["i","j"]]:
+        #for s in [[], ["i"], ["j"], ["i","j"], ["i","i"], ["j","j"]]:
+        for s in [[], ["i"], ["j"]]:
             I3 = I2
             R3 = R2
             for value in s:
                 I3 = I3.modifyParam('s', value, "push")
                 R3 = R3.modifyParam('s', value, "push")
 
-            for c in [-1, 0, 1]:
+            #for c in [-1, 0, 1]:
+            for c in [0]:
                 I4 = I3.modifyParam('c', c)
                 R4 = R3.modifyParam('c', c)
                 
-                for e in [[]]:
+                #for s2 in [[], ["i"], ["j"], ["i","j"], ["i","i"], ["j","j"]]:
+                for s2 in [[], ["i"], ["j"]]:
+                    valid = True
+                    for x in s:
+                        if x in s2:
+                            valid = False
+                    for x in s2:
+                        if x in s:
+                            valid = False
+                    if not valid or (len(s) == 0 and len(s2) > 0):
+                        continue
                     I5 = I4
                     R5 = R4
-                    for value in e:
-                        I5 = I5.modifyParam('e', value, "push")
-                        R5 = R5.modifyParam('e', value, "push")
+                    for value in s2:
+                        I5 = I5.modifyParam('s2', value, "push")
+                        R5 = R5.modifyParam('s2', value, "push")
                     
                     setattr(O, str(I5), I5)
                     setattr(O, str(R5), R5)
@@ -603,20 +639,20 @@ for i in ["i", "j"]:
 
 OpArray = [x for x in O.__dict__.values() if type(x) == Op]
 
-count = 0
-createdOps = set()
+#count = 0
+#createdOps = set()
 # Add created invalid operations
-for op1 in OpArray:
-    for op2 in OpArray:
-        result = InsertRule.apply(OpArray, [op1, op2])
-        if result is None:
-            result = RemoveRule.apply(OpArray, [op1, op2])
-        if not result is None:
-            if len(result.C.getParam('e')) > 0:
-                createdOps.add(result.C)
-                count = count + 1
+#for op1 in OpArray:
+#    for op2 in OpArray:
+#        result = InsertRule.apply(OpArray, [op1, op2])
+#        if result is None:
+#            result = RemoveRule.apply(OpArray, [op1, op2])
+#        if not result is None:
+#            if len(result.C.getParam('e')) > 0:
+#                createdOps.add(result.C)
+#                count = count + 1
 
-OpArray = OpArray + list(createdOps)[0:500]
+#OpArray = OpArray + list(createdOps)[0:500]
 
 #%% Test for the full system
 bestFoundGrid = None
@@ -635,6 +671,18 @@ print (ops.shape[0] * ops.shape[1] - np.count_nonzero(ops))
 #            What happens if a Scaffolded operation is rebased with respect to another scaffolded op?
 raise Error()
     
+
+#%% Search for duplicated operations in the grid
+for a in fullGridRun[0]:
+    output_ops = dict()
+    for b in fullGridRun[0][a]:
+        result = fullGridRun[0][b][a]
+        if result in output_ops:
+            c_a, c_b = output_ops[result]
+            print("Duplicated operations %s /\  %a and %s /\ %s = %s " % (str(c_b), str(c_a), str(b), str(a), str(result)))
+        else:
+            output_ops[result] = (a, b)
+
 #%% Test for the full system
 bestFoundGrid = None
 entriesInBestGrid = 0
