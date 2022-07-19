@@ -103,15 +103,16 @@ def rebase(grid, A, B):
     
     return grid[A][B]
 
-def createRule(grid, RuleConstructor, A, B, C, inputs):
+def createRule(grid, RuleConstructor, A, B, C, inputs, invalidCase=False):
     if A == None or B == None or C==None:
         return None
     
-    if (not A in grid) or (not B in grid):
-        #print("Failed %s %s" % (A, B))
-        return None
+    if grid!= None:
+        if (not A in grid) or (not B in grid):
+            #print("Failed %s %s" % (A, B))
+            return None
     
-    return RuleConstructor(A, B, C, inputs)
+    return RuleConstructor(A, B, C, inputs, invalidCase)
 
 def inv(A):
     if A == None:
@@ -125,11 +126,12 @@ def getOpListFromGrid(grid):
     return [(i, j, grid[i][j]) for i in OpList for j in OpList if grid[i][j] != None]
 
 class Rule:
-    def __init__(self, A, B, C, inputs):
+    def __init__(self, A, B, C, inputs, invalidCase = False):
         self.A = A
         self.B = B
         self.C = C
         self.inputs = inputs
+        self.invalid = invalidCase
     
 
     @staticmethod 
@@ -267,9 +269,9 @@ class InsertRule(Rule):
 
         if i_A == i_B and (p_A != p_B):
         #    return None
-            return createRule(grid, RemoveRule, A, B, A, operations)
+            return createRule(grid, RemoveRule, A, B, A, operations, True)
         if i_B in s_A and p_A != p_B and c_B == 0 and i_A != i_B:
-            return createRule(grid, InsertRule, A, B, A, operations)
+            return createRule(grid, InsertRule, A, B, A, operations, True)
 
         #if i_B in s_A and p_A != p_B:
         #    # Non matching scaffolding encountered
@@ -354,10 +356,10 @@ class RemoveRule(Rule):
         #    return None
         if i_A == i_B and (p_A != p_B):
             #return None
-            return createRule(grid, RemoveRule, A, B, A, operations)
+            return createRule(grid, RemoveRule, A, B, A, operations, True)
 
         if i_B in s_A and p_A != p_B and c_B == 0 and i_A != i_B:
-            return createRule(grid, InsertRule, A, B, A, operations)
+            return createRule(grid, InsertRule, A, B, A, operations, True)
 
        #     return createRule(grid, RemoveRule, A, B, A.modifyParam('e2', str(p_B), 'push'), operations)
        #     return None
@@ -651,6 +653,201 @@ print (ops.shape[0] * ops.shape[1] - np.count_nonzero(ops))
 #            What happens if a Scaffolded operation is rebased with respect to another scaffolded op?
 raise Error()
     
+
+#%% Check for reordering compatibility
+def ruleRebase(A, B):
+
+    if B.name == 'I':
+        result = InsertRule.apply(None,  [A, B])
+    else:
+        result = RemoveRule.apply(None,  [A, B])
+    
+    if result.invalid:
+        raise Exception('Invalid Case!')
+        
+    return result.C
+
+# Overwrite create Rule, to ignor non-grid entries
+def createRule(grid, RuleConstructor, A, B, C, inputs, invalidCase=False):
+    #if A == None or B == None or C==None:
+    #    return None
+    
+    return RuleConstructor(A, B, C, inputs, invalidCase)
+
+# Define Operations
+class O:
+    I = Op('I', 'R', ['i', 'p', 's', 'c', 'e','e2'], ["i", 0, [], 0, [], []])
+    R = I.inv()
+
+def applyOperationToString(op, s):
+    position = op.getParam('p')
+    if op.name == 'I':
+        return s[0:position] + op.getParam('i') + s[position:]
+    else:
+        return s[0:position] + s[position + 1:]
+
+
+
+for i in ["i", "j", "k", "l"]:
+    I1 = O.I.modifyParam('i', i)
+    R1 = O.R.modifyParam('i', i)
+    for p in [ 0, 1, 2, 3, 4, 5, 6]:
+        I2 = I1.modifyParam('p', p)
+        R2 = R1.modifyParam('p', p)
+        #for s in [[], ["i"], ["j"], ["i","j"]]:
+        for s in [[]]:
+            I3 = I2
+            R3 = R2
+            for value in s:
+                I3 = I3.modifyParam('s', value, "push")
+                R3 = R3.modifyParam('s', value, "push")
+
+            for c in [0]:
+           # for c in [-1, 0, 1]:
+                I4 = I3.modifyParam('c', c)
+                R4 = R3.modifyParam('c', c)
+                
+                for e in [[]]:
+                    I5 = I4
+                    R5 = R4
+                    for value in e:
+                        I5 = I5.modifyParam('e', value, "push")
+                        R5 = R5.modifyParam('e', value, "push")
+                    
+                    setattr(O, str(I5), I5)
+                    setattr(O, str(R5), R5)
+                        #for e2 in [[], ["0"], ["1"]]:
+                        #    I6 = I5
+                        #    R6 = R5
+                        #    for value in e2:
+                        #        I6 = I6.modifyParam('e2', value, "push")
+                        #        R6 = R6.modifyParam('e2', value, "push")
+                        #        
+                        #        setattr(O, str(I6), I6)
+                        #        setattr(O, str(R6), R6)
+                        
+
+OpArray = [x for x in O.__dict__.values() if type(x) == Op]
+
+#%% try all combinations to find ones with same effect on sequence
+refOps = [O.__dict__["I_i_p+3"], O.__dict__["R_j_p+2"], O.__dict__["I_k_p+2"], O.__dict__["R_l_p+1"]]
+def applyOpsToSequence(ops):
+    seq = "abcdefg"
+    for op in ops:
+        seq = applyOperationToString(op, seq)
+        
+    return seq
+
+expectedResult = applyOpsToSequence(refOps)
+solutions = []
+for O1 in OpArray:
+    for O2 in OpArray:
+        for O3 in OpArray:
+            for O4 in OpArray:
+                newSolution = applyOpsToSequence([O1, O2, O3, O4])
+                if newSolution == expectedResult:
+                    solutions.append([O1, O2, O3, O4])
+
+#%% Compute for each solution the result for rebases
+solutionResults = []
+
+i = 0
+for sol in solutions:
+    print(i)
+    i += 1
+    rebaseResults = []
+    for InputOp in OpArray:
+        result = InputOp
+        try:
+            for op in sol:
+                result = ruleRebase(result, op)
+            rebaseResults.append("%s=%s" % (InputOp, result))
+        except Exception as e:
+                if e.args[0] == 'Invalid Case!':
+                    pass
+                else:
+                    raise e
+    solutionResults.append(",".join(rebaseResults))
+
+#%% Find solutions that have the seame rebase result as the reference
+refSolutionIndex = [i for i in range(len(solutions)) if ",".join([str(x) for x in solutions[i]]) == ",".join([str(x) for x in refOps])]
+
+def compareSolutions(sol1, sol2):
+    segments1 = sol1.split(',')
+    segments2 = sol2.split(',')
+    
+    errors = 0
+
+    for seg1 in segments1:
+        if not seg1 in segments2:
+            errors += 1
+
+    for seg2 in segments2:
+        if not seg2 in segments1:
+            errors += 1
+
+    return errors
+
+errorCounts = [(compareSolutions(solutionResults[i], solutionResults[382]), i) for i in range(len(solutionResults))]
+errorCounts.sort()
+
+def solutionSorded(ops):
+    for i in range(len(ops)):
+        for j in range(i):
+            if ops[i].getParam('p') < ops[j].getParam('p') - 1:
+                return False
+    return True
+
+sortedErrors = [x for x in errorCounts if solutionSorded(solutions[x[1]])]
+
+
+
+#errorCounts[9]
+#Out[93]: (4, 249)
+
+#[str(x) for x in solutions[249]]
+#Out[94]: ['I_i_p+2', 'I_k_p+2', 'R_l_p+1', 'R_j_p+3']
+
+
+#%% Operation combinations to test
+failures = []
+for A in OpArray:
+    for B in OpArray:
+        for C in OpArray:
+            if A.getParam('p') < B.getParam('p'):
+                continue
+            #if A.getParam('p') == B.getParam('p') and (A.name == 'I' or B.name =='R'):
+            #    continue
+            #if A.getParam('p') == B.getParam('p') and not (A.name == 'R' and B.name =='I'):
+            #    continue
+            #if A.getParam('i') != 'i': continue
+            #if B.getParam('i') != 'j': continue
+            #if C.getParam('i') != 'k': continue
+            #if A.getParam('p') == B.getParam('p') + 1 and B.name == 'R':
+            #    continue
+            if A.getParam('p') != B.getParam('p') or not (A.name == 'R' and B.name =='I'):
+                continue
+                
+            try:
+                #B_ = ruleRebase(B, A.inv() )
+                #B_ = B#ruleRebase(B, A.inv() )
+                #A_ = ruleRebase(A, B_)
+                B_ = B
+                A_ = A
+                
+                result1 = ruleRebase(ruleRebase(C, A), B)
+                result2 = ruleRebase(ruleRebase(C, B_), A_)
+                    
+                if str(result1) != str(result2):
+                    #print ("Incorrect result %s, %s, %s: %s != %s" % (str(A), str(B), str(C), str(result1), str(result2) ))
+                    failures.append([A, B, C, A_, result1, result2])
+
+            except Exception as e:
+                if e.args[0] == 'Invalid Case!':
+                    pass
+                else:
+                    raise e
+
 #%% Test for the full system
 bestFoundGrid = None
 entriesInBestGrid = 0
